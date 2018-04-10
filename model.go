@@ -100,13 +100,18 @@ func (u *dep) createDep(db *sql.DB) error {
 		return err
 	}
 	fmt.Print(string(out))
-	time.Sleep(10 * time.Second)
+	time.Sleep(20 * time.Second)
 	cmd := exec.Command("ansible-playbook", "/home/jacekwachowiak/go/src/k8sql/kubernetes/DEV-274/ansible_deploy.yml", "--inventory=/home/jacekwachowiak/go/src/k8sql/kubernetes/DEV-274/inventory")
 	out2, err2 := cmd.Output()
 	fmt.Print(string(out2))
 	if err2 != nil {
 		fmt.Println(err2.Error())
 		return err2
+		//		cmd2 := exec.Command("ansible-playbook", "/home/jacekwachowiak/go/src/k8sql/kubernetes/DEV-274/ansible_deploy.yml", "--inventory=/home/jacekwachowiak/go/src/k8sql/kubernetes/DEV-274/inventory", "--limit @/home/jacekwachowiak/go/src/k8sql/kubernetes/DEV-274/ansible_deploy.retry")
+		//		out3, err3 := cmd2.Output()
+		//		if err3 != nil {
+		//			return err3
+		//			}
 	}
 	fmt.Println("GO: Finished")
 	//
