@@ -31,18 +31,18 @@ CREATE TABLE nodes (
 //get all
 curl http://localhost:8080/deps
 //post
-curl -H "Content-Type: application/json" -d '{"id":"abc123", "name":"AddedDep", "ram":512, "cores":4, "status":"starting"}' http://localhost:8080/dep
+curl -H "Content-Type: application/json" -d '{"id":"abc123", "name":"AddedDep", "ram":512, "cpu":4, "status":"starting"}' http://localhost:8080/dep
 //get by id
 curl http://localhost:8080/dep/abc123
 //delete
 curl -X DELETE http://localhost:8080/dep/abc123
 
 ///////////////////////// with nodes
-curl -H "Content-Type: application/json" -d '{"id":"test", "name":"AddedDep", "status":"starting", "nodes": [{"id": "sth", "region": "ZRH", "public_ip": "168.192.0.1", "role": "master", "ram":1024, "cores":4}, {"id": "sth2", "region": "MIA", "public_ip": "168.192.0.2", "role": "slave", "ram":512, "cores":2}]}' http://localhost:8080/dep
+curl -H "Content-Type: application/json" -d '{"id":"test", "name":"AddedDep", "status":"starting", "nodes": [{"id": "sth", "region": "ZRH", "public_ip": "168.192.0.1", "role": "master", "ram":2048, "cpu":2000, "status":"starting"}, {"id": "sth2", "region": "MIA", "public_ip": "168.192.0.2", "role": "slave", "ram":1024, "cpu":2000, "status":"error"}]}' http://localhost:8080/dep
 
 curl http://localhost:8080/dep/test
 
 curl -X DELETE http://localhost:8080/dep/test
 
-curl -H "Content-Type: application/json" -d '{"id":"test2", "name":"SomeDep", "ram":1024, "cores":6, "status":"running", "nodes": [{"id": "sth3", "region": "ZRH", "public_ip": "168.192.0.1", "role": "master", "ram":4096, "cores":4}, {"id": "sth4", "region": "MIA", "public_ip": "168.192.0.2", "role": "slave", "ram":1024, "cores":2}]}' http://localhost:8080/dep
+curl -H "Content-Type: application/json" -d '{"id":"test2", "name":"SomeDep", "status":"running", "nodes": [{"id": "sth3", "region": "ZRH", "public_ip": "168.192.0.3", "role": "master", "ram":4096, "cpu":1000, "status":"error"}, {"id": "sth4", "region": "MIA", "public_ip": "168.192.0.4", "role": "slave", "ram":2024, "cpu":1000, "status":"error"}]}' http://localhost:8080/dep
 

@@ -1,0 +1,4 @@
+[master]
+sth1 ansible_ssh_host=178.22.71.96 ansible_ssh_user=cloudsigma
+[slaves]
+sth2 ansible_ssh_host=178.22.65.113 ansible_ssh_user=cloudsigma

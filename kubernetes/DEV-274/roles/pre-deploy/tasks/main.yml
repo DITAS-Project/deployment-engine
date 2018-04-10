@@ -1,0 +1,44 @@
+---
+
+- name: install transport-https
+  become: yes
+  apt:
+    name: apt-transport-https
+    state: present
+
+- name: Add repo key to use HTTPS
+  apt_key: url=https://packages.cloud.google.com/apt/doc/apt-key.gpg state=present
+
+- name: Add kubernetes repo
+  apt_repository: repo='deb http://apt.kubernetes.io/ kubernetes-xenial main' state=present filename='kubernetes' update_cache='yes'
+
+
+- name: Install docker-compose
+  get_url:
+    url: https://github.com/docker/compose/releases/download/1.9.0/docker-compose-Linux-x86_64
+    dest: /usr/local/bin/docker-compose
+    mode: "a+x"
+
+# - name: Install docker
+#   apt: name='docker.io' state='present'
+#
+# - name: Install kubelet
+#   apt: name='kubelet' state='present'
+#
+# - name: Install kubeadm
+#   apt: name='kubeadm' state='present'
+#
+# - name: Install kubectl
+#   apt: name='kubectl' state='present'
+#
+# - name: Install kubernetes-cni
+#   apt: name='kubernetes-cni' state='present'
+#
+- name: Install list of packages with kubernetes
+  apt: name={{item}} state=present
+  with_items:
+       - docker.io
+       - kubelet
+       - kubeadm
+       - kubectl
+       - kubernetes-cni

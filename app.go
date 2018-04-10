@@ -57,7 +57,7 @@ func (a *App) createDB(db *sql.DB) error {
 	_, err = db.Query(statement)
 	if err != nil {
 		fmt.Println("Creating nodes table")
-		statement = fmt.Sprintf("CREATE TABLE nodes ( id VARCHAR(50), dep_id VARCHAR(50), region VARCHAR(50), public_ip VARCHAR(50), role VARCHAR(50), ram INT, cores INT, INDEX d_id (dep_id), FOREIGN KEY (dep_id)  REFERENCES deployments(id)  ON DELETE CASCADE )")
+		statement = fmt.Sprintf("CREATE TABLE nodes ( id VARCHAR(50) PRIMARY KEY, dep_id VARCHAR(50), region VARCHAR(50), public_ip VARCHAR(50), role VARCHAR(50), ram INT, cpu INT, status VARCHAR(50), INDEX d_id (dep_id), FOREIGN KEY (dep_id)  REFERENCES deployments(id)  ON DELETE CASCADE )")
 		_, err = db.Exec(statement)
 	}
 	return err
@@ -132,6 +132,26 @@ func (a *App) deleteDep(w http.ResponseWriter, r *http.Request) {
 	id := vars["id"]
 
 	u := dep{Id: id}
+	//here arguments for python are prepared
+	if err := u.getDep(a.DB); err != nil {
+		switch err {
+		case sql.ErrNoRows:
+			respondWithError(w, http.StatusNotFound, "Dep not found")
+		default:
+			respondWithError(w, http.StatusInternalServerError, err.Error())
+		}
+		return
+	}
+	if err := u.getNodes(a.DB); err != nil {
+		switch err {
+		case sql.ErrNoRows:
+			respondWithError(w, http.StatusNotFound, "Nodes not found")
+		default:
+			respondWithError(w, http.StatusInternalServerError, err.Error())
+		}
+		return
+	}
+	//
 	if err := u.deleteDep(a.DB); err != nil {
 		respondWithError(w, http.StatusInternalServerError, err.Error())
 		return
