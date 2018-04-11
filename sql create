@@ -38,7 +38,7 @@ curl http://localhost:8080/dep/abc123
 curl -X DELETE http://localhost:8080/dep/abc123
 
 ///////////////////////// with nodes
-curl -H "Content-Type: application/json" -d '{"id":"test", "name":"AddedDep", "status":"starting", "nodes": [{"id": "sth", "region": "ZRH", "public_ip": "168.192.0.1", "role": "master", "ram":2048, "cpu":2000, "status":"starting"}, {"id": "sth2", "region": "MIA", "public_ip": "168.192.0.2", "role": "slave", "ram":1024, "cpu":2000, "status":"error"}]}' http://localhost:8080/dep
+curl -H "Content-Type: application/json" -d '{"id":"test", "name":"AddedDep", "status":"starting", "nodes": [{"id": "sth1", "region": "ZRH", "public_ip": "168.192.0.1", "role": "none", "ram":2048, "cpu":2000, "status":"starting"}, {"id": "sth2", "region": "MIA", "public_ip": "168.192.0.2", "role": "none", "ram":1024, "cpu":2000, "status":"starting"}]}' http://localhost:8080/dep
 
 curl http://localhost:8080/dep/test
 

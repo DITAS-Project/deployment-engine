@@ -100,7 +100,7 @@ func (u *dep) createDep(db *sql.DB) error {
 		return err
 	}
 	fmt.Print(string(out))
-	time.Sleep(20 * time.Second)
+	time.Sleep(30 * time.Second)
 	cmd := exec.Command("ansible-playbook", "/home/jacekwachowiak/go/src/k8sql/kubernetes/DEV-274/ansible_deploy.yml", "--inventory=/home/jacekwachowiak/go/src/k8sql/kubernetes/DEV-274/inventory")
 	out2, err2 := cmd.Output()
 	fmt.Print(string(out2))

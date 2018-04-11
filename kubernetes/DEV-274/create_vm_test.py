@@ -49,7 +49,6 @@ def remove_old_vms(name):
                if serv_to_del.get('status')!='stopped':
                    server.stop(serv_id_to_del)
                    _wait_until(serv_id_to_del, 'stopped')
-                   #_wait_until(serv_id_to_del, 'stopped')   #just a method to check vm status and wait if its not 'stopped'
                server.delete_with_disks(serv_id_to_del)    #it's removing vm with drive
 
 print "removing old nodes"
@@ -171,10 +170,27 @@ def refresh_db():
         count += 1
         running_uuid.append(vm['uuid'])
         ansible_db[vm_name] = {'ansible_ssh_host': ipv4}
+        #
+        print(ipv4) # check
+        print(vm.get('status'))
+        dict_ip[vm.get('name')] = ipv4
+        dict_status[vm.get('name')] = vm.get('status')
+        #
 
+
+dict_ip = {}
+dict_status = {}
 refresh_db()
 print "Done! Check the inventory file"
 
-#run ansible playbook
-#import ansible
-#ansible.runAnsible()
+# returning vm arguments to mysql
+import MySQLdb
+import mysql
+db = MySQLdb.connect(host="localhost",    # your host, usually localhost
+                     user="root",         # your username
+                     passwd="root",  # your password
+                     db="k8sql")        # name of the data base
+cur = db.cursor()
+mysql.update_ip_status(dict_ip, dict_status, cur, db)
+db.close()
+print 'Python finished'
