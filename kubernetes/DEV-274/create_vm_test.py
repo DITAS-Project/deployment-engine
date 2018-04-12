@@ -4,9 +4,11 @@ import time
 import os
 import os.path
 import sys
+import MySQLdb
+import mysql
 
 # ---# input data #--- #
-## data from go
+# data from go
 node_names = []
 cpu = []
 mem = []
@@ -22,8 +24,8 @@ print "CPU sizes: "
 for i in range (3, len(sys.argv), 3):
     print sys.argv[i]
     cpu.append(int(sys.argv[i]))
-##
-#node_names = ('node1', 'node2') ##
+
+# node_names = ('node1', 'node2') ##
 to_install = ('apt-get update', 'apt-get install -y python python-pip', 'reboot')
 dist_name = 'Ubuntu'
 dist_version = '16.04'
@@ -35,13 +37,17 @@ drive = cloudsigma.resource.Drive()
 server = cloudsigma.resource.Server()
 lib = cloudsigma.resource.LibDrive()
 
+
 def _wait_until(uuid, status_required, timeout=60):
        status = server.get(uuid=uuid)['status']
        while status != status_required and timeout > 0:
            time.sleep(1)
            timeout -= 1
            status = server.get(uuid=uuid)['status']
-#remove before creating new
+
+# remove before creating new
+
+
 def remove_old_vms(name):
        for serv_to_del in server.list():
            if str(serv_to_del.get('name')).startswith(name):
@@ -51,12 +57,14 @@ def remove_old_vms(name):
                    _wait_until(serv_id_to_del, 'stopped')
                server.delete_with_disks(serv_id_to_del)    #it's removing vm with drive
 
-print "removing old nodes"
+
+print "Removing old nodes"
 for node in node_names:
     remove_old_vms(node)
     time.sleep(2)
     print "node: " + node + " removed"
 print "all nodes removed"
+
 
 def clone_lib_drive():
     lib_drive = [x['uuid'] for x in lib.list(query_params={'version': dist_version, 'distribution': dist_name})][0]
@@ -95,6 +103,7 @@ def check_run():
             else:
                 check += 1
     return 'servers are online'
+
 
 # nodes creation
 for name, driv, memory, cpus in zip(node_names, drive.list(), mem, cpu):
@@ -171,21 +180,20 @@ def refresh_db():
         running_uuid.append(vm['uuid'])
         ansible_db[vm_name] = {'ansible_ssh_host': ipv4}
         #
-        print(ipv4) # check
-        print(vm.get('status'))
+        print 'Updating database with actual data about the node:'
+        print 'Node name: ' + vm.get('name')
+        print 'Node ip: ' + ipv4
+        print 'Node status: ' + (vm.get('status'))
         dict_ip[vm.get('name')] = ipv4
         dict_status[vm.get('name')] = vm.get('status')
-        #
 
 
 dict_ip = {}
 dict_status = {}
 refresh_db()
-print "Done! Check the inventory file"
+print "VMs setup done! Check the inventory file, now working on database update"
 
 # returning vm arguments to mysql
-import MySQLdb
-import mysql
 db = MySQLdb.connect(host="localhost",    # your host, usually localhost
                      user="root",         # your username
                      passwd="root",  # your password
@@ -193,4 +201,4 @@ db = MySQLdb.connect(host="localhost",    # your host, usually localhost
 cur = db.cursor()
 mysql.update_ip_status(dict_ip, dict_status, cur, db)
 db.close()
-print 'Python finished'
+print 'Database updated! You can refresh the deployments, now working on cluster setup with ansible'

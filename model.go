@@ -58,8 +58,7 @@ func (u *dep) deleteDep(db *sql.DB) error {
 	for _, element := range u.Nodes {
 		pythonArgs = append(pythonArgs, element.Id)
 	}
-	fmt.Println("\nGO: Calling python script to remove old deployment", u.Id, " with nodes: ")
-	fmt.Printf("%v", pythonArgs)
+	fmt.Println("\nGO: Calling python script to remove old deployment:", u.Id)
 	out, err := exec.Command("kubernetes/DEV-274/delete_vm_test.py", pythonArgs...).Output()
 	if err != nil {
 		fmt.Println(err.Error())
@@ -79,7 +78,7 @@ func (u *dep) createDep(db *sql.DB) error {
 	if err != nil {
 		return err
 	}
-	//here arguments for python are prepared
+	//here arguments for python - name/ram/cpu of nodes are prepared
 	var pythonArgs []string
 	//
 	for _, element := range u.Nodes {
@@ -91,7 +90,6 @@ func (u *dep) createDep(db *sql.DB) error {
 		pythonArgs = append(pythonArgs, strconv.Itoa(element.Cpu))
 		//
 	}
-	//here arguments for python are prepared
 	fmt.Println("\nGO: Calling python script with arguments below: ")
 	fmt.Printf("%v", pythonArgs)
 	out, err := exec.Command("kubernetes/DEV-274/create_vm_test.py", pythonArgs...).Output()
@@ -100,6 +98,7 @@ func (u *dep) createDep(db *sql.DB) error {
 		return err
 	}
 	fmt.Print(string(out))
+	//here after successful python call, ansible playbook is run, at least 20s of pause is needed (experimental)
 	time.Sleep(30 * time.Second)
 	cmd := exec.Command("ansible-playbook", "/home/jacekwachowiak/go/src/k8sql/kubernetes/DEV-274/ansible_deploy.yml", "--inventory=/home/jacekwachowiak/go/src/k8sql/kubernetes/DEV-274/inventory")
 	out2, err2 := cmd.Output()
@@ -107,11 +106,6 @@ func (u *dep) createDep(db *sql.DB) error {
 	if err2 != nil {
 		fmt.Println(err2.Error())
 		return err2
-		//		cmd2 := exec.Command("ansible-playbook", "/home/jacekwachowiak/go/src/k8sql/kubernetes/DEV-274/ansible_deploy.yml", "--inventory=/home/jacekwachowiak/go/src/k8sql/kubernetes/DEV-274/inventory", "--limit @/home/jacekwachowiak/go/src/k8sql/kubernetes/DEV-274/ansible_deploy.retry")
-		//		out3, err3 := cmd2.Output()
-		//		if err3 != nil {
-		//			return err3
-		//			}
 	}
 	fmt.Println("GO: Finished")
 	//
