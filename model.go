@@ -59,7 +59,7 @@ func (u *dep) deleteDep(db *sql.DB) error {
 		pythonArgs = append(pythonArgs, element.Id)
 	}
 	fmt.Println("\nGO: Calling python script to remove old deployment:", u.Id)
-	out, err := exec.Command("kubernetes/DEV-274/delete_vm_test.py", pythonArgs...).Output()
+	out, err := exec.Command("kubernetes/delete_vm.py", pythonArgs...).Output()
 	if err != nil {
 		fmt.Println(err.Error())
 		return err
@@ -92,7 +92,7 @@ func (u *dep) createDep(db *sql.DB) error {
 	}
 	fmt.Println("\nGO: Calling python script with arguments below: ")
 	fmt.Printf("%v", pythonArgs)
-	out, err := exec.Command("kubernetes/DEV-274/create_vm_test.py", pythonArgs...).Output()
+	out, err := exec.Command("kubernetes/create_vm.py", pythonArgs...).Output()
 	if err != nil {
 		fmt.Println(err.Error())
 		return err
@@ -100,7 +100,7 @@ func (u *dep) createDep(db *sql.DB) error {
 	fmt.Print(string(out))
 	//here after successful python call, ansible playbook is run, at least 20s of pause is needed (experimental)
 	time.Sleep(30 * time.Second)
-	cmd := exec.Command("ansible-playbook", "/home/jacekwachowiak/go/src/k8sql/kubernetes/DEV-274/ansible_deploy.yml", "--inventory=/home/jacekwachowiak/go/src/k8sql/kubernetes/DEV-274/inventory")
+	cmd := exec.Command("ansible-playbook", "kubernetes/ansible_deploy.yml", "--inventory=kubernetes/inventory")
 	out2, err2 := cmd.Output()
 	fmt.Print(string(out2))
 	if err2 != nil {
