@@ -78,20 +78,18 @@ func (u *dep) createDep(db *sql.DB) error {
 	if err != nil {
 		return err
 	}
-	//here arguments for python - name/ram/cpu of nodes are prepared
 	var pythonArgs []string
 	//
 	for _, element := range u.Nodes {
 		statement = fmt.Sprintf("INSERT INTO nodes(id, dep_id, region, public_ip, role, ram, cpu, status) VALUES('%s', '%s', '%s', '%s', '%s', '%d', '%d', '%s')", element.Id, u.Id, element.Region, element.Public_ip, element.Role, element.RAM, element.Cpu, element.Status)
 		_, err = db.Exec(statement)
-		//here arguments for python are prepared
+		//here arguments for python are prepared - name/ram/cpu of nodes are prepared
 		pythonArgs = append(pythonArgs, element.Id)
 		pythonArgs = append(pythonArgs, strconv.Itoa(element.RAM))
 		pythonArgs = append(pythonArgs, strconv.Itoa(element.Cpu))
 		//
 	}
 	fmt.Println("\nGO: Calling python script with arguments below: ")
-	fmt.Printf("%v", pythonArgs)
 	out, err := exec.Command("kubernetes/create_vm.py", pythonArgs...).Output()
 	if err != nil {
 		fmt.Println(err.Error())
