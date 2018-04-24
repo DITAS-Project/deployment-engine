@@ -106,7 +106,10 @@ def check_run():
 
 
 # nodes creation
-for name, driv, memory, cpus in zip(node_names, drive.list(), mem, cpu):
+freeDriveList = [s for s in drive.list() if s['status'] == 'unmounted']
+
+
+for name, driv, memory, cpus in zip(node_names, freeDriveList, mem, cpu): #drive.list()
     test_server = {
         'name': name, ##
         'cpu': cpus, ##
@@ -138,13 +141,18 @@ db_store = 'ansible-cloudsigma.db'
 print 'waiting some time to let VM start ssh service...'
 time.sleep(80)
 
+get_servers = cloudsigma.resource.Server()
+freeServerList = [s for s in get_servers.list() if (s['name'] in node_names)]
+# print 'freeServerList'
+# for s in freeServerList:
+#     print s['name']
 
 def refresh_db():
     ansible_db = {}
     running_uuid = []
 
-    get_servers = cloudsigma.resource.Server()
-    server_list = get_servers.list()
+    #get_servers = cloudsigma.resource.Server()
+    #server_list = get_servers.list()
 
     script_dir = os.path.dirname(__file__)
     rel_path = 'inventory'
@@ -152,12 +160,13 @@ def refresh_db():
     with open(abs_file_path, 'w') as cleanfile:
         cleanfile.write('')
     count = 0
-    for vm in sorted(server_list):
-
+    for vm in sorted(freeServerList):
+        print 'Working on server'
+        print vm['name']
         ipv4 = vm['runtime']['nics'][0]['ip_v4']['uuid']
         vm_name = vm['name']
         print "generating hosts file on " + str(vm_name)
-        for host_server in sorted(server_list):
+        for host_server in sorted(freeServerList):
             hosts_ipv4 = host_server['runtime']['nics'][0]['ip_v4']['uuid']
             hosts_name = host_server['name']
             os.system('ssh -o "StrictHostKeyChecking no" ' + str(ssh_user) + '@' + str(
