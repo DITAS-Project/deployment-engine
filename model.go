@@ -59,22 +59,30 @@ func (u *dep) deleteDep(db *sql.DB) error {
 		fmt.Println(element.Id)
 		pythonArgs = append(pythonArgs, element.Id)
 	}
+	// update database with deployment status - deleting
+	status := "deleting"
+	statement := fmt.Sprintf("UPDATE deployments SET deployments.status = \042%s\042 WHERE deployments.id = \042%s\042", status, u.Id)
+	_, err := db.Exec(statement)
+	if err != nil {
+		return err
+	}
 	fmt.Println("\nGO: Calling python script to remove old deployment:", u.Id)
 	out, err := exec.Command("kubernetes/delete_vm.py", pythonArgs...).Output()
 	if err != nil {
 		fmt.Println(err.Error())
-		//return err
+		return err
 	}
 	fmt.Print(string(out))
 	//
-	statement := fmt.Sprintf("DELETE FROM deployments WHERE id='%s'", u.Id)
+	statement = fmt.Sprintf("DELETE FROM deployments WHERE id='%s'", u.Id)
 	_, err = db.Exec(statement)
 	fmt.Println("GO: Finished")
 	return err
 }
 
 func (u *dep) createDep(db *sql.DB) error {
-	statement := fmt.Sprintf("INSERT INTO deployments(id, name, status) VALUES('%s', '%s', '%s')", u.Id, u.Name, u.Status)
+	status := "starting"
+	statement := fmt.Sprintf("INSERT INTO deployments(id, name, status) VALUES('%s', '%s', '%s')", u.Id, u.Name, status)
 	_, err := db.Exec(statement)
 	if err != nil {
 		return err
@@ -94,7 +102,7 @@ func (u *dep) createDep(db *sql.DB) error {
 	out, err := exec.Command("kubernetes/create_vm.py", pythonArgs...).Output()
 	if err != nil {
 		fmt.Println(err.Error())
-		//return err
+		return err
 	}
 	fmt.Print(string(out))
 	//here after successful python call, ansible playbook is run, at least 20s of pause is needed for 2 nodes (experimental)
@@ -108,6 +116,14 @@ func (u *dep) createDep(db *sql.DB) error {
 	}
 	fmt.Println("Ansible off for now - testing")
 	time.Sleep(1 * time.Second)
+	// update database with deployment status - running
+	status = "running"
+	statement = fmt.Sprintf("UPDATE deployments SET deployments.status = \042%s\042 WHERE deployments.id = \042%s\042", status, u.Id)
+	_, err = db.Exec(statement)
+	if err != nil {
+		fmt.Println(err.Error())
+		//return err
+	}
 	fmt.Println("GO: Finished")
 	//
 	err = db.QueryRow("SELECT LAST_INSERT_Id()").Scan(&u.Id) //check
