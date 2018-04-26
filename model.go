@@ -114,8 +114,8 @@ func (u *dep) createDep(db *sql.DB) error {
 		fmt.Println(err2.Error())
 		return err2
 	}
-	fmt.Println("Ansible off for now - testing")
-	time.Sleep(1 * time.Second)
+	//fmt.Println("Ansible off for now - testing")
+	//time.Sleep(1 * time.Second)
 	// update database with deployment status - running
 	status = "running"
 	statement = fmt.Sprintf("UPDATE deployments SET deployments.status = \042%s\042 WHERE deployments.id = \042%s\042", status, u.Id)

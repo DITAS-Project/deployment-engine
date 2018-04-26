@@ -53,3 +53,4 @@
           - "Now you can connect with:"
           - ssh {{ hostvars[groups['master'][0]]['ansible_ssh_user'] }}@{{ hostvars[groups['master'][0]]['ansible_ssh_host'] }}
           - ssh {{ hostvars[groups['slaves'][0]]['ansible_ssh_user'] }}@{{ hostvars[groups['slaves'][0]]['ansible_ssh_host'] }}
+          - "For more machines refer to inventory file"

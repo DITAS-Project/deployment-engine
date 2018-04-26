@@ -143,9 +143,6 @@ time.sleep(80)
 
 get_servers = cloudsigma.resource.Server()
 freeServerList = [s for s in get_servers.list() if (s['name'] in node_names)]
-# print 'freeServerList'
-# for s in freeServerList:
-#     print s['name']
 
 def refresh_db():
     ansible_db = {}
