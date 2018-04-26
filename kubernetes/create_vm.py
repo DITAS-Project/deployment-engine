@@ -12,22 +12,35 @@ import mysql
 node_names = []
 cpu = []
 mem = []
-numberOfMasters = int(sys.argv[1])
-print "Number of master nodes:"
-print numberOfMasters
+# numberOfMasters = int(sys.argv[1])
+# print "Number of master nodes:"
+# print numberOfMasters
+# print "Node names: "
+# for i in range (2, len(sys.argv), 3):
+#     print sys.argv[i]
+#     node_names.append(sys.argv[i])
+# print "RAM sizes: "
+# for i in range (3, len(sys.argv), 3):
+#     print sys.argv[i]
+#     mem.append(int(sys.argv[i]))
+# print "CPU sizes: "
+# for i in range (4, len(sys.argv), 3):
+#     print sys.argv[i]
+#     cpu.append(int(sys.argv[i]))
+#
+numberOfMasters = 1
 print "Node names: "
-for i in range (2, len(sys.argv), 3):
+for i in range (1, len(sys.argv), 3):
     print sys.argv[i]
     node_names.append(sys.argv[i])
 print "RAM sizes: "
-for i in range (3, len(sys.argv), 3):
+for i in range (2, len(sys.argv), 3):
     print sys.argv[i]
     mem.append(int(sys.argv[i]))
 print "CPU sizes: "
-for i in range (4, len(sys.argv), 3):
+for i in range (3, len(sys.argv), 3):
     print sys.argv[i]
     cpu.append(int(sys.argv[i]))
-
 # node_names = ('node1', 'node2') ##
 to_install = ('apt-get update', 'apt-get install -y python python-pip', 'reboot')
 dist_name = 'Ubuntu'
@@ -150,10 +163,6 @@ freeServerList = [s for s in get_servers.list() if (s['name'] in node_names)]
 def refresh_db():
     ansible_db = {}
     running_uuid = []
-
-    #get_servers = cloudsigma.resource.Server()
-    #server_list = get_servers.list()
-
     script_dir = os.path.dirname(__file__)
     rel_path = 'inventory'
     abs_file_path = os.path.join(script_dir, rel_path)

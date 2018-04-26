@@ -2,8 +2,6 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="3a4aee05-cadd-4b78-9541-9cbd36062106" name="Default" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/k8sql" beforeDir="false" afterPath="$PROJECT_DIR$/k8sql" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/kubernetes/create_vm.py" beforeDir="false" afterPath="$PROJECT_DIR$/kubernetes/create_vm.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/kubernetes/inventory" beforeDir="false" afterPath="$PROJECT_DIR$/kubernetes/inventory" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/model.go" beforeDir="false" afterPath="$PROJECT_DIR$/model.go" afterDir="false" />
@@ -17,20 +15,20 @@
   </component>
   <component name="FileEditorManager">
     <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
-      <file leaf-file-name="create_vm.py" pinned="false" current-in-tab="false">
+      <file leaf-file-name="create_vm.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/kubernetes/create_vm.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="342">
-              <caret line="179" column="35" selection-start-line="179" selection-start-column="35" selection-end-line="179" selection-end-column="35" />
+            <state relative-caret-position="-97">
+              <caret line="189" column="33" lean-forward="true" selection-start-line="189" selection-start-column="33" selection-end-line="189" selection-end-column="33" />
             </state>
           </provider>
         </entry>
       </file>
-      <file leaf-file-name="inventory" pinned="false" current-in-tab="true">
+      <file leaf-file-name="inventory" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/kubernetes/inventory">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="75">
-              <caret line="5" lean-forward="true" selection-start-line="5" selection-end-line="5" />
+            <state relative-caret-position="30">
+              <caret line="2" column="34" selection-start-line="2" selection-start-column="22" selection-end-line="2" selection-end-column="34" />
             </state>
           </provider>
         </entry>
@@ -353,17 +351,17 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/kubernetes/create_vm.py">
+    <entry file="file://$PROJECT_DIR$/kubernetes/inventory">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="342">
-          <caret line="179" column="35" selection-start-line="179" selection-start-column="35" selection-end-line="179" selection-end-column="35" />
+        <state relative-caret-position="30">
+          <caret line="2" column="34" selection-start-line="2" selection-start-column="22" selection-end-line="2" selection-end-column="34" />
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/kubernetes/inventory">
+    <entry file="file://$PROJECT_DIR$/kubernetes/create_vm.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="75">
-          <caret line="5" lean-forward="true" selection-start-line="5" selection-end-line="5" />
+        <state relative-caret-position="-97">
+          <caret line="189" column="33" lean-forward="true" selection-start-line="189" selection-start-column="33" selection-end-line="189" selection-end-column="33" />
         </state>
       </provider>
     </entry>

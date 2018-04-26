@@ -90,14 +90,14 @@ func (u *dep) createDep(db *sql.DB) error {
 	var pythonArgs []string
 	//
 	// counting number of masters - until first not master role, always at least one
-	numberOfMasters := 1
-	for _, element := range u.Nodes[1:] {
-		if element.Role != "master" {
-			break
-		}
-		numberOfMasters++
-	}
-	pythonArgs = append(pythonArgs, strconv.Itoa(numberOfMasters))
+	//	numberOfMasters := 1
+	//	for _, element := range u.Nodes[1:] {
+	//		if element.Role != "master" {
+	//			break
+	//		}
+	//		numberOfMasters++
+	//	}
+	//	pythonArgs = append(pythonArgs, strconv.Itoa(numberOfMasters))
 	for _, element := range u.Nodes {
 		statement = fmt.Sprintf("INSERT INTO nodes(id, dep_id, region, public_ip, role, ram, cpu, status) VALUES('%s', '%s', '%s', '%s', '%s', '%d', '%d', '%s')", element.Id, u.Id, element.Region, element.Public_ip, element.Role, element.RAM, element.Cpu, element.Status)
 		_, err = db.Exec(statement)
