@@ -12,16 +12,19 @@ import mysql
 node_names = []
 cpu = []
 mem = []
+numberOfMasters = int(sys.argv[1])
+print "Number of master nodes:"
+print numberOfMasters
 print "Node names: "
-for i in range (1, len(sys.argv), 3):
+for i in range (2, len(sys.argv), 3):
     print sys.argv[i]
     node_names.append(sys.argv[i])
 print "RAM sizes: "
-for i in range (2, len(sys.argv), 3):
+for i in range (3, len(sys.argv), 3):
     print sys.argv[i]
     mem.append(int(sys.argv[i]))
 print "CPU sizes: "
-for i in range (3, len(sys.argv), 3):
+for i in range (4, len(sys.argv), 3):
     print sys.argv[i]
     cpu.append(int(sys.argv[i]))
 
@@ -174,7 +177,7 @@ def refresh_db():
             os.system('ssh -o "StrictHostKeyChecking no" ' + ssh_user+'@' + str(
                 ipv4) + " sudo " + install + " > /dev/null 2>&1")
 
-        if count == 1:
+        if count == numberOfMasters:  # 1:
             stream = '[slaves]\n'
         else:
             stream = ''

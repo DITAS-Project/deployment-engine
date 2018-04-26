@@ -4,10 +4,9 @@
     <list default="true" id="3a4aee05-cadd-4b78-9541-9cbd36062106" name="Default" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/k8sql" beforeDir="false" afterPath="$PROJECT_DIR$/k8sql" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/kubernetes/ansible_deploy.yml" beforeDir="false" afterPath="$PROJECT_DIR$/kubernetes/ansible_deploy.yml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/kubernetes/create_vm.py" beforeDir="false" afterPath="$PROJECT_DIR$/kubernetes/create_vm.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/kubernetes/inventory" beforeDir="false" afterPath="$PROJECT_DIR$/kubernetes/inventory" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/sql create" beforeDir="false" afterPath="$PROJECT_DIR$/sql create" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/model.go" beforeDir="false" afterPath="$PROJECT_DIR$/model.go" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="TRACKING_ENABLED" value="true" />
@@ -21,38 +20,17 @@
       <file leaf-file-name="create_vm.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/kubernetes/create_vm.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="2595">
-              <caret line="179" column="21" lean-forward="true" selection-start-line="179" selection-start-column="21" selection-end-line="179" selection-end-column="21" />
+            <state relative-caret-position="342">
+              <caret line="179" column="35" selection-start-line="179" selection-start-column="35" selection-end-line="179" selection-end-column="35" />
             </state>
           </provider>
         </entry>
       </file>
-      <file leaf-file-name="README.md" pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/README.md">
-          <provider selected="true" editor-type-id="split-provider[text-editor;markdown-preview-editor]">
-            <state split_layout="SPLIT">
-              <first_editor relative-caret-position="23">
-                <caret line="15" column="9" selection-start-line="15" selection-start-column="9" selection-end-line="15" selection-end-column="9" />
-              </first_editor>
-              <second_editor />
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file leaf-file-name="inventory" pinned="false" current-in-tab="false">
+      <file leaf-file-name="inventory" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/kubernetes/inventory">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="30">
-              <caret line="2" selection-start-line="2" selection-end-line="2" />
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file leaf-file-name="sql create" pinned="false" current-in-tab="true">
-        <entry file="file://$PROJECT_DIR$/sql create">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="454">
-              <caret line="50" lean-forward="true" selection-start-line="50" selection-end-line="50" />
+            <state relative-caret-position="75">
+              <caret line="5" lean-forward="true" selection-start-line="5" selection-end-line="5" />
             </state>
           </provider>
         </entry>
@@ -69,7 +47,6 @@
   <component name="FindInProjectRecents">
     <findStrings>
       <find>ip</find>
-      <find>count</find>
       <find>server_list</find>
       <find>zip</find>
       <find>exec</find>
@@ -79,6 +56,8 @@
       <find>ssh</find>
       <find>server_;</find>
       <find>server_</find>
+      <find>count</find>
+      <find>master</find>
     </findStrings>
   </component>
   <component name="Git.Settings">
@@ -97,8 +76,8 @@
         <option value="$PROJECT_DIR$/README.md" />
         <option value="$PROJECT_DIR$/kubernetes/delete_vm.py" />
         <option value="$PROJECT_DIR$/kubernetes/ansible_deploy.yml" />
-        <option value="$PROJECT_DIR$/kubernetes/create_vm.py" />
         <option value="$PROJECT_DIR$/sql create" />
+        <option value="$PROJECT_DIR$/kubernetes/create_vm.py" />
       </list>
     </option>
   </component>
@@ -357,10 +336,10 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/kubernetes/inventory">
+    <entry file="file://$PROJECT_DIR$/sql create">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="30">
-          <caret line="2" selection-start-line="2" selection-end-line="2" />
+        <state relative-caret-position="705">
+          <caret line="47" selection-start-line="47" selection-end-line="47" />
         </state>
       </provider>
     </entry>
@@ -376,15 +355,15 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/kubernetes/create_vm.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="2595">
-          <caret line="179" column="21" lean-forward="true" selection-start-line="179" selection-start-column="21" selection-end-line="179" selection-end-column="21" />
+        <state relative-caret-position="342">
+          <caret line="179" column="35" selection-start-line="179" selection-start-column="35" selection-end-line="179" selection-end-column="35" />
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/sql create">
+    <entry file="file://$PROJECT_DIR$/kubernetes/inventory">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="454">
-          <caret line="50" lean-forward="true" selection-start-line="50" selection-end-line="50" />
+        <state relative-caret-position="75">
+          <caret line="5" lean-forward="true" selection-start-line="5" selection-end-line="5" />
         </state>
       </provider>
     </entry>

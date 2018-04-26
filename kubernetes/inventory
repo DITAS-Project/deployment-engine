@@ -1,4 +1,5 @@
 [master]
-sth3 ansible_ssh_host=178.22.71.18 ansible_ssh_user=cloudsigma
+sth5 ansible_ssh_host=178.22.70.235 ansible_ssh_user=cloudsigma
+sth6 ansible_ssh_host=31.171.251.119 ansible_ssh_user=cloudsigma
 [slaves]
-sth4 ansible_ssh_host=185.12.5.131 ansible_ssh_user=cloudsigma
+sth7 ansible_ssh_host=31.171.246.123 ansible_ssh_user=cloudsigma

@@ -89,6 +89,15 @@ func (u *dep) createDep(db *sql.DB) error {
 	}
 	var pythonArgs []string
 	//
+	// counting number of masters - until first not master role, always at least one
+	numberOfMasters := 1
+	for _, element := range u.Nodes[1:] {
+		if element.Role != "master" {
+			break
+		}
+		numberOfMasters++
+	}
+	pythonArgs = append(pythonArgs, strconv.Itoa(numberOfMasters))
 	for _, element := range u.Nodes {
 		statement = fmt.Sprintf("INSERT INTO nodes(id, dep_id, region, public_ip, role, ram, cpu, status) VALUES('%s', '%s', '%s', '%s', '%s', '%d', '%d', '%s')", element.Id, u.Id, element.Region, element.Public_ip, element.Role, element.RAM, element.Cpu, element.Status)
 		_, err = db.Exec(statement)
@@ -99,6 +108,7 @@ func (u *dep) createDep(db *sql.DB) error {
 		//
 	}
 	fmt.Println("\nGO: Calling python script with arguments below: ")
+	fmt.Println(pythonArgs)
 	out, err := exec.Command("kubernetes/create_vm.py", pythonArgs...).Output()
 	if err != nil {
 		fmt.Println(err.Error())
@@ -114,8 +124,8 @@ func (u *dep) createDep(db *sql.DB) error {
 		fmt.Println(err2.Error())
 		return err2
 	}
-	//fmt.Println("Ansible off for now - testing")
-	//time.Sleep(1 * time.Second)
+	//	fmt.Println("Ansible off for now - testing")
+	//	time.Sleep(1 * time.Second)
 	// update database with deployment status - running
 	status = "running"
 	statement = fmt.Sprintf("UPDATE deployments SET deployments.status = \042%s\042 WHERE deployments.id = \042%s\042", status, u.Id)
