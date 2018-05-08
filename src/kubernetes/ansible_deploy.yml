@@ -1,0 +1,56 @@
+---
+
+  - name: Run docker and kubernetes deployment
+    become: yes
+    hosts: all
+    roles:
+     - role: pre-deploy
+
+  - hosts: [master]
+    become: yes
+    tasks:
+      - name: using kubernetes init and gathering output info
+        shell: kubeadm init --pod-network-cidr 10.244.0.0/16 | grep "kubeadm join"
+        register: kube_join
+      - name: setting variable to join other nodes
+        set_fact: join_command="{{ kube_join.stdout }}"
+
+  - hosts: [master]
+    become: yes
+    become_user: "{{ hostvars[groups['master'][0]]['ansible_ssh_user'] }}"
+    tasks:
+      - name: installing flannel and allowing access to cluster
+        script: scripts/run.sh
+
+  - hosts: [master]
+    become: yes
+    become_user: "{{ hostvars[groups['master'][0]]['ansible_ssh_user'] }}"
+    tasks:
+      - name: getting slaves join command
+        debug: msg={{ kube_join.stdout }}
+        when: "'kubeadm join' in kube_join.stdout"
+
+  - hosts: [slaves]
+    become: yes
+    gather_facts: no
+    tasks:
+      - name: joining nodes to cluster
+        command: "{{ hostvars[groups['master'][0]]['join_command'] }}"
+
+  - hosts: localhost
+    tasks:
+      - name: final
+        debug:
+          msg:
+          - "Job done! You can now access cluster from master node! If you have error with port connection - input as a regular user:"
+          - export KUBECONFIG=$HOME/admin.conf
+          - --------------------------
+          - "You can use next commands now to check cluster status:"
+          - kubectl get nodes -o wide
+          - kubectl get pods --all-namespaces
+          - kubectl cluster-info
+          - --------------------------
+          - "Now you can connect with:"
+          - ssh {{ hostvars[groups['master'][0]]['ansible_ssh_user'] }}@{{ hostvars[groups['master'][0]]['ansible_ssh_host'] }}
+          - ssh {{ hostvars[groups['slaves'][0]]['ansible_ssh_user'] }}@{{ hostvars[groups['slaves'][0]]['ansible_ssh_host'] }}
+          - "For more machines refer to inventory file"
