@@ -19,6 +19,9 @@ ENV BUILD_PACKAGES \
   py-paramiko \
   py-pip \
   py-yaml \
+  go>=1.9.4-r0 \
+  gcc>=6.3.0-r4 \
+  g++>=6.3.0-r4 \
   ca-certificates
  
 RUN set -x && \
@@ -45,6 +48,10 @@ RUN set -x && \
     echo "==> Installing Ansible..."  && \
     pip install ansible==${ANSIBLE_VERSION} && \
     \
+    echo "==> Getting GO packages..."  && \
+    go get github.com/go-sql-driver/mysql && \
+    go get github.com/gorilla/mux && \
+    \
     echo "==> Cleaning up..."  && \
     apk del build-dependencies && \
     rm -rf /var/cache/apk/* && \
@@ -63,7 +70,8 @@ ENV PYTHONPATH /ansible/lib
 ENV PATH /ansible/bin:$PATH
 ENV ANSIBLE_LIBRARY /ansible/library
  
-WORKDIR /deployment-engine
+WORKDIR /deployment-engine/src
 COPY .cloudsigma.conf /root/.cloudsigma.conf
-#RUN pip install cloudsigma
+COPY /src /deployment-engine/src
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o deployment-engine .
 #RUN pip install mysqlclient
