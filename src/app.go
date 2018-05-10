@@ -20,7 +20,7 @@ type App struct {
 }
 
 func (a *App) Initialize(user, password, dbname string) {
-	connectionString := fmt.Sprintf("%s:%s@/%s", user, password, dbname) //root:root@/k8sql
+	connectionString := fmt.Sprintf("%s:%s@/%s", user, password, dbname) //root:root@/k8sql !!!!!!UNSTABLE tcp(172.17.0.2:3306)
 
 	var err error
 	a.DB, err = sql.Open("mysql", connectionString)

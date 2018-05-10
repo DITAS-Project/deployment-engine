@@ -68,11 +68,11 @@ func (u *dep) deleteDep(db *sql.DB) error {
 	}
 	fmt.Println("\nGO: Calling python script to remove old deployment:", u.Id)
 	out, err := exec.Command("kubernetes/delete_vm.py", pythonArgs...).Output()
+	fmt.Print(string(out))
 	if err != nil {
 		fmt.Println(err.Error())
 		return err
 	}
-	fmt.Print(string(out))
 	//
 	statement = fmt.Sprintf("DELETE FROM deployments WHERE id='%s'", u.Id)
 	_, err = db.Exec(statement)
@@ -110,11 +110,11 @@ func (u *dep) createDep(db *sql.DB) error {
 	fmt.Println("\nGO: Calling python script with arguments below: ")
 	fmt.Println(pythonArgs)
 	out, err := exec.Command("kubernetes/create_vm.py", pythonArgs...).Output()
+	fmt.Print(string(out))
 	if err != nil {
 		fmt.Println(err.Error())
 		return err
 	}
-	fmt.Print(string(out))
 	//here after successful python call, ansible playbook is run, at least 20s of pause is needed for 2 nodes (experimental)
 	time.Sleep(60 * time.Second)
 	cmd := exec.Command("ansible-playbook", "kubernetes/ansible_deploy.yml", "--inventory=kubernetes/inventory")

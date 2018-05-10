@@ -78,4 +78,5 @@ ENV ANSIBLE_LIBRARY /ansible/library
 WORKDIR /deployment-engine/src
 COPY .cloudsigma.conf /root/.cloudsigma.conf
 COPY /src /deployment-engine/src
+COPY id_rsa.pub /root/id_rsa.pub
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o deployment-engine .
