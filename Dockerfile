@@ -31,7 +31,6 @@ RUN set -x && \
       gcc \
       musl-dev \
       libffi-dev \
-      openssl-dev \
       python-dev && \
     \
     echo "==> Upgrading apk and system..."  && \
@@ -47,6 +46,12 @@ RUN set -x && \
     \
     echo "==> Installing Ansible..."  && \
     pip install ansible==${ANSIBLE_VERSION} && \
+    \
+    echo "==> Installing MySQLdb..."  && \
+    apk add --no-cache --virtual .build-deps mariadb-dev && \
+    pip install MySQL-python &&\
+    apk add --virtual .runtime-deps mariadb-client-libs && \
+    apk del .build-deps && \
     \
     echo "==> Getting GO packages..."  && \
     go get github.com/go-sql-driver/mysql && \
@@ -74,4 +79,3 @@ WORKDIR /deployment-engine/src
 COPY .cloudsigma.conf /root/.cloudsigma.conf
 COPY /src /deployment-engine/src
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o deployment-engine .
-#RUN pip install mysqlclient
