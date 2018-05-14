@@ -46,7 +46,9 @@ to_install = ('apt-get update', 'apt-get install -y python python-pip', 'reboot'
 dist_name = 'Ubuntu'
 dist_version = 'Ubuntu 16.04 LTS' #change according to slack!
 ssh_user = 'cloudsigma'
+print "Checking if ssh rsa works"
 pub_key = open(os.path.expanduser('~/.ssh/id_rsa.pub')).read()
+print "Checking if ssh rsa works - yes"
 # ---# end of input data #--- #
 
 drive = cloudsigma.resource.Drive()
@@ -212,7 +214,7 @@ refresh_db()
 print "VMs setup done! Check the inventory file, now working on database update"
 
 # returning vm arguments to mysql
-db = MySQLdb.connect(host="localhost",    # your host, usually localhost
+db = MySQLdb.connect(host="172.17.0.2",    # your host, usually "localhost"
                      user="root",         # your username
                      passwd="root",  # your password
                      db="k8sql")        # name of the data base
