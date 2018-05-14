@@ -214,7 +214,7 @@ refresh_db()
 print "VMs setup done! Check the inventory file, now working on database update"
 
 # returning vm arguments to mysql
-db = MySQLdb.connect(host="172.17.0.2",    # your host, usually "localhost"
+db = MySQLdb.connect(host="mysql",    # your host, usually "localhost" "172.17.0.2"
                      user="root",         # your username
                      passwd="root",  # your password
                      db="k8sql")        # name of the data base
