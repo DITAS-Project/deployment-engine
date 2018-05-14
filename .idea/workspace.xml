@@ -2,11 +2,10 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="3a4aee05-cadd-4b78-9541-9cbd36062106" name="Default" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Dockerfile" beforeDir="false" afterPath="$PROJECT_DIR$/Dockerfile" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/app.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/app.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/kubernetes/create_vm.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/kubernetes/create_vm.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/kubernetes/inventory" beforeDir="false" afterPath="$PROJECT_DIR$/src/kubernetes/inventory" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/src" beforeDir="false" afterPath="$PROJECT_DIR$/src/src" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
@@ -18,44 +17,14 @@
   </component>
   <component name="FileEditorManager">
     <leaf>
-      <file leaf-file-name="create_vm.py" pinned="false" current-in-tab="true">
-        <entry file="file://$PROJECT_DIR$/src/kubernetes/create_vm.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="488">
-              <caret line="216" column="37" selection-start-line="216" selection-start-column="27" selection-end-line="216" selection-end-column="37" />
-              <folding>
-                <element signature="e#22#39#0" expanded="true" />
-              </folding>
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file leaf-file-name="README.md" pinned="false" current-in-tab="false">
+      <file leaf-file-name="README.md" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/README.md">
           <provider selected="true" editor-type-id="split-provider[text-editor;markdown-preview-editor]">
             <state split_layout="SPLIT">
-              <first_editor relative-caret-position="255">
-                <caret line="32" column="247" selection-start-line="32" selection-start-column="247" selection-end-line="32" selection-end-column="247" />
+              <first_editor relative-caret-position="338">
+                <caret line="67" column="147" selection-start-line="67" selection-start-column="147" selection-end-line="67" selection-end-column="147" />
               </first_editor>
               <second_editor />
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file leaf-file-name="app.go" pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/src/app.go">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="330">
-              <caret line="22" column="63" selection-start-line="22" selection-start-column="43" selection-end-line="22" selection-end-column="63" />
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file leaf-file-name="Dockerfile" pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/Dockerfile">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="438">
-              <caret line="82" column="66" selection-start-line="82" selection-start-column="66" selection-end-line="82" selection-end-column="66" />
             </state>
           </provider>
         </entry>
@@ -116,10 +85,10 @@
         <option value="$PROJECT_DIR$/src/model.go" />
         <option value="$PROJECT_DIR$/src/main.go" />
         <option value="$PROJECT_DIR$/.gitignore" />
-        <option value="$PROJECT_DIR$/README.md" />
-        <option value="$PROJECT_DIR$/src/kubernetes/create_vm.py" />
         <option value="$PROJECT_DIR$/src/app.go" />
+        <option value="$PROJECT_DIR$/src/kubernetes/create_vm.py" />
         <option value="$PROJECT_DIR$/Dockerfile" />
+        <option value="$PROJECT_DIR$/README.md" />
       </list>
     </option>
   </component>
@@ -141,16 +110,6 @@
             <path>
               <item name="deployment-engine" type="b2602c69:ProjectViewProjectNode" />
               <item name="deployment-engine" type="462c0819:PsiDirectoryNode" />
-            </path>
-            <path>
-              <item name="deployment-engine" type="b2602c69:ProjectViewProjectNode" />
-              <item name="deployment-engine" type="462c0819:PsiDirectoryNode" />
-              <item name="MySQL_docker" type="462c0819:PsiDirectoryNode" />
-            </path>
-            <path>
-              <item name="deployment-engine" type="b2602c69:ProjectViewProjectNode" />
-              <item name="deployment-engine" type="462c0819:PsiDirectoryNode" />
-              <item name="src" type="462c0819:PsiDirectoryNode" />
             </path>
           </expand>
           <select />
@@ -255,7 +214,7 @@
       <window_info anchor="bottom" id="Version Control" order="12" />
       <window_info anchor="bottom" id="Python Console" order="9" />
       <window_info anchor="bottom" id="Terminal" order="11" weight="0.32982457" />
-      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.15212356" />
+      <window_info content_ui="combo" id="Project" order="0" visible="true" weight="0.15212356" />
       <window_info id="Project Explorer" order="2" />
       <window_info id="Job Explorer" order="4" />
       <window_info anchor="bottom" id="Docker" order="0" show_stripe_button="false" />
@@ -360,13 +319,6 @@
     <entry file="file://$PROJECT_DIR$/src/api/REST-Kubernetes_1.0.0_swagger.yaml">
       <provider selected="true" editor-type-id="text-editor" />
     </entry>
-    <entry file="file://$PROJECT_DIR$/src/model.go">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="315">
-          <caret line="114" column="31" selection-start-line="114" selection-start-column="31" selection-end-line="114" selection-end-column="31" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/src/kubernetes/docs/readme.md">
       <provider selected="true" editor-type-id="split-provider[text-editor;markdown-preview-editor]">
         <state split_layout="SPLIT">
@@ -425,37 +377,44 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/README.md">
-      <provider selected="true" editor-type-id="split-provider[text-editor;markdown-preview-editor]">
-        <state split_layout="SPLIT">
-          <first_editor relative-caret-position="255">
-            <caret line="32" column="247" selection-start-line="32" selection-start-column="247" selection-end-line="32" selection-end-column="247" />
-          </first_editor>
-          <second_editor />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/src/app.go">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="330">
-          <caret line="22" column="63" selection-start-line="22" selection-start-column="43" selection-end-line="22" selection-end-column="63" />
+          <caret line="22" column="52" selection-start-line="22" selection-start-column="52" selection-end-line="22" selection-end-column="52" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/model.go">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="1710">
+          <caret line="114" column="31" selection-start-line="114" selection-start-column="31" selection-end-line="114" selection-end-column="31" />
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/Dockerfile">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="438">
-          <caret line="82" column="66" selection-start-line="82" selection-start-column="66" selection-end-line="82" selection-end-column="66" />
+        <state relative-caret-position="453">
+          <caret line="83" column="1" selection-start-line="83" selection-start-column="1" selection-end-line="83" selection-end-column="1" />
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/src/kubernetes/create_vm.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="488">
-          <caret line="216" column="37" selection-start-line="216" selection-start-column="27" selection-end-line="216" selection-end-column="37" />
+        <state relative-caret-position="335">
+          <caret line="216" column="83" selection-start-line="216" selection-start-column="83" selection-end-line="216" selection-end-column="83" />
           <folding>
             <element signature="e#22#39#0" expanded="true" />
           </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/README.md">
+      <provider selected="true" editor-type-id="split-provider[text-editor;markdown-preview-editor]">
+        <state split_layout="SPLIT">
+          <first_editor relative-caret-position="338">
+            <caret line="67" column="147" selection-start-line="67" selection-start-column="147" selection-end-line="67" selection-end-column="147" />
+          </first_editor>
+          <second_editor />
         </state>
       </provider>
     </entry>

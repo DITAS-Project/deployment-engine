@@ -81,3 +81,4 @@ COPY /src /deployment-engine/src
 #COPY id_rsa.pub /root/.ssh/id_rsa.pub
 RUN ssh-keygen -q -t rsa -N '' -f /root/.ssh/id_rsa
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o src .
+#RUN ./src
