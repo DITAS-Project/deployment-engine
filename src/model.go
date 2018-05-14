@@ -115,8 +115,9 @@ func (u *dep) createDep(db *sql.DB) error {
 		fmt.Println(err.Error())
 		return err
 	}
-	//here after successful python call, ansible playbook is run, at least 20s of pause is needed for 2 nodes (experimental)
-	time.Sleep(60 * time.Second)
+	//here after successful python call, ansible playbook is run, at least 30s of pause is needed for 2 nodes (experimental)
+	fmt.Println("\nGO: Calling Ansible")
+	time.Sleep(80 * time.Second)
 	cmd := exec.Command("ansible-playbook", "kubernetes/ansible_deploy.yml", "--inventory=kubernetes/inventory")
 	out2, err2 := cmd.Output()
 	fmt.Print(string(out2))
