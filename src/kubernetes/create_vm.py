@@ -44,7 +44,7 @@ for i in range (3, len(sys.argv), 3):
 # node_names = ('node1', 'node2') ##
 to_install = ('apt-get update', 'apt-get install -y python python-pip', 'reboot')
 dist_name = 'Ubuntu'
-dist_version = '16.04'
+dist_version = 'Ubuntu 16.04 LTS' #change according to slack!
 ssh_user = 'cloudsigma'
 pub_key = open(os.path.expanduser('~/.ssh/id_rsa.pub')).read()
 # ---# end of input data #--- #
