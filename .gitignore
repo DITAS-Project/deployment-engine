@@ -1,3 +1,8 @@
 #Hidden files
+
+#for cloudsigma configuration file
 .*.*
+#for RSA key
 id*
+#for changing ansible inventory
+ansible_deploy.retry
