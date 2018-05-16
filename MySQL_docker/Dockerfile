@@ -3,5 +3,5 @@
 FROM mysql:5.7.22
 
 # Environment variables
-ENV MYSQL_ROOT_PASSWORD mypassword
-COPY ./k8sql.sql /docker-entrypoint-initdb.d/
+ENV MYSQL_ROOT_PASSWORD root
+ENV MYSQL_DATABASE k8sql
