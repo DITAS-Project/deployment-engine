@@ -10,6 +10,6 @@ ssh -i /opt/keypairs/ditas-testbed-keypair.pem cloudsigma@31.171.247.162 << 'END
 sudo docker stop --time 20 deployment-engine || true
 sudo docker rm --force deployment-engine || true
 sudo docker pull ditas/deployment-engine:latest
-# SET THE PORT MAPPING
+# SET THE PORT MAPPING, link for mysql
 sudo docker run -p 50012:8080 -d --name deployment-engine --link mysql:mysql ditas/deployment-engine:latest
 ENDSSH

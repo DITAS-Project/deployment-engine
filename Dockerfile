@@ -79,5 +79,7 @@ WORKDIR /deployment-engine/src
 COPY .cloudsigma.conf /root/.cloudsigma.conf
 COPY /src /deployment-engine/src
 RUN ssh-keygen -q -t rsa -N '' -f /root/.ssh/id_rsa
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o src .
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o deployment-engine .
 EXPOSE 8080
+#RUN ["chmod", "+x", "/deployment-engine"]
+#CMD ["./deployment-engine"]

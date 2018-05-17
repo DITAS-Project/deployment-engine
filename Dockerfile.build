@@ -36,4 +36,5 @@ RUN set -x && \
 
 WORKDIR /deployment-engine/src
 COPY /src /deployment-engine/src
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o src .
+#Building the go exec - deployment-engine
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o deployment-engine .
