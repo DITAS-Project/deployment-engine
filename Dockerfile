@@ -36,7 +36,7 @@ RUN set -x && \
     echo "==> Upgrading apk and system..."  && \
     apk update && apk upgrade && \
     \
-    echo "==> Adding Python runtime..."  && \
+    echo "==> Adding Python runtime and packages..."  && \
     apk add --no-cache ${BUILD_PACKAGES} && \
     pip install --upgrade pip && \
     pip install python-keyczar docker-py && \
