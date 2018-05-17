@@ -78,3 +78,5 @@ COPY /src/kubernetes /deployment-engine/src/kubernetes
 COPY /src/src /deployment-engine/src/src
 RUN ssh-keygen -q -t rsa -N '' -f /root/.ssh/id_rsa
 EXPOSE 8080
+#CMD ["/bin/bash","-c","./src"]
+#ENTRYPOINT ["ping", "www.google.com"]
