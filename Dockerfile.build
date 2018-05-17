@@ -1,6 +1,6 @@
 # Dockerfile for Python, Go and Ansible with the deployment engine, MySQL in a parallel container.
 # WIP = work in progress
-# Build executable for the artifact
+# Build GO executable for the artifact
 FROM alpine:3.7
 
 ENV BUILD_PACKAGES \
