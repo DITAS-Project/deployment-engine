@@ -1,6 +1,6 @@
 # Dockerfile for Python, Go and Ansible with the deployment engine, MySQL in a parallel container.
 # WIP = work in progress
-# Artifact - executable
+# Artifact - executable + dependencies
 FROM alpine:3.7
 COPY /src/src /deployment-engine/src/src
 EXPOSE 8080
