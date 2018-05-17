@@ -18,14 +18,6 @@ pipeline {
                 // sh 'gradle whatever'
 				
             }
-            // Save the reports always
-            post {
-                always {
-                    // Record the jUnit test
-                    //junit 'target/surefire-reports/*.xml'
-		            //echo "Save the test reports..."
-                }
-            }
         }
         stage('Image creation') {
             agent any
