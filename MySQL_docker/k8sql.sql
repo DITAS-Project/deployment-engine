@@ -1,1 +1,0 @@
-CREATE DATABASE k8sql;
