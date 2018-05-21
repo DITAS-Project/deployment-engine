@@ -72,8 +72,9 @@ ENV ANSIBLE_LIBRARY /ansible/library
 WORKDIR /deployment-engine/src
 #Credentials to access CloudSigma - to be solved!!!
 #COPY .cloudsigma.conf /root/.cloudsigma.conf
-RUN ["cp",  "/home/cloudsigma/configurations/deployment-engine/.cloudsigma.conf", "/root/.cloudsigma.conf"]
+#RUN ["cp",  "/home/cloudsigma/configurations/deployment-engine/.cloudsigma.conf", "/root/.cloudsigma.conf"]
 #
+COPY .cloudsigma.conf /root/.cloudsigma.conf
 COPY /src/kubernetes /deployment-engine/src/kubernetes
 COPY /src/deployment-engine /deployment-engine/src/deployment-engine
 #For ssh connections
