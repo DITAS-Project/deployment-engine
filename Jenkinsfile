@@ -1,6 +1,6 @@
 //Jenkins file for the present dockerfile
 //WIP = work in progress
-// Your repo link in Jenkins: http://178.22.71.23:8080/job/VDC-Resolution-Engine/job/master/
+//Your repo link in Jenkins: http://178.22.71.23:8080/job/VDC-Resolution-Engine/job/master/
 pipeline {
     agent none
     stages {
