@@ -217,7 +217,8 @@ print "VMs setup done! Check the inventory file, now working on database update"
 db = MySQLdb.connect(host="31.171.247.162",    # your host, usually "localhost" "172.17.0.2"
                      user="root",         # your username
                      passwd="root",  # your password
-                     db="k8sql")        # name of the data base
+                     db="k8sql",  # name of the data base
+                     port=50013)  # port?
 cur = db.cursor()
 mysql.update_ip_status(dict_ip, dict_status, cur, db)
 db.close()
