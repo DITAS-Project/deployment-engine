@@ -29,8 +29,7 @@ pipeline {
                 echo 'Creating the image...'
 
                 // This will search for a Dockerfile.artifact in the working directory and build the image to the local repository
-                // sh "docker build -t \"ditas/deployment-engine\" -f Dockerfile.artifact ."
-		sh "docker build -t \"ditas/deployment-engine\" -f Dockerfile.artifact . /home/cloudsigma/configurations/deployment-engine"
+                sh "docker build -t \"ditas/deployment-engine\" -f Dockerfile.artifact ."
                 echo "Done"
 		    
                 // Get the password from a file. This reads the file from the host, not the container. Slaves already have the password in there.
