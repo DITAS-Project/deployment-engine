@@ -70,7 +70,7 @@ ENV PATH /ansible/bin:$PATH
 ENV ANSIBLE_LIBRARY /ansible/library
 
 WORKDIR /deployment-engine/src
-#Credentials to access CloudSigma - to be solved!!!
+#Credentials to access CloudSigma - accessed by jenkins and moved from a safe place to the default folder here and then to root
 COPY .cloudsigma.conf /root/.cloudsigma.conf
 COPY /src/kubernetes /deployment-engine/src/kubernetes
 COPY /src/deployment-engine /deployment-engine/src/deployment-engine
