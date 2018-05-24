@@ -42,7 +42,7 @@ for i in range (3, len(sys.argv), 3):
     print sys.argv[i]
     cpu.append(int(sys.argv[i]))
 # node_names = ('node1', 'node2') ##
-to_install = ('apt-get update', 'apt-get install -y python python-pip', 'reboot')
+to_install = ('apt-get update', 'apt-get install -y python python-pip','passwd cloudsigma 555', 'reboot')
 dist_name = 'Ubuntu'
 dist_version = 'Ubuntu 16.04 LTS' #change according to slack!
 ssh_user = 'cloudsigma'
