@@ -17,8 +17,8 @@
       <file leaf-file-name="create_vm.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/src/kubernetes/create_vm.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="240">
-              <caret line="43" column="36" lean-forward="true" selection-start-line="43" selection-start-column="36" selection-end-line="43" selection-end-column="36" />
+            <state relative-caret-position="330">
+              <caret line="40" column="37" lean-forward="true" selection-start-line="40" selection-start-column="37" selection-end-line="40" selection-end-column="37" />
             </state>
           </provider>
         </entry>
@@ -53,6 +53,7 @@
       <find>GATHER</find>
       <find>vdc-blueprint-repository-engine</find>
       <find>scri</find>
+      <find>to_install</find>
     </findStrings>
     <replaceStrings>
       <replace>deployment-engine</replace>
@@ -106,7 +107,6 @@
       <foldersAlwaysOnTop value="true" />
     </navigator>
     <panes>
-      <pane id="Scope" />
       <pane id="ProjectPane">
         <subPane>
           <expand>
@@ -129,6 +129,7 @@
           <select />
         </subPane>
       </pane>
+      <pane id="Scope" />
     </panes>
   </component>
   <component name="PropertiesComponent">
@@ -229,7 +230,7 @@
       <window_info anchor="bottom" id="Version Control" order="12" />
       <window_info anchor="bottom" id="Python Console" order="9" />
       <window_info anchor="bottom" id="Terminal" order="11" weight="0.32982457" />
-      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.15212356" />
+      <window_info content_ui="combo" id="Project" order="0" visible="true" weight="0.15212356" />
       <window_info id="Project Explorer" order="2" />
       <window_info id="Job Explorer" order="4" />
       <window_info anchor="bottom" id="Docker" order="0" show_stripe_button="false" />
@@ -345,11 +346,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/src/kubernetes/ansible_deploy.yml">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-426" />
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/src/model.go">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="-401">
@@ -390,13 +386,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/Dockerfile.artifact">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1080">
-          <caret line="72" column="127" selection-start-line="72" selection-start-column="127" selection-end-line="72" selection-end-column="127" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/Jenkinsfile">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="15">
@@ -404,10 +393,22 @@
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/src/kubernetes/ansible_deploy.yml">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="-232" />
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/Dockerfile.artifact">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="303">
+          <caret line="72" column="127" selection-start-line="72" selection-start-column="127" selection-end-line="72" selection-end-column="127" />
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/src/kubernetes/create_vm.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="240">
-          <caret line="43" column="36" lean-forward="true" selection-start-line="43" selection-start-column="36" selection-end-line="43" selection-end-column="36" />
+        <state relative-caret-position="330">
+          <caret line="40" column="37" lean-forward="true" selection-start-line="40" selection-start-column="37" selection-end-line="40" selection-end-column="37" />
         </state>
       </provider>
     </entry>
