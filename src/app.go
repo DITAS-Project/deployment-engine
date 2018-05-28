@@ -45,19 +45,19 @@ func (a *App) initializeRoutes() {
 }
 
 func (a *App) createDB(db *sql.DB) error {
-	statement := fmt.Sprintf("SELECT 1 FROM deployments LIMIT 1") //most simple check if exists
+	statement := fmt.Sprintf("SELECT 1 FROM deployments-blueprint LIMIT 1") //most simple check if exists
 	_, err := db.Query(statement)
 	if err != nil {
-		fmt.Println("Creating deployments table")
-		statement = fmt.Sprintf("CREATE TABLE deployments ( id VARCHAR(50) PRIMARY KEY, name VARCHAR(50) NOT NULL, status VARCHAR(50) NOT NULL )")
+		fmt.Println("Creating deployments-blueprint table")
+		statement = fmt.Sprintf("CREATE TABLE deployments-blueprint ( id VARCHAR(50) PRIMARY KEY, description VARCHAR(50) NOT NULL, status VARCHAR(50) NOT NULL )")
 		_, err = db.Exec(statement)
 	}
 
-	statement = fmt.Sprintf("SELECT 1 FROM nodes LIMIT 1")
+	statement = fmt.Sprintf("SELECT 1 FROM nodes-blueprint LIMIT 1")
 	_, err = db.Query(statement)
 	if err != nil {
-		fmt.Println("Creating nodes table")
-		statement = fmt.Sprintf("CREATE TABLE nodes ( id VARCHAR(50) PRIMARY KEY, dep_id VARCHAR(50), region VARCHAR(50), public_ip VARCHAR(50), role VARCHAR(50), ram INT, cpu INT, status VARCHAR(50), INDEX d_id (dep_id), FOREIGN KEY (dep_id)  REFERENCES deployments(id)  ON DELETE CASCADE )")
+		fmt.Println("Creating nodes-blueprint table")
+		statement = fmt.Sprintf("CREATE TABLE nodes-blueprint ( id VARCHAR(50) PRIMARY KEY, dep_id VARCHAR(50), region VARCHAR(50), public_ip VARCHAR(50), role VARCHAR(50), ram INT, cpu INT, status VARCHAR(50), INDEX d_id (dep_id), FOREIGN KEY (dep_id)  REFERENCES deployments-blueprint(id)  ON DELETE CASCADE )")
 		_, err = db.Exec(statement)
 	}
 	return err

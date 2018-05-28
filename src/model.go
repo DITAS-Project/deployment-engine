@@ -11,30 +11,41 @@ import (
 )
 
 type node struct {
-	Id        string `json:"id"`
-	Region    string `json:"region"`
-	Public_ip string `json:"public_ip"`
-	Role      string `json:"role"`
-	RAM       int    `json:"ram"`
-	Cpu       int    `json:"cpu"`
-	Status    string `json:"status"`
+	Id                string `json:"name"`
+	Type              string `json:"type"`
+	Region            string `json:"region"`
+	Public_ip         string `json:"public_ip"`
+	Role              string `json:"role"`
+	RAM               int    `json:"ram"`
+	Cpu               int    `json:"cpus"`
+	Disc              string `json:"disc"`
+	Status            string `json:"status"`
+	Generate_ssh_keys string `json:"generate_ssh_keys"`
+	Ssh_keys_id       string `json:"ssh_keys_id"`
+	Base_image        string `json:"baseimage"`
+	Arch              string `json:"arch"`
+	Os                string `json:"os"`
 }
 type dep struct {
-	Id     string `json:"id"`
-	Name   string `json:"name"`
-	Status string `json:"status"`
-	Nodes  []node `json:"nodes"`
+	Id           string `json:"name"`
+	Description  string `json:"description"`
+	Status       string `json:"on-line"`
+	Type         string `json:"type"`
+	Api_endpoint string `json:"api_endpoint"`
+	Api_type     string `json:"api_type"`
+	Keypair_id   string `json:"keypair_id"`
+	Nodes        []node `json:"resources"`
 }
 
 func (u *dep) getDep(db *sql.DB) error {
-	statement := fmt.Sprintf("SELECT id, name, status FROM deployments WHERE id='%s'", u.Id)
-	return db.QueryRow(statement).Scan(&u.Id, &u.Name, &u.Status)
+	statement := fmt.Sprintf("SELECT id, description, status FROM deployments-blueprint WHERE id='%s'", u.Id)
+	return db.QueryRow(statement).Scan(&u.Id, &u.Description, &u.Status)
 
 }
 
 func (u *dep) getNodes(db *sql.DB) error {
-	u.Nodes = make([]node, 0)                                                                                           //2
-	statement := fmt.Sprintf("SELECT id, region, public_ip, role, ram, cpu, status FROM nodes WHERE dep_id='%s'", u.Id) //
+	u.Nodes = make([]node, 0)                                                                                                     //2
+	statement := fmt.Sprintf("SELECT id, region, public_ip, role, ram, cpu, status FROM nodes-blueprint WHERE dep_id='%s'", u.Id) //
 	rows, err := db.Query(statement)
 	if err != nil {
 		return err
@@ -61,7 +72,7 @@ func (u *dep) deleteDep(db *sql.DB) error {
 	}
 	// update database with deployment status - deleting
 	status := "deleting"
-	statement := fmt.Sprintf("UPDATE deployments SET deployments.status = \042%s\042 WHERE deployments.id = \042%s\042", status, u.Id)
+	statement := fmt.Sprintf("UPDATE deployments-blueprint SET deployments-blueprint.status = \042%s\042 WHERE deployments-blueprint.id = \042%s\042", status, u.Id)
 	_, err := db.Exec(statement)
 	if err != nil {
 		return err
@@ -74,7 +85,7 @@ func (u *dep) deleteDep(db *sql.DB) error {
 		return err
 	}
 	//
-	statement = fmt.Sprintf("DELETE FROM deployments WHERE id='%s'", u.Id)
+	statement = fmt.Sprintf("DELETE FROM deployments-blueprint WHERE id='%s'", u.Id)
 	_, err = db.Exec(statement)
 	fmt.Println("GO: Finished")
 	return err
@@ -82,7 +93,7 @@ func (u *dep) deleteDep(db *sql.DB) error {
 
 func (u *dep) createDep(db *sql.DB) error {
 	status := "starting"
-	statement := fmt.Sprintf("INSERT INTO deployments(id, name, status) VALUES('%s', '%s', '%s')", u.Id, u.Name, status)
+	statement := fmt.Sprintf("INSERT INTO deployments-blueprint(id, description, status) VALUES('%s', '%s', '%s')", u.Id, u.Description, status)
 	_, err := db.Exec(statement)
 	if err != nil {
 		return err
@@ -99,9 +110,9 @@ func (u *dep) createDep(db *sql.DB) error {
 	//	}
 	//	pythonArgs = append(pythonArgs, strconv.Itoa(numberOfMasters))
 	for _, element := range u.Nodes {
-		statement = fmt.Sprintf("INSERT INTO nodes(id, dep_id, region, public_ip, role, ram, cpu, status) VALUES('%s', '%s', '%s', '%s', '%s', '%d', '%d', '%s')", element.Id, u.Id, element.Region, element.Public_ip, element.Role, element.RAM, element.Cpu, element.Status)
+		statement = fmt.Sprintf("INSERT INTO nodes-blueprint(id, dep_id, region, public_ip, role, ram, cpu, status) VALUES('%s', '%s', '%s', '%s', '%s', '%d', '%d', '%s')", element.Id, u.Id, element.Region, element.Public_ip, element.Role, element.RAM, element.Cpu, element.Status)
 		_, err = db.Exec(statement)
-		//here arguments for python are prepared - name/ram/cpu of nodes are prepared
+		//here arguments for python are prepared - name/ram/cpu of nodes-blueprint are prepared
 		pythonArgs = append(pythonArgs, element.Id)
 		pythonArgs = append(pythonArgs, strconv.Itoa(element.RAM))
 		pythonArgs = append(pythonArgs, strconv.Itoa(element.Cpu))
@@ -115,7 +126,7 @@ func (u *dep) createDep(db *sql.DB) error {
 		fmt.Println(err.Error())
 		return err
 	}
-	//here after successful python call, ansible playbook is run, at least 30s of pause is needed for 2 nodes (experimental)
+	//here after successful python call, ansible playbook is run, at least 30s of pause is needed for 2 nodes-blueprint (experimental)
 	//80 seconds failed, try with 180
 	fmt.Println("\nGO: Calling Ansible")
 	time.Sleep(180 * time.Second)
@@ -130,7 +141,7 @@ func (u *dep) createDep(db *sql.DB) error {
 	//	time.Sleep(1 * time.Second)
 	// update database with deployment status - running
 	status = "running"
-	statement = fmt.Sprintf("UPDATE deployments SET deployments.status = \042%s\042 WHERE deployments.id = \042%s\042", status, u.Id)
+	statement = fmt.Sprintf("UPDATE deployments-blueprint SET deployments-blueprint.status = \042%s\042 WHERE deployments-blueprint.id = \042%s\042", status, u.Id)
 	_, err = db.Exec(statement)
 	if err != nil {
 		fmt.Println(err.Error())
@@ -148,7 +159,7 @@ func (u *dep) createDep(db *sql.DB) error {
 }
 
 func getDeps(db *sql.DB, start, count int) ([]dep, error) {
-	statement := fmt.Sprintf("SELECT id, name, status FROM deployments LIMIT %d OFFSET %d", count, start)
+	statement := fmt.Sprintf("SELECT id, description, status FROM deployments-blueprint LIMIT %d OFFSET %d", count, start)
 	rows, err := db.Query(statement)
 
 	if err != nil {
@@ -158,7 +169,7 @@ func getDeps(db *sql.DB, start, count int) ([]dep, error) {
 	deps := []dep{}
 	for rows.Next() {
 		var u dep
-		if err := rows.Scan(&u.Id, &u.Name, &u.Status); err != nil {
+		if err := rows.Scan(&u.Id, &u.Description, &u.Status); err != nil {
 			return nil, err
 		}
 
