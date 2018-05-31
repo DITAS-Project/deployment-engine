@@ -2,10 +2,7 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="3a4aee05-cadd-4b78-9541-9cbd36062106" name="Default" comment="">
-      <change afterPath="$PROJECT_DIR$/add_deployment" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/deployment-engine" beforeDir="false" afterPath="$PROJECT_DIR$/src/deployment-engine" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/model.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/model.go" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="TRACKING_ENABLED" value="true" />
@@ -15,34 +12,29 @@
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="FileEditorManager">
-    <splitter split-orientation="horizontal" split-proportion="0.5">
-      <split-first>
-        <leaf>
-          <file leaf-file-name="add_deployment" pinned="false" current-in-tab="true">
-            <entry file="file://$PROJECT_DIR$/add_deployment">
-              <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="195">
-                  <caret line="5" column="265" lean-forward="true" selection-start-line="5" selection-start-column="265" selection-end-line="5" selection-end-column="265" />
-                </state>
-              </provider>
-            </entry>
-          </file>
-        </leaf>
-      </split-first>
-      <split-second>
-        <leaf>
-          <file leaf-file-name="model.go" pinned="false" current-in-tab="true">
-            <entry file="file://$PROJECT_DIR$/src/model.go">
-              <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="450">
-                  <caret line="114" column="364" selection-start-line="114" selection-start-column="364" selection-end-line="114" selection-end-column="364" />
-                </state>
-              </provider>
-            </entry>
-          </file>
-        </leaf>
-      </split-second>
-    </splitter>
+    <leaf>
+      <file leaf-file-name="add_deployment" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/add_deployment">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="90">
+              <caret line="5" column="3" selection-start-line="5" selection-end-line="5" selection-end-column="265" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file leaf-file-name="README.md" pinned="false" current-in-tab="true">
+        <entry file="file://$PROJECT_DIR$/README.md">
+          <provider selected="true" editor-type-id="split-provider[text-editor;markdown-preview-editor]">
+            <state split_layout="SPLIT">
+              <first_editor relative-caret-position="128">
+                <caret line="43" column="13" selection-start-line="43" selection-end-line="44" />
+              </first_editor>
+              <second_editor />
+            </state>
+          </provider>
+        </entry>
+      </file>
+    </leaf>
   </component>
   <component name="FileTemplateManagerImpl">
     <option name="RECENT_TEMPLATES">
@@ -404,16 +396,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/README.md">
-      <provider selected="true" editor-type-id="split-provider[text-editor;markdown-preview-editor]">
-        <state split_layout="SPLIT">
-          <first_editor relative-caret-position="173">
-            <caret line="43" column="13" selection-start-line="43" selection-end-line="44" />
-          </first_editor>
-          <second_editor />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/src/app.go">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="390">
@@ -437,8 +419,18 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/add_deployment">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="195">
-          <caret line="5" column="265" lean-forward="true" selection-start-line="5" selection-start-column="265" selection-end-line="5" selection-end-column="265" />
+        <state relative-caret-position="90">
+          <caret line="5" column="3" selection-start-line="5" selection-end-line="5" selection-end-column="265" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/README.md">
+      <provider selected="true" editor-type-id="split-provider[text-editor;markdown-preview-editor]">
+        <state split_layout="SPLIT">
+          <first_editor relative-caret-position="128">
+            <caret line="43" column="13" selection-start-line="43" selection-end-line="44" />
+          </first_editor>
+          <second_editor />
         </state>
       </provider>
     </entry>
