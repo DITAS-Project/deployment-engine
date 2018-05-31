@@ -94,6 +94,7 @@ func (u *dep) deleteDep(db *sql.DB) error {
 func (u *dep) createDep(db *sql.DB) error {
 	status := "starting"
 	default_ip := "assigning"
+	region := "default"
 	statement := fmt.Sprintf("INSERT INTO deployments-blueprint(id, description, status, type, api_endpoint, api_type, keypair_id) VALUES('%s', '%s', '%s' '%s' '%s' '%s' '%s')", u.Id, u.Description, status, u.Type, u.Api_endpoint, u.Api_type, u.Keypair_id)
 	_, err := db.Exec(statement)
 	if err != nil {
@@ -111,7 +112,7 @@ func (u *dep) createDep(db *sql.DB) error {
 	//	}
 	//	pythonArgs = append(pythonArgs, strconv.Itoa(numberOfMasters))
 	for _, element := range u.Nodes {
-		statement = fmt.Sprintf("INSERT INTO nodes-blueprint(id, dep_id, region, public_ip, role, ram, cpu, status, type, disc, generate_ssh_keys, ssh_keys_id, baseimage, arch, os) VALUES('%s', '%s', '%s', '%s', '%s', '%d', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')", element.Id, u.Id, element.Region, default_ip, element.Role, element.RAM, element.Cpu, status)
+		statement = fmt.Sprintf("INSERT INTO nodes-blueprint(id, dep_id, region, public_ip, role, ram, cpu, status, type, disc, generate_ssh_keys, ssh_keys_id, baseimage, arch, os) VALUES('%s', '%s', '%s', '%s', '%s', '%d', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')", element.Id, u.Id, region, default_ip, element.Role, element.RAM, element.Cpu, status, element.Type, element.Disc, element.Generate_ssh_keys, element.Ssh_keys_id, element.Base_image, element.Arch, element.Os)
 		_, err = db.Exec(statement)
 		//here arguments for python are prepared - name/ram/cpu of nodes-blueprint are prepared
 		pythonArgs = append(pythonArgs, element.Id)
