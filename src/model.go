@@ -12,14 +12,14 @@ import (
 
 type node struct {
 	Id                string `json:"name"`
-	Type              string `json:"type"`
 	Region            string `json:"region"`    //
 	Public_ip         string `json:"public_ip"` //
 	Role              string `json:"role"`
 	RAM               int    `json:"ram"`
 	Cpu               int    `json:"cpus"`
-	Disc              string `json:"disc"`
 	Status            string `json:"status"` //
+	Type              string `json:"type"`
+	Disc              string `json:"disc"`
 	Generate_ssh_keys string `json:"generate_ssh_keys"`
 	Ssh_keys_id       string `json:"ssh_keys_id"`
 	Base_image        string `json:"baseimage"`
@@ -94,7 +94,7 @@ func (u *dep) deleteDep(db *sql.DB) error {
 func (u *dep) createDep(db *sql.DB) error {
 	status := "starting"
 	default_ip := "assigning"
-	statement := fmt.Sprintf("INSERT INTO deployments-blueprint(id, description, status) VALUES('%s', '%s', '%s')", u.Id, u.Description, status)
+	statement := fmt.Sprintf("INSERT INTO deployments-blueprint(id, description, status, type, api_endpoint, api_type, keypair_id) VALUES('%s', '%s', '%s' '%s' '%s' '%s' '%s')", u.Id, u.Description, status, u.Type, u.Api_endpoint, u.Api_type, u.Keypair_id)
 	_, err := db.Exec(statement)
 	if err != nil {
 		return err
@@ -111,7 +111,7 @@ func (u *dep) createDep(db *sql.DB) error {
 	//	}
 	//	pythonArgs = append(pythonArgs, strconv.Itoa(numberOfMasters))
 	for _, element := range u.Nodes {
-		statement = fmt.Sprintf("INSERT INTO nodes-blueprint(id, dep_id, region, public_ip, role, ram, cpu, status) VALUES('%s', '%s', '%s', '%s', '%s', '%d', '%d', '%s')", element.Id, u.Id, element.Region, default_ip, element.Role, element.RAM, element.Cpu, status)
+		statement = fmt.Sprintf("INSERT INTO nodes-blueprint(id, dep_id, region, public_ip, role, ram, cpu, status, type, disc, generate_ssh_keys, ssh_keys_id, baseimage, arch, os) VALUES('%s', '%s', '%s', '%s', '%s', '%d', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')", element.Id, u.Id, element.Region, default_ip, element.Role, element.RAM, element.Cpu, status)
 		_, err = db.Exec(statement)
 		//here arguments for python are prepared - name/ram/cpu of nodes-blueprint are prepared
 		pythonArgs = append(pythonArgs, element.Id)
