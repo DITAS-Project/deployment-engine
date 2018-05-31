@@ -49,7 +49,7 @@ func (a *App) createDB(db *sql.DB) error {
 	_, err := db.Query(statement)
 	if err != nil {
 		fmt.Println("Creating deployments-blueprint table")
-		statement = fmt.Sprintf("CREATE TABLE deployments-blueprint ( id VARCHAR(50) PRIMARY KEY, description VARCHAR(50) NOT NULL, status VARCHAR(50) NOT NULL )")
+		statement = fmt.Sprintf("CREATE TABLE deployments-blueprint ( id VARCHAR(50) PRIMARY KEY, description VARCHAR(50) NOT NULL, status VARCHAR(50) NOT NULL, type VARCHAR(50), api_endpoint VARCHAR(50), api_type VARCHAR(50), keypair_id VARCHAR(50) )")
 		_, err = db.Exec(statement)
 	}
 
@@ -57,7 +57,7 @@ func (a *App) createDB(db *sql.DB) error {
 	_, err = db.Query(statement)
 	if err != nil {
 		fmt.Println("Creating nodes-blueprint table")
-		statement = fmt.Sprintf("CREATE TABLE nodes-blueprint ( id VARCHAR(50) PRIMARY KEY, dep_id VARCHAR(50), region VARCHAR(50), public_ip VARCHAR(50), role VARCHAR(50), ram INT, cpu INT, status VARCHAR(50), INDEX d_id (dep_id), FOREIGN KEY (dep_id)  REFERENCES deployments-blueprint(id)  ON DELETE CASCADE )")
+		statement = fmt.Sprintf("CREATE TABLE nodes-blueprint ( id VARCHAR(50) PRIMARY KEY, dep_id VARCHAR(50), region VARCHAR(50), public_ip VARCHAR(50), role VARCHAR(50), ram INT, cpu INT, status VARCHAR(50), type VARCHAR(50), disc VARCHAR(50), generate_ssh_keys VARCHAR(50), INDEX d_id (dep_id), ssh_keys_id VARCHAR(50), baseimage VARCHAR(50), arch VARCHAR(50), os VARCHAR(50), FOREIGN KEY (dep_id)  REFERENCES deployments-blueprint(id)  ON DELETE CASCADE )")
 		_, err = db.Exec(statement)
 	}
 	return err
