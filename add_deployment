@@ -3,4 +3,3 @@ Checking if with no default variables, the dep works.
 
 curl -H "Content-Type: application/json" -d '{"name":"test", "description":"AddedDep", "on-line":"starting", "resources": [{"name": "sth1", "role": "none", "ram":2048, "cpu":2000}, {"name": "sth2", "role": "none", "ram":1024, "cpu":2000}]}' 31.171.247.162:50012/dep
 
-curl -H "Content-Type: application/json" -d '{"name":"test", "description":"AddedDep", "on-line":"starting", "resources": [{"name": "sth1", "role": "none", "ram":2048, "cpu":2000}, {"name": "sth2", "role": "none", "ram":1024, "cpu":2000}]}' 31.171.247.162:50012/dep
