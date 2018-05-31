@@ -95,7 +95,7 @@ func (u *dep) createDep(db *sql.DB) error {
 	status := "starting"
 	default_ip := "assigning"
 	region := "default"
-	statement := fmt.Sprintf("INSERT INTO deploymentsBlueprint(id, description, status, type, api_endpoint, api_type, keypair_id) VALUES('%s', '%s', '%s' '%s' '%s' '%s' '%s')", u.Id, u.Description, status, u.Type, u.Api_endpoint, u.Api_type, u.Keypair_id)
+	statement := fmt.Sprintf("INSERT INTO deploymentsBlueprint(id, description, status, type, api_endpoint, api_type, keypair_id) VALUES('%s', '%s', '%s', '%s', '%s', '%s', '%s')", u.Id, u.Description, status, u.Type, u.Api_endpoint, u.Api_type, u.Keypair_id)
 	_, err := db.Exec(statement)
 	if err != nil {
 		return err
