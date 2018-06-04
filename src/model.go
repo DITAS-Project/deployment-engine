@@ -39,7 +39,7 @@ type dep struct {
 
 func (u *dep) getDep(db *sql.DB) error {
 	statement := fmt.Sprintf("SELECT id, description, status, type, api_endpoint, api_type, keypair_id FROM deploymentsBlueprint WHERE id='%s'", u.Id)
-	return db.QueryRow(statement).Scan(&u.Id, &u.Description, &u.Status)
+	return db.QueryRow(statement).Scan(&u.Id, &u.Description, &u.Status, &u.Type, &u.Api_endpoint, &u.Api_type, &u.Keypair_id)
 
 }
 
@@ -55,7 +55,7 @@ func (u *dep) getNodes(db *sql.DB) error {
 	defer rows.Close()
 	for rows.Next() {
 		//rows.Scan(&u.Nodes[index].Id, &u.Nodes[index].Region, &u.Nodes[index].Public_ip, &u.Nodes[index].Role, &u.Nodes[index].RAM, &u.Nodes[index].Cpu)
-		rows.Scan(&item.Id, &item.Region, &item.Public_ip, &item.Role, &item.RAM, &item.Cpu, &item.Status)
+		rows.Scan(&item.Id, &item.Region, &item.Public_ip, &item.Role, &item.RAM, &item.Cpu, &item.Status, &item.Type, &item.Disc, &item.Generate_ssh_keys, &item.Ssh_keys_id, &item.Base_image, &item.Arch, &item.Os)
 		index++
 		u.Nodes = append(u.Nodes, item)
 
@@ -171,7 +171,7 @@ func getDeps(db *sql.DB, start, count int) ([]dep, error) {
 	deps := []dep{}
 	for rows.Next() {
 		var u dep
-		if err := rows.Scan(&u.Id, &u.Description, &u.Status); err != nil {
+		if err := rows.Scan(&u.Id, &u.Description, &u.Status, &u.Type, &u.Api_endpoint, &u.Api_type, &u.Keypair_id); err != nil {
 			return nil, err
 		}
 
