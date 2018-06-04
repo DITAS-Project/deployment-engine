@@ -38,14 +38,14 @@ type dep struct {
 }
 
 func (u *dep) getDep(db *sql.DB) error {
-	statement := fmt.Sprintf("SELECT id, description, status FROM deploymentsBlueprint WHERE id='%s'", u.Id)
+	statement := fmt.Sprintf("SELECT id, description, status, type, api_endpoint, api_type, keypair_id FROM deploymentsBlueprint WHERE id='%s'", u.Id)
 	return db.QueryRow(statement).Scan(&u.Id, &u.Description, &u.Status)
 
 }
 
 func (u *dep) getNodes(db *sql.DB) error {
-	u.Nodes = make([]node, 0)                                                                                                    //2
-	statement := fmt.Sprintf("SELECT id, region, public_ip, role, ram, cpu, status FROM nodesBlueprint WHERE dep_id='%s'", u.Id) //
+	u.Nodes = make([]node, 0)                                                                                                                                                                     //2
+	statement := fmt.Sprintf("SELECT id, region, public_ip, role, ram, cpu, status, type, disc, generate_ssh_keys, ssh_keys_id, baseimage, arch, os FROM nodesBlueprint WHERE dep_id='%s'", u.Id) //
 	rows, err := db.Query(statement)
 	if err != nil {
 		return err
@@ -161,7 +161,7 @@ func (u *dep) createDep(db *sql.DB) error {
 }
 
 func getDeps(db *sql.DB, start, count int) ([]dep, error) {
-	statement := fmt.Sprintf("SELECT id, description, status FROM deploymentsBlueprint LIMIT %d OFFSET %d", count, start)
+	statement := fmt.Sprintf("SELECT id, description, status, type, api_endpoint, api_type, keypair_id FROM deploymentsBlueprint LIMIT %d OFFSET %d", count, start)
 	rows, err := db.Query(statement)
 
 	if err != nil {
