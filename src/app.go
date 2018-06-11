@@ -99,35 +99,7 @@ func (a *App) createDep(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//respondWithJSON(w, http.StatusCreated, u)
-	// try with part of get dep
-	if err := u.getDep(a.DB); err != nil {
-		switch err {
-		case sql.ErrNoRows:
-			respondWithError(w, http.StatusNotFound, "Dep not found")
-		default:
-			respondWithError(w, http.StatusInternalServerError, err.Error())
-		}
-		return
-	}
-	if err := u.getNodes(a.DB); err != nil {
-		switch err {
-		case sql.ErrNoRows:
-			respondWithError(w, http.StatusNotFound, "Nodes not found")
-		default:
-			respondWithError(w, http.StatusInternalServerError, err.Error())
-		}
-		return
-	}
-	respondWithJSON(w, http.StatusOK, u)
-	//
-	jsonData, _ := json.Marshal(u)
-	jsonFile, err := os.Create("./blueprint.json")
-	if err != nil {
-		panic(err)
-	}
-	defer jsonFile.Close()
-	jsonFile.Write(jsonData)
-	jsonFile.Close()
+	respondWithJSON(w, http.StatusOK, map[string]string{"result": "success, run GET dep to generate the file"})
 }
 
 func (a *App) getDep(w http.ResponseWriter, r *http.Request) {
@@ -153,7 +125,16 @@ func (a *App) getDep(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-
+	//
+	jsonData, _ := json.Marshal(u)
+	jsonFile, err := os.Create("./blueprint.json")
+	if err != nil {
+		panic(err)
+	}
+	defer jsonFile.Close()
+	jsonFile.Write(jsonData)
+	jsonFile.Close()
+	//
 	respondWithJSON(w, http.StatusOK, u)
 }
 
