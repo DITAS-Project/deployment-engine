@@ -4,7 +4,9 @@ package main
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
 	"strconv"
 	"time"
@@ -101,16 +103,6 @@ func (u *dep) createDep(db *sql.DB) error {
 		return err
 	}
 	var pythonArgs []string
-	//
-	// counting number of masters - until first not master role, always at least one
-	//	numberOfMasters := 1
-	//	for _, element := range u.Nodes[1:] {
-	//		if element.Role != "master" {
-	//			break
-	//		}
-	//		numberOfMasters++
-	//	}
-	//	pythonArgs = append(pythonArgs, strconv.Itoa(numberOfMasters))
 	for _, element := range u.Nodes {
 		statement = fmt.Sprintf("INSERT INTO nodesBlueprint(id, dep_id, region, public_ip, role, ram, cpu, status, type, disc, generate_ssh_keys, ssh_keys_id, baseimage, arch, os) VALUES('%s', '%s', '%s', '%s', '%s', '%d', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')", element.Id, u.Id, region, default_ip, element.Role, element.RAM, element.Cpu, status, element.Type, element.Disc, element.Generate_ssh_keys, element.Ssh_keys_id, element.Base_image, element.Arch, element.Os)
 		_, err = db.Exec(statement)
@@ -128,6 +120,19 @@ func (u *dep) createDep(db *sql.DB) error {
 		fmt.Println(err.Error())
 		return err
 	}
+	//
+	//here json file must be created
+	u.getDep(db)
+	u.getNodes(db)
+	jsonData, _ := json.Marshal(u)
+	jsonFile, err := os.Create("./blueprint.json")
+	if err != nil {
+		panic(err)
+	}
+	defer jsonFile.Close()
+	jsonFile.Write(jsonData)
+	jsonFile.Close()
+	//
 	//here after successful python call, ansible playbook is run, at least 30s of pause is needed for 2 nodesBlueprint (experimental)
 	//80 seconds failed, try with 180
 	fmt.Println("\nGO: Calling Ansible")
