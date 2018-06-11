@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -97,7 +98,16 @@ func (a *App) createDep(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respondWithJSON(w, http.StatusCreated, u)
+	//respondWithJSON(w, http.StatusCreated, u)
+	a.getDep(w, r)
+	jsonData, _ := json.Marshal(u)
+	jsonFile, err := os.Create("./blueprint.json")
+	if err != nil {
+		panic(err)
+	}
+	defer jsonFile.Close()
+	jsonFile.Write(jsonData)
+	jsonFile.Close()
 }
 
 func (a *App) getDep(w http.ResponseWriter, r *http.Request) {
