@@ -43,6 +43,13 @@
           src: /deployment-engine/src/blueprint.json
           dest: /home/cloudsigma/blueprint.json
 
+  - hosts: [master]
+    become: yes
+    become_user: "{{ hostvars[groups['master'][0]]['ansible_ssh_user'] }}"
+    tasks:
+      - name: deploying SLA automatically
+        script: scripts/SLAdeploy.sh
+
   - hosts: localhost
     tasks:
       - name: final
