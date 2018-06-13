@@ -2,6 +2,7 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="3a4aee05-cadd-4b78-9541-9cbd36062106" name="Default" comment="">
+      <change afterPath="$PROJECT_DIR$/src/api/REST-Kubernetes_1.1.yaml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
@@ -13,15 +14,22 @@
   </component>
   <component name="FileEditorManager">
     <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
-      <file leaf-file-name="README.md" pinned="false" current-in-tab="true">
+      <file leaf-file-name="README.md" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/README.md">
           <provider selected="true" editor-type-id="split-provider[text-editor;markdown-preview-editor]">
             <state split_layout="SPLIT">
-              <first_editor relative-caret-position="427">
-                <caret line="60" lean-forward="true" selection-start-line="60" selection-end-line="60" />
+              <first_editor relative-caret-position="300">
+                <caret line="16" column="66" selection-start-line="16" selection-start-column="66" selection-end-line="16" selection-end-column="66" />
               </first_editor>
               <second_editor />
             </state>
+          </provider>
+        </entry>
+      </file>
+      <file leaf-file-name="REST-Kubernetes_1.1.yaml" pinned="false" current-in-tab="true">
+        <entry file="file://$PROJECT_DIR$/src/api/REST-Kubernetes_1.1.yaml">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="-2647" />
           </provider>
         </entry>
       </file>
@@ -126,6 +134,17 @@
               <item name="deployment-engine" type="b2602c69:ProjectViewProjectNode" />
               <item name="deployment-engine" type="462c0819:PsiDirectoryNode" />
             </path>
+            <path>
+              <item name="deployment-engine" type="b2602c69:ProjectViewProjectNode" />
+              <item name="deployment-engine" type="462c0819:PsiDirectoryNode" />
+              <item name="src" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="deployment-engine" type="b2602c69:ProjectViewProjectNode" />
+              <item name="deployment-engine" type="462c0819:PsiDirectoryNode" />
+              <item name="src" type="462c0819:PsiDirectoryNode" />
+              <item name="api" type="462c0819:PsiDirectoryNode" />
+            </path>
           </expand>
           <select />
         </subPane>
@@ -138,14 +157,15 @@
     <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable" />
   </component>
   <component name="RecentsManager">
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$" />
+    </key>
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/src/api" />
       <recent name="$PROJECT_DIR$/src" />
       <recent name="$PROJECT_DIR$" />
       <recent name="$PROJECT_DIR$/src/kubernetes/scripts" />
       <recent name="$PROJECT_DIR$/MySQL_docker" />
-    </key>
-    <key name="MoveFile.RECENT_KEYS">
-      <recent name="$PROJECT_DIR$" />
     </key>
   </component>
   <component name="RunDashboard">
@@ -233,7 +253,7 @@
       <window_info anchor="bottom" id="Version Control" order="12" />
       <window_info anchor="bottom" id="Python Console" order="9" />
       <window_info anchor="bottom" id="Terminal" order="11" weight="0.32982457" />
-      <window_info content_ui="combo" id="Project" order="0" weight="0.15830116" />
+      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.15830116" />
       <window_info id="Project Explorer" order="2" />
       <window_info id="Job Explorer" order="4" />
       <window_info anchor="bottom" id="Docker" order="0" show_stripe_button="false" />
@@ -241,38 +261,54 @@
       <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
       <window_info anchor="bottom" id="Debug" order="4" weight="0.39855072" />
       <window_info id="Favorites" order="3" side_tool="true" />
+      <window_info anchor="bottom" id="Console" order="8" />
+      <window_info anchor="bottom" id="DB Execution Console" order="10" />
       <window_info anchor="right" content_ui="combo" id="Hierarchy" order="2" weight="0.25" />
+      <window_info anchor="bottom" id="Docker" order="0" show_stripe_button="false" />
       <window_info anchor="bottom" id="Inspection" order="6" weight="0.4" />
+      <window_info content_ui="combo" id="Project" order="0" weight="0.15830116" />
+      <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
       <window_info anchor="right" id="Commander" internal_type="SLIDING" order="0" type="SLIDING" weight="0.4" />
       <window_info anchor="right" id="Ant Build" order="1" weight="0.25" />
+      <window_info anchor="bottom" id="TODO" order="7" />
+      <window_info anchor="bottom" id="Version Control" order="12" />
+      <window_info anchor="bottom" id="Run" order="3" weight="0.34317344" />
+      <window_info id="DB Browser" order="5" />
+      <window_info id="Project Explorer" order="2" />
+      <window_info anchor="bottom" id="Debug" order="4" weight="0.39855072" />
+      <window_info id="Job Explorer" order="4" />
       <window_info anchor="bottom" id="Message" order="1" />
+      <window_info anchor="bottom" id="Event Log" order="13" side_tool="true" weight="0.32982457" />
       <window_info anchor="bottom" id="Cvs" order="5" weight="0.25" />
+      <window_info id="Favorites" order="3" side_tool="true" />
       <window_info anchor="bottom" id="Find" order="2" weight="0.32807016" />
+      <window_info anchor="bottom" id="Terminal" order="11" weight="0.32982457" />
+      <window_info anchor="bottom" id="Python Console" order="9" />
     </layout>
     <layout-to-restore>
       <window_info anchor="bottom" id="Console" order="8" />
-      <window_info anchor="bottom" id="Find" order="2" weight="0.32807016" />
       <window_info anchor="right" content_ui="combo" id="Hierarchy" order="2" weight="0.25" />
       <window_info anchor="bottom" id="Docker" order="0" show_stripe_button="false" />
       <window_info id="Project Explorer" order="2" />
-      <window_info anchor="right" id="Ant Build" order="1" weight="0.25" />
-      <window_info anchor="bottom" id="Cvs" order="5" weight="0.25" />
       <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.15830116" />
       <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
       <window_info anchor="bottom" id="DB Execution Console" order="10" />
+      <window_info anchor="right" id="Ant Build" order="1" weight="0.25" />
       <window_info anchor="bottom" id="TODO" order="7" />
-      <window_info id="Favorites" order="3" side_tool="true" />
+      <window_info anchor="bottom" id="Version Control" order="12" />
       <window_info anchor="bottom" id="Run" order="3" weight="0.34317344" />
       <window_info id="DB Browser" order="5" />
-      <window_info anchor="bottom" id="Message" order="1" />
-      <window_info anchor="bottom" id="Debug" order="4" weight="0.39855072" />
+      <window_info anchor="right" id="Commander" internal_type="SLIDING" order="0" type="SLIDING" weight="0.4" />
+      <window_info anchor="bottom" id="Python Console" order="9" />
+      <window_info anchor="bottom" id="Find" order="2" weight="0.32807016" />
       <window_info id="Job Explorer" order="4" />
+      <window_info anchor="bottom" id="Debug" order="4" weight="0.39855072" />
       <window_info anchor="bottom" id="Terminal" order="11" weight="0.32982457" />
       <window_info anchor="bottom" id="Event Log" order="13" side_tool="true" weight="0.32982457" />
       <window_info anchor="bottom" id="Inspection" order="6" weight="0.4" />
-      <window_info anchor="bottom" id="Version Control" order="12" />
-      <window_info anchor="right" id="Commander" internal_type="SLIDING" order="0" type="SLIDING" weight="0.4" />
-      <window_info anchor="bottom" id="Python Console" order="9" />
+      <window_info anchor="bottom" id="Cvs" order="5" weight="0.25" />
+      <window_info anchor="bottom" id="Message" order="1" />
+      <window_info id="Favorites" order="3" side_tool="true" />
     </layout-to-restore>
   </component>
   <component name="VcsContentAnnotationSettings">
@@ -303,7 +339,6 @@
     </breakpoint-manager>
   </component>
   <component name="editorHistoryManager">
-    <entry file="file://$PROJECT_DIR$/kubernetes/DEV-274/test.py" />
     <entry file="file://$PROJECT_DIR$/kubernetes/DEV-274/delete_vm_test.py" />
     <entry file="file://$PROJECT_DIR$/kubernetes/DEV-274/mysql.py" />
     <entry file="file://$PROJECT_DIR$/kubernetes/DEV-274/ansible_deploy.yml" />
@@ -320,9 +355,6 @@
     <entry file="file://$PROJECT_DIR$/app.go" />
     <entry file="file://$PROJECT_DIR$/model.go" />
     <entry file="file://$PROJECT_DIR$/kubernetes/create_vm.py" />
-    <entry file="file://$PROJECT_DIR$/src/api/REST-Kubernetes_1.0.0_swagger.yaml">
-      <provider selected="true" editor-type-id="text-editor" />
-    </entry>
     <entry file="file://$PROJECT_DIR$/src/kubernetes/docs/readme.md">
       <provider selected="true" editor-type-id="split-provider[text-editor;markdown-preview-editor]">
         <state split_layout="SPLIT">
@@ -464,9 +496,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/Useful commands for deployment engine">
-      <provider selected="true" editor-type-id="text-editor" />
-    </entry>
     <entry file="file://$PROJECT_DIR$/../cloudsigma/Useful commands for deployment engine">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="630">
@@ -495,14 +524,31 @@
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/Useful commands for deployment engine">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="135">
+          <caret line="5" column="21" selection-start-line="5" selection-start-column="21" selection-end-line="5" selection-end-column="21" />
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/README.md">
       <provider selected="true" editor-type-id="split-provider[text-editor;markdown-preview-editor]">
         <state split_layout="SPLIT">
-          <first_editor relative-caret-position="427">
-            <caret line="60" lean-forward="true" selection-start-line="60" selection-end-line="60" />
+          <first_editor relative-caret-position="300">
+            <caret line="16" column="66" selection-start-line="16" selection-start-column="66" selection-end-line="16" selection-end-column="66" />
           </first_editor>
           <second_editor />
         </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/api/REST-Kubernetes_1.0.0_swagger.yaml">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="-2317" />
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/api/REST-Kubernetes_1.1.yaml">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="-2647" />
       </provider>
     </entry>
   </component>
