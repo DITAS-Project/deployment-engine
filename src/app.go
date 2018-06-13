@@ -98,8 +98,8 @@ func (a *App) createDep(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//respondWithJSON(w, http.StatusCreated, u)
-	respondWithJSON(w, http.StatusOK, map[string]string{"result": "success, run GET dep to generate the file"})
+	respondWithJSON(w, http.StatusCreated, u)
+	//respondWithJSON(w, http.StatusOK, map[string]string{"result": "success"})
 }
 
 func (a *App) getDep(w http.ResponseWriter, r *http.Request) {

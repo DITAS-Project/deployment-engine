@@ -56,7 +56,7 @@ server = cloudsigma.resource.Server()
 lib = cloudsigma.resource.LibDrive()
 
 
-def _wait_until(uuid, status_required, timeout=60):
+def _wait_until(uuid, status_required, timeout=120):
        status = server.get(uuid=uuid)['status']
        while status != status_required and timeout > 0:
            time.sleep(1)
