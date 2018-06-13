@@ -37,6 +37,12 @@
       - name: joining nodes to cluster
         command: "{{ hostvars[groups['master'][0]]['join_command'] }}"
 
+  - hosts: all
+    tasks:
+      - copy:
+          src: /deployment-engine/src/blueprint.json
+          dest: /home/cloudsigma/blueprint.json
+
   - hosts: localhost
     tasks:
       - name: final
