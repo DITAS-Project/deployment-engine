@@ -1,9 +1,6 @@
 # Deployment engine for kubernetes cluster
 
-This is a WIP - work in progress readme of a docker-based version of the deployment engine,
-for a stable, local version please refer to the last local commit from the repository:
-https://github.com/DITAS-Project/deployment-engine/commit/d062be68ae4ed9c7b6c28227eb61e194a8a733d6
-and to the corresponding README.
+This is a WIP - work in progress readme of a docker-based version of the deployment engine. The deployment engine lives in a virtual machine created and maintained solely for this purpose at IP of 31.171.247.156 - port 50012 for remote acces to the app - REST api.
 
 ### Structure
 The project consists of two docker containers, where the first one contains:
@@ -14,14 +11,15 @@ The project consists of two docker containers, where the first one contains:
 3. Ansible playbook used on the created virtual machine to set up a kubernetes cluster
 
 And the other one is a MySQL database to store the deployments and nodes information
-and is added by the administrators of Jenkins.
+and is accessible through port 50013 at the same IP address.
 
 Data is structured as in the following schema - swagger api file (available in /src/api/):
-https://app.swaggerhub.com/apis/jacekwachowiak/REST-Kubernetes/1.0.0
+https://app.swaggerhub.com/apis/jacekwachowiak/REST-Kubernetes/1.1
 
 ### Steps to go:
-* rewrite scripts if multiple masters are needed, add information about the status of the deployment to the python return arguments
-* rewrite swagger file and all dependencies in the code to match the blueprint if the blueprint final version is published
+* rewrite scripts if multiple masters are needed - abandoned for now, useful only with very large networks
+* rewrite swagger file according to the blueprint - code was already updated
+* handle deployment requests with automatic installing of the app inside the cluster - for now hardcoded SLA - see branch SLA of this repo
 
 ### Requirements
 To run the project in its current state it is not necessary to have a working instance of MySQL,
@@ -37,11 +35,11 @@ Every time there is a push/pull done, Jenkins will run the test on the repositor
 [http://178.22.71.23:8080/job/deployment-engine/job/master/](http://178.22.71.23:8080/job/deployment-engine/job/master/)
 
 The next section assumes that we have a successful build running. To check that the engine is running go to:
-[http://31.171.247.162:50012/deps](http://31.171.247.162:50012/deps), you should be able to load the page, no matter if there is any deployment already running.
+[http://31.171.247.162:50012/deps](http://31.171.247.162:50012/deps), you should be able to load the page, no matter if there is any deployment already running. This is a version living on a Jenkins managed machine. To access an external one go to [http://31.171.247.156:50012/deps](http://31.171.247.156:50012/deps). Here every new version of docker must be pulled and rerun by hand but it allows to enter the container and all machines in the network directly.
 
 #### Add a deployment
 To add a deployment `test` use curl - 
-`curl -H "Content-Type: application/json" -d '{"id":"test", "name":"AddedDep", "status":"starting", "nodes": [{"id": "sth1", "region": "ZRH", "public_ip": "168.192.0.1", "role": "none", "ram":2048, "cpu":2000, "status":"starting"}, {"id": "sth2", "region": "MIA", "public_ip": "168.192.0.2", "role": "none", "ram":1024, "cpu":2000, "status":"starting"}]}' 31.171.247.162:50012/dep`
+`curl -H "Content-Type: application/json" -d '{"id":"test", "name":"AddedDep", "status":"starting", "nodes": [{"id": "sth1", "region": "ZRH", "public_ip": "168.192.0.1", "role": "none", "ram":2048, "cpu":2000, "status":"starting"}, {"id": "sth2", "region": "MIA", "public_ip": "168.192.0.2", "role": "none", "ram":1024, "cpu":2000, "status":"starting"}]}' 31.171.247.156:50012/dep` or change `156` to `162` but you will lose the possibility to enter to the cluster.
 It takes time to set everything up. You will be informed by the API once the job is done or have failed. There is no intermediate output possible due to the fact that only a JSON can be returned and
 all printing happens inside the container.
 
@@ -49,10 +47,10 @@ Having that, if you want to make sure that the machines were created correctly, 
 If they show `running` it means the python script has finished its job.
 
 #### View the deployments
-To view deployments from the command line type `curl 31.171.247.162:50012/deps` for all and `curl 31.171.247.162:50012/dep/test` for a specific one - `test` in this case.
+To view deployments from the command line type `curl 31.171.247.156:50012/deps` for all and `curl 31.171.247.156:50012/dep/test` for a specific one - `test` in this case.
 
 #### Remove the deployment
-To remove a deployment called `test` run `curl -X DELETE 31.171.247.162:50012/dep/test`
+To remove a deployment called `test` run `curl -X DELETE 31.171.247.156:50012/dep/test`
 Remember to remove the deployment after you are done! Otherwise it will stay and take your resources until you do.
 
 #### Final note

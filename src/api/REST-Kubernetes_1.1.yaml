@@ -1,0 +1,205 @@
+swagger: '2.0'
+info:
+  description: "This API serves as a connecting point to a Kubernetes cluster deployed with parameters given by the developer. Deployment through POST, viewing through GET and removal through DELETE is assumed."
+  version: "1.1"
+  title: "Kubernetes cluster REST API"
+  # put the contact info for your development or API team
+  contact:
+    email: "jacek-rafal.wachowiak@atos.net"
+
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+
+# tags are used for organizing operations
+tags:
+- name: "developer"
+  description: "All changes allowed, no roles assumed for now"
+
+paths:
+  /deployments:
+    post:
+      tags:
+      - "developer"
+      summary: "Gets a DITAS Blueprint and performs the deployment"
+      operationId: "addDeployment"
+      description: ""
+      consumes:
+      - "application/json"
+      produces:
+      - "application/json"
+      parameters:
+      - in: "body"
+        name: "deployment"
+        description: "Deployment parameters"
+        required: true
+        schema:
+          $ref: '#/definitions/Deployment'
+      responses:
+        201:
+          description: "item created"
+        400:
+          description: "invalid input, object invalid"
+        409:
+          description: "the item already exists"
+        500: 
+          description: "Internal server error"
+    get:
+      tags:
+      - "developer"
+      summary: "Returns all deployments"
+      operationId: "getDeployments"
+      description: ""
+      consumes:
+      - "application/json"
+      produces:
+      - "application/json"
+      responses:
+        200:
+          description: "Return successful"
+          schema:
+            type: "array"
+            items:
+              $ref: '#/definitions/Deployment'
+        500: 
+          description: "Internal server error"
+  /deployments/{deploymentID}:
+    get:
+      tags:
+      - "developer"
+      summary: "Find deployment by ID"
+      description: "Returns a single deployment"
+      operationId: "getDeploymentByID"
+      produces:
+      - "application/json"
+      parameters:
+      - name: "deploymentID"
+        in: "path"
+        description: "Deployment ID to return"
+        required: true
+        type: "string"
+        x-example:  "test_dep"
+      responses:
+        200:
+          description: "Successful operation"
+          schema:
+            $ref: "#/definitions/Deployment"
+        404:
+          description: "Provider not found"
+        500: 
+          description: "Internal server error"
+    delete:
+      tags:
+      - "developer"
+      summary: "Deletes a deployment by ID"
+      description: ""
+      operationId: "deleteDeployment"
+      produces:
+      - "application/json"
+      parameters:
+      - name: "deploymentID"
+        in: "path"
+        description: "Deployment ID to delete"
+        required: true
+        type: "string"
+        x-example:  "test_dep"
+      responses:
+        200:
+          description: "Successful operation"
+        404:
+          description: "Provider not found"
+        500: 
+          description: "Internal server error"
+definitions:
+  Deployment:
+    type: object
+    required:
+    - name
+    - description
+    - resources
+    - on-line
+    properties:
+      name:
+        type: string
+        format: uuid
+        example: "test"
+      description:
+        type: string
+        format: uuid
+        example: "First dep"
+      on-line:
+        type: string
+        format: uuid
+        example: "running/starting/..."
+      type:
+        type: string
+        format: uuid
+        example: "x"
+      api_endpoint:
+        type: string
+        format: uuid
+        example: "x"
+      api_type:
+        type: string
+        format: uuid
+        example: "x"
+      keypair_id:
+        type: string
+        format: uuid
+        example: "x"
+      resources:
+        type: array
+        items: 
+          $ref: '#/definitions/Node'
+  Node:
+    type: object
+    required:
+    - name
+    - role
+    - RAM
+    - cpu
+    properties:
+      name:
+        type: string
+        example: "sth1"
+      role:
+        type: string
+        example: "none"
+      RAM:
+        type: integer
+        format: int32
+        example: "2048"
+      cpu:
+        type: integer
+        format: int32
+        example: "2000"
+      type:
+        type: string
+        example: "none"
+      disc:
+        type: string
+        example: "none"
+      generate_ssh_keys:
+        type: string
+        example: "none"
+      ssh_keys_id:
+        type: string
+        example: "none"
+      baseimage:
+        type: string
+        example: "none"
+      arch:
+        type: string
+        example: "none"
+      os:
+        type: string
+        example: "none"
+# Added by API Auto Mocking Plugin
+host: virtserver.swaggerhub.com
+basePath: /jacekwachowiak/REST-Kubernetes/1.0.0
+# schemes:
+#  - http
+# Added by API Auto Mocking Plugin
+schemes:
+ - https
+ - http
