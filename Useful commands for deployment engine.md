@@ -10,7 +10,7 @@ VIEW ONE
 REMOVE
 
 `curl -X DELETE 31.171.247.156:50012/dep/test`
-### Log in to deployment engine VM
+### Log into deployment engine VM
 
 `ssh cloudsigma@31.171.247.156`
 
@@ -20,7 +20,7 @@ REMOVE
 docker stop --time 20 deployment-engine
 docker rm --force deployment-engine`
 
-Only if non-existent:
+Only if non-existent (check with docker ps):
 `docker run --name=mysql -p 50013:3306 -e MYSQL_ROOT_PASSWORD=root -e MYSQL_DATABASE=k8sql -d mysql:5.7.22`
 
 Run

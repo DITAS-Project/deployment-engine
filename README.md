@@ -1,6 +1,6 @@
 # Deployment engine for kubernetes cluster
 
-This is a WIP - work in progress readme of a docker-based version of the deployment engine. The deployment engine lives in a virtual machine created and maintained solely for this purpose at IP of 31.171.247.156 - port 50012 for remote acces to the app - REST api.
+This is a WIP - work in progress readme of a docker-based version of the deployment engine. The deployment engine lives in a virtual machine created and maintained solely for this purpose at IP of 31.171.247.156 - port 50012 for remote access to the app - REST api.
 
 ### Structure
 The project consists of two docker containers, where the first one contains:
