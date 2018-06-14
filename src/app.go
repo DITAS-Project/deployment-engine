@@ -69,7 +69,7 @@ func (a *App) getDeps(w http.ResponseWriter, r *http.Request) {
 	start, _ := strconv.Atoi(r.FormValue("start"))
 
 	if count > 100 || count < 1 {
-		count = 100
+		count = 100 //in case of 100+ deplyments, just remove it, safety valve
 	}
 	if start < 0 {
 		start = 0
@@ -125,16 +125,6 @@ func (a *App) getDep(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	//
-	//	jsonData, _ := json.Marshal(u)
-	//	jsonFile, err := os.Create("./blueprint.json")
-	//	if err != nil {
-	//		panic(err)
-	//	}
-	//	defer jsonFile.Close()
-	//	jsonFile.Write(jsonData)
-	//	jsonFile.Close()
-	//
 	respondWithJSON(w, http.StatusOK, u)
 }
 
@@ -143,7 +133,6 @@ func (a *App) deleteDep(w http.ResponseWriter, r *http.Request) {
 	id := vars["id"]
 
 	u := dep{Id: id}
-	//here arguments for python are prepared
 	if err := u.getDep(a.DB); err != nil {
 		switch err {
 		case sql.ErrNoRows:

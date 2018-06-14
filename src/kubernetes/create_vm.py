@@ -12,22 +12,6 @@ import mysql
 node_names = []
 cpu = []
 mem = []
-# numberOfMasters = int(sys.argv[1])
-# print "Number of master nodes:"
-# print numberOfMasters
-# print "Node names: "
-# for i in range (2, len(sys.argv), 3):
-#     print sys.argv[i]
-#     node_names.append(sys.argv[i])
-# print "RAM sizes: "
-# for i in range (3, len(sys.argv), 3):
-#     print sys.argv[i]
-#     mem.append(int(sys.argv[i]))
-# print "CPU sizes: "
-# for i in range (4, len(sys.argv), 3):
-#     print sys.argv[i]
-#     cpu.append(int(sys.argv[i]))
-#
 numberOfMasters = 1
 print "Node names: "
 for i in range (1, len(sys.argv), 3):
@@ -41,10 +25,9 @@ print "CPU sizes: "
 for i in range (3, len(sys.argv), 3):
     print sys.argv[i]
     cpu.append(int(sys.argv[i]))
-# node_names = ('node1', 'node2') ##
 to_install = ('apt-get update', 'apt-get install -y python python-pip', 'reboot')
 dist_name = 'Ubuntu'
-dist_version = 'Ubuntu 16.04 LTS' #change according to slack!
+dist_version = 'Ubuntu 16.04 LTS'
 ssh_user = 'cloudsigma'
 print "Checking if ssh rsa works"
 pub_key = open(os.path.expanduser('~/.ssh/id_rsa.pub')).read()
@@ -73,7 +56,7 @@ def remove_old_vms(name):
                if serv_to_del.get('status')!='stopped':
                    server.stop(serv_id_to_del)
                    _wait_until(serv_id_to_del, 'stopped')
-               server.delete_with_disks(serv_id_to_del)    #it's removing vm with drive
+               server.delete_with_disks(serv_id_to_del)    # it's removing vm with drive
 
 
 print "Removing old nodes"

@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-# This file is used to create a VM that serves as the deployment engine hardware, here docker container with the app resides and to this address all deployment requests are directed.
+# This file is used to create a VM that serves as the deployment engine hardware,
+# here the docker container with the app resides and to this address all deployment requests are directed.
 import cloudsigma
 import time
 import os

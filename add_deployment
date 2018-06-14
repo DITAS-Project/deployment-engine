@@ -1,6 +1,0 @@
-This is a deployment ADD command in a new, blueprint-based format.
-Checking if with no default variables, the dep works.
-That fails:
-curl -H "Content-Type: application/json" -d '{"name":"test", "description":"AddedDep", "on-line":"starting", "resources": [{"name": "sth1", "role": "none", "ram":2048, "cpu":2000}, {"name": "sth2", "role": "none", "ram":1024, "cpu":2000}]}' 31.171.247.162:50012/dep
-This works:
-curl -H "Content-Type: application/json" -d '{"name":"test", "description":"AddedDep", "on-line":"starting", "type":"x", "api_endpoint":"xx", "api_type":"xxx", "keypair_id":"xxxx", "resources": [{"name": "sth1", "role": "none", "ram":2048, "cpus":2000, "type": "none", "disc": "none", "generate_ssh_keys": "none", "ssh_keys_id": "none", "baseimage": "none", "arch": "none", "os": "none"}, {"name": "sth2", "role": "none", "ram":2048, "cpus":2000, "type": "none", "disc": "none", "generate_ssh_keys": "none", "ssh_keys_id": "none", "baseimage": "none", "arch": "none", "os": "none"}]}' 31.171.247.162:50012/dep

@@ -101,7 +101,7 @@ func (u *dep) createDep(db *sql.DB) error {
 	_, err := db.Exec(statement)
 	if err != nil {
 		fmt.Println("\nGO: Calling Ansible to add more components")
-		time.Sleep(20 * time.Second) //safety valve
+		time.Sleep(20 * time.Second) //safety valve in case of one command after another
 		cmd := exec.Command("ansible-playbook", "kubernetes/ansible_deploy_add.yml", "--inventory=kubernetes/inventory")
 		out2, err2 := cmd.Output()
 		fmt.Print(string(out2))
@@ -109,7 +109,6 @@ func (u *dep) createDep(db *sql.DB) error {
 			fmt.Println(err2.Error())
 			return err2
 		}
-		//return err
 		return nil
 	}
 	var pythonArgs []string
@@ -130,8 +129,7 @@ func (u *dep) createDep(db *sql.DB) error {
 		fmt.Println(err.Error())
 		return err
 	}
-	//
-	//here json file must be created
+	//here json file is created
 	u.getDep(db)
 	u.getNodes(db)
 	jsonData, _ := json.Marshal(u)
@@ -142,9 +140,8 @@ func (u *dep) createDep(db *sql.DB) error {
 	defer jsonFile.Close()
 	jsonFile.Write(jsonData)
 	jsonFile.Close()
-	//
-	//here after successful python call, ansible playbook is run, at least 30s of pause is needed for 2 nodesBlueprint (experimental)
-	//80 seconds failed, try with 180
+	//here after successful python call, ansible playbook is run, at least 30s of pause is needed for a node (experimental)
+	//80 seconds failed, try with 180 to be safe
 	fmt.Println("\nGO: Calling Ansible")
 	time.Sleep(180 * time.Second)
 	cmd := exec.Command("ansible-playbook", "kubernetes/ansible_deploy.yml", "--inventory=kubernetes/inventory")
