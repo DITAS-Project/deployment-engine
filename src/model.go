@@ -100,7 +100,16 @@ func (u *dep) createDep(db *sql.DB) error {
 	statement := fmt.Sprintf("INSERT INTO deploymentsBlueprint(id, description, status, type, api_endpoint, api_type, keypair_id) VALUES('%s', '%s', '%s', '%s', '%s', '%s', '%s')", u.Id, u.Description, status, u.Type, u.Api_endpoint, u.Api_type, u.Keypair_id)
 	_, err := db.Exec(statement)
 	if err != nil {
-		return err
+		fmt.Println("\nGO: Calling Ansible to add more components")
+		time.Sleep(20 * time.Second) //safety valve
+		cmd := exec.Command("ansible-playbook", "kubernetes/ansible_deploy_add.yml", "--inventory=kubernetes/inventory")
+		out2, err2 := cmd.Output()
+		fmt.Print(string(out2))
+		if err2 != nil {
+			fmt.Println(err2.Error())
+			return err2
+		}
+		//return err
 	}
 	var pythonArgs []string
 	for _, element := range u.Nodes {
@@ -144,8 +153,6 @@ func (u *dep) createDep(db *sql.DB) error {
 		fmt.Println(err2.Error())
 		return err2
 	}
-	//	fmt.Println("Ansible off for now - testing")
-	//	time.Sleep(1 * time.Second)
 	// update database with deployment status - running
 	status = "running"
 	statement = fmt.Sprintf("UPDATE deploymentsBlueprint SET deploymentsBlueprint.status = \042%s\042 WHERE deploymentsBlueprint.id = \042%s\042", status, u.Id)
