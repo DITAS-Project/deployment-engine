@@ -1,45 +1,48 @@
--------------------CURL create/delete deployment - run it in any command line
+### CURL create/delete deployment - run it in any command line
+ADD
 
-curl -H "Content-Type: application/json" -d '{"name":"test", "description":"AddedDep", "on-line":"starting", "type":"x", "api_endpoint":"xx", "api_type":"xxx", "keypair_id":"xxxx", "resources": [{"name": "sth1", "role": "none", "ram":2048, "cpus":2000, "type": "none", "disc": "none", "generate_ssh_keys": "none", "ssh_keys_id": "none", "baseimage": "none", "arch": "none", "os": "none"}, {"name": "sth2", "role": "none", "ram":2048, "cpus":2000, "type": "none", "disc": "none", "generate_ssh_keys": "none", "ssh_keys_id": "none", "baseimage": "none", "arch": "none", "os": "none"}]}' 31.171.247.156:50012/dep
+`curl -H "Content-Type: application/json" -d '{"name":"test", "description":"AddedDep", "on-line":"starting", "type":"x", "api_endpoint":"xx", "api_type":"xxx", "keypair_id":"xxxx", "resources": [{"name": "sth1", "role": "none", "ram":2048, "cpus":2000, "type": "none", "disc": "none", "generate_ssh_keys": "none", "ssh_keys_id": "none", "baseimage": "none", "arch": "none", "os": "none"}, {"name": "sth2", "role": "none", "ram":2048, "cpus":2000, "type": "none", "disc": "none", "generate_ssh_keys": "none", "ssh_keys_id": "none", "baseimage": "none", "arch": "none", "os": "none"}]}' 31.171.247.156:50012/dep`
 
+VIEW ONE 
 
-curl -X DELETE 31.171.247.156:50012/dep/test
-curl 31.171.247.156:50012/dep/test
--------------------Login to deployment engine VM
+`curl 31.171.247.156:50012/dep/test`
 
-ssh cloudsigma@31.171.247.156
+REMOVE
 
--------------------Download and run docker artifact
+`curl -X DELETE 31.171.247.156:50012/dep/test`
+### Log in to deployment engine VM
 
-docker pull ditas/deployment-engine:latest
+`ssh cloudsigma@31.171.247.156`
 
+### Download and run docker artifact
+
+`docker pull ditas/deployment-engine:latest
 docker stop --time 20 deployment-engine
+docker rm --force deployment-engine`
 
-docker rm --force deployment-engine
+Only if non-existent:
+`docker run --name=mysql -p 50013:3306 -e MYSQL_ROOT_PASSWORD=root -e MYSQL_DATABASE=k8sql -d mysql:5.7.22`
 
-docker run --name=mysql -p 50013:3306 -e MYSQL_ROOT_PASSWORD=root -e MYSQL_DATABASE=k8sql -d mysql:5.7.22
+Run
+`docker run -p 50012:8080 -d --name deployment-engine --link mysql:mysql ditas/deployment-engine:latest`
 
-docker run -p 50012:8080 -d --name deployment-engine --link mysql:mysql ditas/deployment-engine:latest
+### Get into docker container, into master of the network and check kubernetes
 
--------------------Get into docker container, into master of the network and check kubernetes
+`docker exec -it deployment-engine bash`
 
-docker exec -it deployment-engine bash
+`ssh cloudsigma@masterIP` where masterIP is whatever IP belonging to the first machine form the blueprint
 
-ssh cloudsigma@masterIP
+`export KUBECONFIG=$HOME/admin.conf`
 
-export KUBECONFIG=$HOME/admin.conf
+`kubectl get nodes -o wide` optionally to view nodes
 
-kubectl get nodes -o wide
+`kubectl get pods`
 
-//done automatically in branch SLA
-kubectl create -f https://raw.githubusercontent.com/DITAS-Project/SLALite/master/pod_deploy.yaml
+`kubectl describe pod slaliteXXX` where XXX is a number to view details of the pod.
 
-kubectl describe pod slalite
+`kubectl exec -it slaliteXXX -- /bin/sh` to get into the pod
 
-//get into kubelet
-kubectl exec -it slalite -- /bin/sh
+`kubectl delete svc slalite | kubectl delete pod slalite` to remove the pod and the service
 
-kubectl delete svc slalite | kubectl delete pod slalite
------------------------------
 
 

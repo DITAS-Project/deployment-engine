@@ -18,14 +18,13 @@ https://app.swaggerhub.com/apis/jacekwachowiak/REST-Kubernetes/1.1
 
 ### Steps to go:
 * rewrite scripts if multiple masters are needed - abandoned for now, useful only with very large networks
-* rewrite swagger file according to the blueprint - code was already updated
-* handle deployment requests with automatic installing of the app inside the cluster - for now hardcoded SLA - see branch SLA of this repo
+* handle deployment requests with automatic installing of the apps inside the cluster - for now just SLA available
 
 ### Requirements
 To run the project in its current state it is not necessary to have a working instance of MySQL,
 neither go nor 
 curl or python 2.7.
-The principal component necessary to run the deployment is access to Jenkins platform. To make changes download the repository and add/commit/push.
+The principal component necessary to run the deployment is access to a machine with docker installed. To make changes to the project download the repository and add/commit/push.
 
 ### Instructions
 There are two dockerfiles. 
