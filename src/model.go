@@ -110,6 +110,7 @@ func (u *dep) createDep(db *sql.DB) error {
 			return err2
 		}
 		//return err
+		return nil
 	}
 	var pythonArgs []string
 	for _, element := range u.Nodes {

@@ -42,3 +42,4 @@ kubectl exec -it slalite -- /bin/sh
 kubectl delete svc slalite | kubectl delete pod slalite
 -----------------------------
 
+
