@@ -40,8 +40,10 @@
   - hosts: all
     tasks:
       - name: Create blueprint directory
-        file: path=/home/cloudsigma/blueprint
-        state: directory
+        file:
+          path: /home/cloudsigma/blueprint
+          state: directory
+          mode: 0666
 
   - hosts: all
     tasks:
