@@ -47,7 +47,7 @@
     become: yes
     become_user: "{{ hostvars[groups['master'][0]]['ansible_ssh_user'] }}"
     tasks:
-      - name: deploying SLA automatically
+      - name: deploying SLA automatically - re-push
         script: scripts/SLAdeploy.sh
 
   - hosts: localhost

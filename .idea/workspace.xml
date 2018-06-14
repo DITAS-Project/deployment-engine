@@ -2,12 +2,7 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="3a4aee05-cadd-4b78-9541-9cbd36062106" name="Default" comment="">
-      <change afterPath="$PROJECT_DIR$/Useful commands for deployment engine" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/create_vm_for_deployment.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/k8sql.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/k8sql.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/kubernetes/ansible_deploy.yml" beforeDir="false" afterPath="$PROJECT_DIR$/src/kubernetes/ansible_deploy.yml" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="TRACKING_ENABLED" value="true" />
@@ -16,22 +11,16 @@
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
+  <component name="FavoritesManager">
+    <favorites_list name="deployment-engine" />
+  </component>
   <component name="FileEditorManager">
-    <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
-      <file leaf-file-name="create_vm_for_deployment.py" pinned="false" current-in-tab="true">
-        <entry file="file://$PROJECT_DIR$/src/create_vm_for_deployment.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="30">
-              <caret line="1" column="182" selection-start-line="1" selection-start-column="182" selection-end-line="1" selection-end-column="182" />
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file leaf-file-name="ansible_deploy.yml" pinned="false" current-in-tab="false">
+    <leaf>
+      <file leaf-file-name="ansible_deploy.yml" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/src/kubernetes/ansible_deploy.yml">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="128">
-              <caret line="49" column="33" selection-start-line="49" selection-start-column="33" selection-end-line="49" selection-end-column="33" />
+            <state relative-caret-position="285">
+              <caret line="49" column="47" selection-start-line="49" selection-start-column="47" selection-end-line="49" selection-end-column="47" />
             </state>
           </provider>
         </entry>
@@ -112,9 +101,9 @@
         <option value="$PROJECT_DIR$/src/kubernetes/create_vm.py" />
         <option value="$PROJECT_DIR$/../SLALite/pod_deploy.yaml" />
         <option value="$PROJECT_DIR$/src/kubernetes/scripts/SLAdeploy.sh" />
-        <option value="$PROJECT_DIR$/src/kubernetes/ansible_deploy.yml" />
         <option value="$PROJECT_DIR$/../cloudsigma/commands" />
         <option value="$PROJECT_DIR$/src/create_vm_for_deployment.py" />
+        <option value="$PROJECT_DIR$/src/kubernetes/ansible_deploy.yml" />
       </list>
     </option>
   </component>
@@ -141,6 +130,18 @@
               <item name="deployment-engine" type="b2602c69:ProjectViewProjectNode" />
               <item name="deployment-engine" type="462c0819:PsiDirectoryNode" />
               <item name="src" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="deployment-engine" type="b2602c69:ProjectViewProjectNode" />
+              <item name="deployment-engine" type="462c0819:PsiDirectoryNode" />
+              <item name="src" type="462c0819:PsiDirectoryNode" />
+              <item name="api" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="deployment-engine" type="b2602c69:ProjectViewProjectNode" />
+              <item name="deployment-engine" type="462c0819:PsiDirectoryNode" />
+              <item name="src" type="462c0819:PsiDirectoryNode" />
+              <item name="kubernetes" type="462c0819:PsiDirectoryNode" />
             </path>
           </expand>
           <select />
@@ -241,29 +242,45 @@
     <frame x="65" y="-4" width="1295" height="678" extended-state="6" />
     <editor active="true" />
     <layout>
-      <window_info anchor="bottom" id="TODO" order="7" />
-      <window_info id="DB Browser" order="5" />
-      <window_info anchor="bottom" id="DB Execution Console" order="10" />
-      <window_info anchor="bottom" id="Event Log" order="13" side_tool="true" weight="0.32982457" />
-      <window_info anchor="bottom" id="Run" order="3" weight="0.34317344" />
-      <window_info anchor="bottom" id="Version Control" order="12" />
-      <window_info anchor="bottom" id="Python Console" order="9" />
-      <window_info anchor="bottom" id="Terminal" order="11" weight="0.32982457" />
-      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.15830116" />
-      <window_info id="Project Explorer" order="2" />
-      <window_info id="Job Explorer" order="4" />
-      <window_info anchor="bottom" id="Docker" order="0" show_stripe_button="false" />
-      <window_info anchor="bottom" id="Console" order="8" />
-      <window_info anchor="bottom" id="Find" order="2" weight="0.32807016" />
+      <window_info anchor="bottom" id="TODO" order="6" />
+      <window_info id="DB Browser" weight="0.3294025" />
+      <window_info anchor="bottom" id="DB Execution Console" />
+      <window_info anchor="bottom" id="Event Log" side_tool="true" />
+      <window_info anchor="bottom" id="Version Control" />
+      <window_info anchor="bottom" id="Python Console" />
+      <window_info anchor="bottom" id="Run" order="2" />
+      <window_info anchor="bottom" id="Terminal" />
+      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.18710692" />
+      <window_info id="Project Explorer" />
+      <window_info id="Job Explorer" />
+      <window_info anchor="bottom" id="Docker" show_stripe_button="false" />
+      <window_info anchor="bottom" id="Console" />
       <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
-      <window_info anchor="bottom" id="Debug" order="4" weight="0.39855072" />
-      <window_info id="Favorites" order="3" side_tool="true" />
+      <window_info id="Favorites" side_tool="true" weight="0.3294025" />
+      <window_info anchor="bottom" id="Debug" order="3" weight="0.4" />
+      <window_info anchor="bottom" id="Console" order="8" />
+      <window_info anchor="bottom" id="DB Execution Console" order="10" />
       <window_info anchor="right" content_ui="combo" id="Hierarchy" order="2" weight="0.25" />
-      <window_info anchor="bottom" id="Inspection" order="6" weight="0.4" />
+      <window_info anchor="bottom" id="Docker" order="0" show_stripe_button="false" />
+      <window_info anchor="bottom" id="Version Control" order="12" />
+      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.15830116" />
+      <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
       <window_info anchor="right" id="Commander" internal_type="SLIDING" order="0" type="SLIDING" weight="0.4" />
       <window_info anchor="right" id="Ant Build" order="1" weight="0.25" />
-      <window_info anchor="bottom" id="Message" order="1" />
+      <window_info anchor="bottom" id="TODO" order="7" />
+      <window_info anchor="bottom" id="Run" order="3" weight="0.34317344" />
+      <window_info id="DB Browser" order="5" />
+      <window_info id="Project Explorer" order="2" />
+      <window_info anchor="bottom" id="Find" order="2" weight="0.32807016" />
+      <window_info id="Job Explorer" order="4" />
+      <window_info anchor="bottom" id="Debug" order="4" weight="0.39855072" />
+      <window_info anchor="bottom" id="Terminal" order="11" weight="0.32982457" />
+      <window_info anchor="bottom" id="Event Log" order="13" side_tool="true" weight="0.32982457" />
+      <window_info anchor="bottom" id="Inspection" order="6" weight="0.4" />
       <window_info anchor="bottom" id="Cvs" order="5" weight="0.25" />
+      <window_info id="Favorites" order="3" side_tool="true" />
+      <window_info anchor="bottom" id="Message" order="1" />
+      <window_info anchor="bottom" id="Python Console" order="9" />
     </layout>
   </component>
   <component name="VcsContentAnnotationSettings">
@@ -471,13 +488,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/src/kubernetes/ansible_deploy.yml">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="128">
-          <caret line="49" column="33" selection-start-line="49" selection-start-column="33" selection-end-line="49" selection-end-column="33" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/Useful commands for deployment engine">
       <provider selected="true" editor-type-id="text-editor" />
     </entry>
@@ -499,6 +509,13 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="30">
           <caret line="1" column="182" selection-start-line="1" selection-start-column="182" selection-end-line="1" selection-end-column="182" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/kubernetes/ansible_deploy.yml">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="285">
+          <caret line="49" column="47" selection-start-line="49" selection-start-column="47" selection-end-line="49" selection-end-column="47" />
         </state>
       </provider>
     </entry>
