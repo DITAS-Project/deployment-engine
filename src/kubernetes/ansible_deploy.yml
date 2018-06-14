@@ -39,9 +39,15 @@
 
   - hosts: all
     tasks:
+      - name: Create blueprint directory
+        file: path=/home/cloudsigma/blueprint
+        state: directory
+
+  - hosts: all
+    tasks:
       - copy:
           src: /deployment-engine/src/blueprint.json
-          dest: /home/cloudsigma/blueprint.json
+          dest: /home/cloudsigma/blueprint/blueprint.json
 
   - hosts: [master]
     become: yes
