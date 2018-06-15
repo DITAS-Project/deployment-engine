@@ -16,7 +16,7 @@ REMOVE
 
 ### Download and run docker artifact
 
-`docker pull ditas/deployment-engine:latest | docker stop --time 20 deployment-engine | docker rm --force deployment-engine`
+`docker pull ditas/deployment-engine:latest && docker stop --time 20 deployment-engine && docker rm --force deployment-engine`
 
 Only if non-existent (check with docker ps):
 `docker run --name=mysql -p 50013:3306 -e MYSQL_ROOT_PASSWORD=root -e MYSQL_DATABASE=k8sql -d mysql:5.7.22`
@@ -40,7 +40,7 @@ Run
 
 `kubectl exec -it slaliteXXX -- /bin/sh` to get into the pod
 
-`kubectl delete svc slalite | kubectl delete pod slalite` to remove the pod and the service
+`kubectl delete svc slalite && kubectl delete pod slalite` to remove the pod and the service
 
 
 

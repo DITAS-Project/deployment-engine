@@ -15,7 +15,7 @@ spec:
 apiVersion: v1
 kind: Pod
 metadata:
-  name: ds4k
+  name: ds4m
   labels:
     component: ds4m
 spec:
