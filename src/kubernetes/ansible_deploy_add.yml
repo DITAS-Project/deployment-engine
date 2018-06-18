@@ -10,6 +10,8 @@
             script: scripts/SLAdeploy.sh
           - name: DS4M
             script: scripts/ds4mdeploy.sh
+          - name: TUBDummy
+            script: scripts/TUBDummy_add.sh
 
   - hosts: localhost
     tasks:
