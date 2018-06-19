@@ -77,6 +77,7 @@ COPY /src/deployment-engine /deployment-engine/src/deployment-engine
 #For ssh connections
 RUN ssh-keygen -q -t rsa -N '' -f /root/.ssh/id_rsa
 RUN git clone https://github.com/DITAS-Project/VDC-Shared-Config.git
+#copy conf files
 EXPOSE 8080
 #Trying to run the app when the container starts
 RUN ["chmod", "+x", "/deployment-engine"]
