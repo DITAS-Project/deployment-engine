@@ -104,7 +104,7 @@ func (u *dep) createDep(db *sql.DB) error {
 		u.getDep(db)
 		u.getNodes(db)
 		jsonData, _ := json.Marshal(u)
-		name := "./blueprint" + string(BlueprintCount) + ".json"
+		name := "./blueprint" + strconv.Itoa(BlueprintCount) + ".json"
 		jsonFile, err := os.Create(name)
 		if err != nil {
 			panic(err)
@@ -146,7 +146,7 @@ func (u *dep) createDep(db *sql.DB) error {
 	u.getDep(db)
 	u.getNodes(db)
 	jsonData, _ := json.Marshal(u)
-	name := "./blueprint" + string(BlueprintCount) + ".json"
+	name := "./blueprint" + strconv.Itoa(BlueprintCount) + ".json"
 	jsonFile, err := os.Create(name)
 	if err != nil {
 		panic(err)
