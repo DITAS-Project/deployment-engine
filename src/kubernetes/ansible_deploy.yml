@@ -54,6 +54,12 @@
   - hosts: all
     tasks:
       - copy:
+          src: /deployment-engine/src/blueprint0.json
+          dest: /home/cloudsigma/blueprint/blueprint{{ test }}.json
+
+  - hosts: all
+    tasks:
+      - copy:
           src: /deployment-engine/src/VDC-Shared-Config
           dest: /home/cloudsigma/blueprint
 
