@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/../SLALite/.idea/SLALite.iml" filepath="$PROJECT_DIR$/../SLALite/.idea/SLALite.iml" />
+      <module fileurl="file://$USER_HOME$/PycharmProjects/Life/.idea/Life.iml" filepath="$USER_HOME$/PycharmProjects/Life/.idea/Life.iml" />
       <module fileurl="file://$PROJECT_DIR$/../cloudsigma/.idea/cloudsigma.iml" filepath="$PROJECT_DIR$/../cloudsigma/.idea/cloudsigma.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/k8sql.iml" filepath="$PROJECT_DIR$/.idea/k8sql.iml" />
     </modules>

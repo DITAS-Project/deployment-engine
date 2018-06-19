@@ -7,7 +7,7 @@
     <orderEntry type="jdk" jdkName="Python 2.7" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="module" module-name="cloudsigma" />
-    <orderEntry type="module" module-name="SLALite" />
+    <orderEntry type="module" module-name="Life" />
   </component>
   <component name="TestRunnerService">
     <option name="projectConfiguration" value="Nosetests" />

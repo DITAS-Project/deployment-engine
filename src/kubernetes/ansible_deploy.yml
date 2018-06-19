@@ -51,6 +51,12 @@
           src: /deployment-engine/src/blueprint.json
           dest: /home/cloudsigma/blueprint/blueprint.json
 
+  - hosts: all
+    tasks:
+      - copy:
+          src: /deployment-engine/src/VDC-Shared-Config
+          dest: /home/cloudsigma/blueprint
+
   - hosts: [master]
     become: yes
     become_user: "{{ hostvars[groups['master'][0]]['ansible_ssh_user'] }}"
