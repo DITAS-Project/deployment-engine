@@ -163,11 +163,11 @@ func (u *dep) createDep(db *sql.DB) error {
 	cmd := exec.Command("ansible-playbook", "kubernetes/ansible_deploy.yml", "--inventory=kubernetes/inventory", "--extra-vars=\"test="+strconv.Itoa(test)+"\"")
 	out2, err2 := cmd.Output()
 	//log file
-	log, err := os.Create("./log.log")
+	log, err := os.Create("log.txt")
 	if err != nil {
 		panic(err)
 	}
-	defer log.Close()
+	log.WriteString("Log for ansible \n")
 	log.WriteString(string(out2))
 	log.Close()
 	//
