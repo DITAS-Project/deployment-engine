@@ -65,7 +65,7 @@
       - name: deploying components automatically
         block:
           - name: SLAlite
-            script: scripts/SLAdeploy.sh
+            script: scripts/SLAdeploy.sh  {{ blueprintNumber }}
 #          - name: DS4M
 #            script: scripts/ds4mdeploy.sh
 #          - name: TUBDummy

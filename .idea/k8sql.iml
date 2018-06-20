@@ -6,8 +6,7 @@
     </content>
     <orderEntry type="jdk" jdkName="Python 2.7" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
-    <orderEntry type="module" module-name="cloudsigma" />
-    <orderEntry type="module" module-name="Life" />
+    <orderEntry type="module" module-name="ansible_variable_test" />
   </component>
   <component name="TestRunnerService">
     <option name="projectConfiguration" value="Nosetests" />
