@@ -55,7 +55,8 @@
     tasks:
       - copy:
           src: /deployment-engine/src/blueprint0.json
-          dest: /home/cloudsigma/blueprint/blueprint{{ test }}.json
+          dest: /home/cloudsigma/blueprint/blueprint100.json
+      when: test is defined
 
   - hosts: all
     tasks:
