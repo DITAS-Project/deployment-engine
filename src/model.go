@@ -158,7 +158,7 @@ func (u *dep) createDep(db *sql.DB) error {
 	//80 seconds failed, try with 180 to be safe
 	fmt.Println("\nGO: Calling Ansible")
 	time.Sleep(180 * time.Second)
-	cmd := exec.Command("ansible-playbook", "kubernetes/ansible_deploy.yml", "--inventory=kubernetes/inventory", "--extra-vars=\"test="+strconv.Itoa(BlueprintCount)+"\"")
+	cmd := exec.Command("ansible-playbook", "kubernetes/ansible_deploy.yml", "--inventory=kubernetes/inventory", "--extra-vars", "test="+strconv.Itoa(BlueprintCount))
 	out2, err2 := cmd.Output()
 	//log file
 	log, err := os.Create("log.txt")
