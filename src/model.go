@@ -109,6 +109,7 @@ func (u *dep) createDep(db *sql.DB) error {
 		if err != nil {
 			panic(err)
 		}
+
 		defer jsonFile.Close()
 		jsonFile.Write(jsonData)
 		jsonFile.Close()
@@ -117,7 +118,8 @@ func (u *dep) createDep(db *sql.DB) error {
 		cmd := exec.Command("ansible-playbook", "kubernetes/ansible_deploy_add.yml", "--inventory=kubernetes/inventory", "--extra-vars", "blueprintNumber="+strconv.Itoa(BlueprintCount))
 		out2, err2 := cmd.Output()
 		//log file
-		log, err := os.Create("log2.txt")
+		name2 := "./log" + strconv.Itoa(BlueprintCount) + ".txt"
+		log, err := os.Create(name2)
 		if err != nil {
 			panic(err)
 		}
@@ -170,7 +172,8 @@ func (u *dep) createDep(db *sql.DB) error {
 	cmd := exec.Command("ansible-playbook", "kubernetes/ansible_deploy.yml", "--inventory=kubernetes/inventory", "--extra-vars", "blueprintNumber="+strconv.Itoa(BlueprintCount))
 	out2, err2 := cmd.Output()
 	//log file
-	log, err := os.Create("log.txt")
+	name2 := "./log" + strconv.Itoa(BlueprintCount) + ".txt"
+	log, err := os.Create(name2)
 	if err != nil {
 		panic(err)
 	}
