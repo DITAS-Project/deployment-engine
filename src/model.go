@@ -112,7 +112,6 @@ func (u *dep) createDep(db *sql.DB) error {
 		defer jsonFile.Close()
 		jsonFile.Write(jsonData)
 		jsonFile.Close()
-		BlueprintCount++
 		fmt.Println("\nGO: Calling Ansible to add more components")
 		time.Sleep(20 * time.Second) //safety valve in case of one command after another
 		cmd := exec.Command("ansible-playbook", "kubernetes/ansible_deploy_add.yml", "--inventory=kubernetes/inventory")
@@ -122,6 +121,7 @@ func (u *dep) createDep(db *sql.DB) error {
 			fmt.Println(err2.Error())
 			return err2
 		}
+		BlueprintCount++
 		return nil
 	}
 	var pythonArgs []string
@@ -154,13 +154,11 @@ func (u *dep) createDep(db *sql.DB) error {
 	defer jsonFile.Close()
 	jsonFile.Write(jsonData)
 	jsonFile.Close()
-	BlueprintCount++
 	//here after successful python call, ansible playbook is run, at least 30s of pause is needed for a node (experimental)
 	//80 seconds failed, try with 180 to be safe
 	fmt.Println("\nGO: Calling Ansible")
 	time.Sleep(180 * time.Second)
-	test := 100
-	cmd := exec.Command("ansible-playbook", "kubernetes/ansible_deploy.yml", "--inventory=kubernetes/inventory", "--extra-vars=\"test="+strconv.Itoa(test)+"\"")
+	cmd := exec.Command("ansible-playbook", "kubernetes/ansible_deploy.yml", "--inventory=kubernetes/inventory", "--extra-vars=\"test="+strconv.Itoa(BlueprintCount)+"\"")
 	out2, err2 := cmd.Output()
 	//log file
 	log, err := os.Create("log.txt")
@@ -176,6 +174,7 @@ func (u *dep) createDep(db *sql.DB) error {
 		fmt.Println(err2.Error())
 		return err2
 	}
+	BlueprintCount++
 	// update database with deployment status - running
 	status = "running"
 	statement = fmt.Sprintf("UPDATE deploymentsBlueprint SET deploymentsBlueprint.status = \042%s\042 WHERE deploymentsBlueprint.id = \042%s\042", status, u.Id)

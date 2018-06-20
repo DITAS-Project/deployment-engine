@@ -47,20 +47,21 @@
 
   - hosts: all
     tasks:
-      - copy:
+      - name: Copy blueprint
+        copy:
           src: /deployment-engine/src/blueprint0.json
-          dest: /home/cloudsigma/blueprint/blueprint0.json
+          dest: /home/cloudsigma/blueprint/blueprintFIXED.json
 
   - hosts: all
     tasks:
       - copy:
-          src: /deployment-engine/src/blueprint0.json
-          dest: /home/cloudsigma/blueprint/blueprint100.json
-      when: test is defined
+          src: /deployment-engine/src/blueprint{{ test }}.json
+          dest: /home/cloudsigma/blueprint/blueprint{{ test }}.json
 
   - hosts: all
     tasks:
-      - copy:
+      - name: Copy github json repo
+        copy:
           src: /deployment-engine/src/VDC-Shared-Config
           dest: /home/cloudsigma/blueprint
 
