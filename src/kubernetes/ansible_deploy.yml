@@ -65,11 +65,11 @@
       - name: deploying components automatically
         block:
           - name: SLAlite
-            script: scripts/SLAdeploy.sh  {{ blueprintNumber }}
-#          - name: DS4M
-#            script: scripts/ds4mdeploy.sh
-#          - name: TUBDummy
-#            script: scripts/TUBDummy.sh
+            script: scripts/SLAdeploy.sh {{ blueprintNumber }}
+          - name: DS4M
+            script: scripts/ds4mdeploy.sh {{ blueprintNumber }}
+          - name: TUBDummy
+            script: scripts/TUBDummy.sh {{ blueprintNumber }}
 
   - hosts: localhost
     tasks:
