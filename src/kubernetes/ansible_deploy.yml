@@ -41,29 +41,22 @@
     tasks:
       - name: Create blueprint directory
         file:
-          path: /home/cloudsigma/blueprint
+          path: /home/cloudsigma/blueprint{{ blueprintNumber }}
           state: directory
           mode: "a+rw"
 
   - hosts: all
     tasks:
-      - name: Copy blueprint
-        copy:
-          src: /deployment-engine/src/blueprint0.json
-          dest: /home/cloudsigma/blueprint/blueprintFIXED.json
-
-  - hosts: all
-    tasks:
       - copy:
-          src: /deployment-engine/src/blueprint{{ test }}.json
-          dest: /home/cloudsigma/blueprint/blueprint{{ test }}.json
+          src: /deployment-engine/src/blueprint{{ blueprintNumber }}.json
+          dest: /home/cloudsigma/blueprint{{ blueprintNumber }}/blueprint{{ blueprintNumber }}.json
 
   - hosts: all
     tasks:
       - name: Copy github json repo
         copy:
           src: /deployment-engine/src/VDC-Shared-Config
-          dest: /home/cloudsigma/blueprint
+          dest: /home/cloudsigma/blueprint{{ blueprintNumber }}
 
   - hosts: [master]
     become: yes

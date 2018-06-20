@@ -114,7 +114,7 @@ func (u *dep) createDep(db *sql.DB) error {
 		jsonFile.Close()
 		fmt.Println("\nGO: Calling Ansible to add more components")
 		time.Sleep(20 * time.Second) //safety valve in case of one command after another
-		cmd := exec.Command("ansible-playbook", "kubernetes/ansible_deploy_add.yml", "--inventory=kubernetes/inventory")
+		cmd := exec.Command("ansible-playbook", "kubernetes/ansible_deploy.yml", "--inventory=kubernetes/inventory", "--extra-vars", "blueprintNumber="+strconv.Itoa(BlueprintCount))
 		out2, err2 := cmd.Output()
 		fmt.Print(string(out2))
 		if err2 != nil {
@@ -158,7 +158,7 @@ func (u *dep) createDep(db *sql.DB) error {
 	//80 seconds failed, try with 180 to be safe
 	fmt.Println("\nGO: Calling Ansible")
 	time.Sleep(180 * time.Second)
-	cmd := exec.Command("ansible-playbook", "kubernetes/ansible_deploy.yml", "--inventory=kubernetes/inventory", "--extra-vars", "test="+strconv.Itoa(BlueprintCount))
+	cmd := exec.Command("ansible-playbook", "kubernetes/ansible_deploy.yml", "--inventory=kubernetes/inventory", "--extra-vars", "blueprintNumber="+strconv.Itoa(BlueprintCount))
 	out2, err2 := cmd.Output()
 	//log file
 	log, err := os.Create("log.txt")
