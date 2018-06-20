@@ -116,6 +116,15 @@ func (u *dep) createDep(db *sql.DB) error {
 		time.Sleep(20 * time.Second) //safety valve in case of one command after another
 		cmd := exec.Command("ansible-playbook", "kubernetes/ansible_deploy_add.yml", "--inventory=kubernetes/inventory", "--extra-vars", "blueprintNumber="+strconv.Itoa(BlueprintCount))
 		out2, err2 := cmd.Output()
+		//log file
+		log, err := os.Create("log2.txt")
+		if err != nil {
+			panic(err)
+		}
+		log.WriteString("2 log for ansible \n")
+		log.WriteString(string(out2))
+		log.Close()
+		//
 		fmt.Print(string(out2))
 		if err2 != nil {
 			fmt.Println(err2.Error())

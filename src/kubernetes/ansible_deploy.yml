@@ -66,10 +66,10 @@
         block:
           - name: SLAlite
             script: scripts/SLAdeploy.sh
-          - name: DS4M
-            script: scripts/ds4mdeploy.sh
-          - name: TUBDummy
-            script: scripts/TUBDummy.sh
+#          - name: DS4M
+#            script: scripts/ds4mdeploy.sh
+#          - name: TUBDummy
+#            script: scripts/TUBDummy.sh
 
   - hosts: localhost
     tasks:
