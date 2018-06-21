@@ -21,7 +21,7 @@ type App struct {
 }
 
 func (a *App) Initialize(user, password, dbname string) {
-	connectionString := fmt.Sprintf("%s:%s@tcp(mysql:3306)/%s", user, password, dbname) //root:root@/k8sql !!!!!!UNSTABLE tcp(172.17.0.2:3306) 31.171.247.162
+	connectionString := fmt.Sprintf("%s:%s@tcp(mysql:3306)/%s", user, password, dbname) //root:root@/k8sql
 
 	var err error
 	a.DB, err = sql.Open("mysql", connectionString)
@@ -69,7 +69,7 @@ func (a *App) getDeps(w http.ResponseWriter, r *http.Request) {
 	start, _ := strconv.Atoi(r.FormValue("start"))
 
 	if count > 100 || count < 1 {
-		count = 100 //in case of 100+ deplyments, just remove it, safety valve
+		count = 100 //in case of 100+ deployments, just remove it, safety valve
 	}
 	if start < 0 {
 		start = 0

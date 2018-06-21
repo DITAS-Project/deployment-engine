@@ -53,7 +53,7 @@ func (u *dep) getNodes(db *sql.DB) error {
 		return err
 	}
 	index := 0
-	var item node //2
+	var item node
 	defer rows.Close()
 	for rows.Next() {
 		//rows.Scan(&u.Nodes[index].Id, &u.Nodes[index].Region, &u.Nodes[index].Public_ip, &u.Nodes[index].Role, &u.Nodes[index].RAM, &u.Nodes[index].Cpu)
@@ -109,7 +109,6 @@ func (u *dep) createDep(db *sql.DB) error {
 		if err != nil {
 			panic(err)
 		}
-
 		defer jsonFile.Close()
 		jsonFile.Write(jsonData)
 		jsonFile.Close()
@@ -123,7 +122,7 @@ func (u *dep) createDep(db *sql.DB) error {
 		if err != nil {
 			panic(err)
 		}
-		log.WriteString("2 log for ansible \n")
+		log.WriteString("Log for ansible \n")
 		log.WriteString(string(out2))
 		log.Close()
 		//
