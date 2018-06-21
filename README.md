@@ -42,11 +42,14 @@ To add a deployment `test` use curl -
 It takes time to set everything up. You will be informed by the API once the job is done or have failed. There is no intermediate output possible due to the fact that only a JSON can be returned and
 all printing happens inside the container.
 
-Having that, if you want to make sure that the machines were created correctly, you can refresh the status of the nodes when you view the deployment.
-If they show `running` it means the python script has finished its job.
+Having that, if you want to make sure that the machines were created correctly, you can view the status of the nodes on the [http://31.171.247.156:50012/deps](http://31.171.247.156:50012/deps) page.
+If the nodes show `running` it means the python script has finished its job and VM are created, as long as the full deployment is not `running` some other tasks, such as creating the cluster with ansible, are being performed.
 
 #### View the deployments
 To view deployments from the command line type `curl 31.171.247.156:50012/deps` for all and `curl 31.171.247.156:50012/dep/test` for a specific one - `test` in this case.
+
+#### Rerun the deployment
+If you decide to feed the engine with a deployment that has the same main name, the engine will understand that as a command to add another version of all components that are currently running in the cluster. It will create new pods/services/deployments for components such as SLAlite, ds4m or VDC.
 
 #### Remove the deployment
 To remove a deployment called `test` run `curl -X DELETE 31.171.247.156:50012/dep/test`
@@ -56,4 +59,6 @@ Remember to remove the deployment after you are done! Otherwise it will stay and
 Remember that the name of the deployment and names of nodes are unique. Depending on the available resources more nodes can be added. The example works with 2 - one master and one slave. Parameters such as RAM, CPU are also modifiable - just change them in `curl`.
 Parameters such as IP address, status are downloaded from CloudSigma servers and set in the database by python script.
 
-The deployment engine works on an account with limited resources and with username and password saved privately so that the access is restricted to the members allowed to edit the core components.
+The deployment engine works on an account with limited resources (4GHz and 9GB RAM left) and with username and password saved privately so that the access is restricted to the members allowed to edit the core components.
+
+ For more commands please take a look at  [Useful commands for deployment engine.md](https://github.com/DITAS-Project/deployment-engine/blob/master/Useful%20commands%20for%20deployment%20engine.md).
