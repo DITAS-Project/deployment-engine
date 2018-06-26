@@ -1,40 +1,5 @@
 # Dockerfile for Python, Go and Ansible with the deployment engine, MySQL in a parallel container.
 # WIP = work in progress
-# Build GO executable for the artifact
-FROM alpine:3.7
+FROM golang:alpine
 
-ENV BUILD_PACKAGES \
-  bash \
-  curl \
-  tar \
-  git \
-  go>=1.9.4-r0 \
-  gcc>=6.3.0-r4 \
-  g++>=6.3.0-r4
-
-RUN set -x && \
-    \
-    echo "==> Adding build-dependencies..."  && \
-    apk --update add --virtual build-dependencies \
-      gcc \
-      musl-dev \
-      libffi-dev && \
-    \
-    echo "==> Upgrading apk and system..."  && \
-    apk update && apk upgrade && \
-    \
-    echo "==> Adding packages..."  && \
-    apk add --no-cache ${BUILD_PACKAGES} && \
-    \
-    echo "==> Getting GO packages..."  && \
-    go get github.com/go-sql-driver/mysql && \
-    go get github.com/gorilla/mux && \
-    \
-    echo "==> Cleaning up..."  && \
-    apk del build-dependencies && \
-    rm -rf /var/cache/apk/*
-
-WORKDIR /deployment-engine/src
-COPY /src /deployment-engine/src
-#Building the go exec - deployment-engine
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o deployment-engine .
+RUN apk add --no-cache git
