@@ -13,9 +13,8 @@ pipeline {
             steps {
 		        // Build
 		        echo "Build stage ..."
-		        sh "ln -sf ${WORKSPACE}/src /go/src/deployment-engine"
+		        sh "ln -sf ${WORKSPACE} /go/src/deployment-engine/src"
                 sh "go get -d -v ./..."
-                sh "cd ${WORKSPACE}/src"
                 sh "CGO_ENABLED=0 GOOS=linux go build -a -o deployment-engine"
 		        // No unit tests available
             }
