@@ -49,7 +49,7 @@
     tasks:
       - copy:
           src: /deployment-engine/src/blueprint{{ blueprintNumber }}.json
-          dest: /home/cloudsigma/blueprint{{ blueprintNumber }}/blueprint{{ blueprintNumber }}.json
+          dest: /home/cloudsigma/blueprint{{ blueprintNumber }}/blueprint.json
 
   - hosts: all
     tasks:
