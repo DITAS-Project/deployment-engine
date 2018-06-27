@@ -27,7 +27,7 @@ pipeline {
             steps {
                 // The Dockerfile.artifact copies the code into the image and run the jar generation.
                 echo 'Creating the image...'
-		
+		        // Credentials for CloudSigma account
 		        sh "cp /home/cloudsigma/configurations/deployment-engine/.cloudsigma.conf .cloudsigma.conf"
 		    
                 // This will search for a Dockerfile.artifact in the working directory and build the image to the local repository
