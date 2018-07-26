@@ -25,7 +25,7 @@ print "CPU sizes: "
 for i in range (3, len(sys.argv), 3):
     print sys.argv[i]
     cpu.append(int(sys.argv[i]))
-to_install = ('apt-get update', 'apt-get install -y python python-pip', 'reboot')
+to_install = ('apt-get update', 'apt-get install -y python python-pip')
 dist_name = 'Ubuntu'
 dist_version = '16.04 DITAS'
 ssh_user = 'cloudsigma'

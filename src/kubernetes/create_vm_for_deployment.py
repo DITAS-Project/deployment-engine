@@ -13,9 +13,9 @@ node_names = "deployment"
 cpu = 2000
 mem = 2048
 numberOfMasters = 1
-to_install = ('apt-get update', 'apt-get install -y python python-pip', 'reboot')
+to_install = ('apt-get update', 'apt-get install -y python python-pip')
 dist_name = 'Ubuntu'
-dist_version = 'Ubuntu 16.04 LTS' #change according to slack!
+dist_version = '16.04 DITAS' #change according to slack!
 ssh_user = 'cloudsigma'
 print "Checking if ssh rsa works"
 pub_key = open(os.path.expanduser('~/.ssh/id_rsa.pub')).read()
