@@ -25,14 +25,11 @@
     become: yes
     become_user: "{{ hostvars[groups['master'][0]]['ansible_ssh_user'] }}"
     tasks:
-      - name: deploying components automatically
-        block:
-          - name: SLAlite
-            script: scripts/SLAdeploy.sh {{ blueprintNumber }}
-          - name: DS4M
-            script: scripts/ds4mdeploy.sh {{ blueprintNumber }}
-          - name: TUBDummy
-            script: scripts/TUBDummy_add.sh {{ blueprintNumber }}
+      - name: Copy VDC deployment
+        template: src=/kubernetes-components/vdc.yaml dest=vdc{{ blueprintNumber }}.yaml
+
+      - name: Add VDC
+        command: kubectl create -f vdc{{ blueprintNumber }}.yaml
 
   - hosts: localhost
     tasks:
