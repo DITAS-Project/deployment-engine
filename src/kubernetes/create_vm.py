@@ -25,7 +25,7 @@ print "CPU sizes: "
 for i in range (3, len(sys.argv), 3):
     print sys.argv[i]
     cpu.append(int(sys.argv[i]))
-to_install = ('apt-get update', 'apt-get install -y python python-pip')
+#to_install = ('apt-get update', 'apt-get install -y python python-pip')
 dist_name = 'Ubuntu'
 dist_version = '16.04 DITAS'
 ssh_user = 'cloudsigma'
@@ -166,10 +166,10 @@ def refresh_db():
             os.system('ssh -o "StrictHostKeyChecking no" ' + str(ssh_user) + '@' + str(
                 ipv4) + " '" + 'sudo echo ' + '"' + str(hosts_ipv4) + ' ' + str(
                 hosts_name) + '"' + ' | sudo tee -a /etc/hosts' + "' > /dev/null 2>&1")
-        for install in to_install:
-            print "executing " + '"' + str(install) + '"' + " on " + str(vm_name) + "..."
-            os.system('ssh -o "StrictHostKeyChecking no" ' + ssh_user+'@' + str(
-                ipv4) + " sudo " + install + " > /dev/null 2>&1")
+        #for install in to_install:
+            #print "executing " + '"' + str(install) + '"' + " on " + str(vm_name) + "..."
+            #os.system('ssh -o "StrictHostKeyChecking no" ' + ssh_user+'@' + str(
+                #ipv4) + " sudo " + install + " > /dev/null 2>&1")
 
         if count == numberOfMasters:  # 1:
             stream = '[slaves]\n'
