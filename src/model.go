@@ -99,22 +99,31 @@ func (u *dep) createDep(db *sql.DB) error {
 	region := "default"
 	statement := fmt.Sprintf("INSERT INTO deploymentsBlueprint(id, description, status, type, api_endpoint, api_type, keypair_id) VALUES('%s', '%s', '%s', '%s', '%s', '%s', '%s')", u.Id, u.Description, status, u.Type, u.Api_endpoint, u.Api_type, u.Keypair_id)
 	_, err := db.Exec(statement)
-	if err != nil {
-		//here json file is created
-		u.getDep(db)
-		u.getNodes(db)
-		jsonData, _ := json.Marshal(u)
-		name := "./blueprint" + strconv.Itoa(BlueprintCount) + ".json"
-		jsonFile, err := os.Create(name)
-		if err != nil {
-			panic(err)
+	if err == nil {
+		var pythonArgs []string
+		for _, element := range u.Nodes {
+			statement = fmt.Sprintf("INSERT INTO nodesBlueprint(id, dep_id, region, public_ip, role, ram, cpu, status, type, disc, generate_ssh_keys, ssh_keys_id, baseimage, arch, os) VALUES('%s', '%s', '%s', '%s', '%s', '%d', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')", element.Id, u.Id, region, default_ip, element.Role, element.RAM, element.Cpu, status, element.Type, element.Disc, element.Generate_ssh_keys, element.Ssh_keys_id, element.Base_image, element.Arch, element.Os)
+			_, err = db.Exec(statement)
+			//here arguments for python are prepared - name/ram/cpu of nodesBlueprint are prepared
+			pythonArgs = append(pythonArgs, element.Id)
+			pythonArgs = append(pythonArgs, strconv.Itoa(element.RAM))
+			pythonArgs = append(pythonArgs, strconv.Itoa(element.Cpu))
+			//
 		}
-		defer jsonFile.Close()
-		jsonFile.Write(jsonData)
-		jsonFile.Close()
-		fmt.Println("\nGO: Calling Ansible to add more components")
-		time.Sleep(20 * time.Second) //safety valve in case of one command after another
-		cmd := exec.Command("ansible-playbook", "kubernetes/ansible_deploy_add.yml", "--inventory=kubernetes/inventory", "--extra-vars", "blueprintNumber="+strconv.Itoa(BlueprintCount))
+		fmt.Println("\nGO: Calling python script with arguments below: ")
+		fmt.Println(pythonArgs)
+		out, err := exec.Command("kubernetes/create_vm.py", pythonArgs...).Output()
+		fmt.Print(string(out))
+		if err != nil {
+			fmt.Println(err.Error())
+			return err
+		}
+
+		//here after successful python call, ansible playbook is run, at least 30s of pause is needed for a node (experimental)
+		//80 seconds failed, try with 180 to be safe
+		fmt.Println("\nGO: Calling Ansible for initial k8s deployment")
+		time.Sleep(180 * time.Second)
+		cmd := exec.Command("ansible-playbook", "kubernetes/ansible_deploy.yml", "--inventory=kubernetes/inventory")
 		out2, err2 := cmd.Output()
 		//log file
 		name2 := "./log" + strconv.Itoa(BlueprintCount) + ".txt"
@@ -131,27 +140,8 @@ func (u *dep) createDep(db *sql.DB) error {
 			fmt.Println(err2.Error())
 			return err2
 		}
-		BlueprintCount++
-		return nil
 	}
-	var pythonArgs []string
-	for _, element := range u.Nodes {
-		statement = fmt.Sprintf("INSERT INTO nodesBlueprint(id, dep_id, region, public_ip, role, ram, cpu, status, type, disc, generate_ssh_keys, ssh_keys_id, baseimage, arch, os) VALUES('%s', '%s', '%s', '%s', '%s', '%d', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')", element.Id, u.Id, region, default_ip, element.Role, element.RAM, element.Cpu, status, element.Type, element.Disc, element.Generate_ssh_keys, element.Ssh_keys_id, element.Base_image, element.Arch, element.Os)
-		_, err = db.Exec(statement)
-		//here arguments for python are prepared - name/ram/cpu of nodesBlueprint are prepared
-		pythonArgs = append(pythonArgs, element.Id)
-		pythonArgs = append(pythonArgs, strconv.Itoa(element.RAM))
-		pythonArgs = append(pythonArgs, strconv.Itoa(element.Cpu))
-		//
-	}
-	fmt.Println("\nGO: Calling python script with arguments below: ")
-	fmt.Println(pythonArgs)
-	out, err := exec.Command("kubernetes/create_vm.py", pythonArgs...).Output()
-	fmt.Print(string(out))
-	if err != nil {
-		fmt.Println(err.Error())
-		return err
-	}
+
 	//here json file is created
 	u.getDep(db)
 	u.getNodes(db)
@@ -164,11 +154,9 @@ func (u *dep) createDep(db *sql.DB) error {
 	defer jsonFile.Close()
 	jsonFile.Write(jsonData)
 	jsonFile.Close()
-	//here after successful python call, ansible playbook is run, at least 30s of pause is needed for a node (experimental)
-	//80 seconds failed, try with 180 to be safe
-	fmt.Println("\nGO: Calling Ansible")
-	time.Sleep(180 * time.Second)
-	cmd := exec.Command("ansible-playbook", "kubernetes/ansible_deploy.yml", "--inventory=kubernetes/inventory", "--extra-vars", "blueprintNumber="+strconv.Itoa(BlueprintCount))
+	fmt.Println("\nGO: Calling Ansible to add more components")
+	time.Sleep(20 * time.Second) //safety valve in case of one command after another
+	cmd := exec.Command("ansible-playbook", "kubernetes/ansible_deploy_add.yml", "--inventory=kubernetes/inventory", "--extra-vars", "blueprintNumber="+strconv.Itoa(BlueprintCount))
 	out2, err2 := cmd.Output()
 	//log file
 	name2 := "./log" + strconv.Itoa(BlueprintCount) + ".txt"
@@ -185,6 +173,8 @@ func (u *dep) createDep(db *sql.DB) error {
 		fmt.Println(err2.Error())
 		return err2
 	}
+	BlueprintCount++
+
 	BlueprintCount++
 	// update database with deployment status - running
 	status = "running"
