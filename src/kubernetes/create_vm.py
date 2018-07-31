@@ -7,7 +7,6 @@ import sys
 import MySQLdb
 import mysql
 import subprocess
-import sys
 
 # ---# input data #--- #
 # data from go
