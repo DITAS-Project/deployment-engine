@@ -6,6 +6,8 @@ import os.path
 import sys
 import MySQLdb
 import mysql
+import subprocess
+import sys
 
 # ---# input data #--- #
 # data from go
@@ -95,16 +97,50 @@ else:
 
 
 def check_run():
-    check = 0
-    while check != 0:
-        check = 0
-        for run_check in cloudsigma.resource.Server().list():
-            if run_check['status'] == 'running':
-                pass
-            else:
-                check += 1
-    return 'servers are online'
+    print 'Waiting for servers to start'
+    started = False
+    servers = cloudsigma.resource.Server().list()
+    while not started:
+        started = True
+        for run_check in servers:
+            started = started and run_check['status'] != 'starting'
+        if not started:
+            time.sleep(5)
+            servers = cloudsigma.resource.Server().list()
 
+    print 'Servers started. Checking for errors'
+    running = True
+    for run_check in servers:
+            running = running and run_check['status'] == 'running'
+    
+    if not running:
+        print 'Error starting servers'
+        return False
+    else:
+        print 'Waiting for SSH service to start'
+        return checkSSh(servers)
+
+def checkSSh(servers):
+    maxRetries = 16
+    retries = 0
+    started = False
+    while not started and retries < maxRetries:
+        started = True
+        retries = retries + 1
+        for run_check in servers:
+            started = started and sshStarted(run_check['runtime']['nics'][0]['ip_v4']['uuid'])
+        if not started:
+            time.sleep(5)
+    return started
+
+def sshStarted(ip):
+    command = "uname -a"
+    ssh = subprocess.Popen(["ssh", "cloudsigma@%s" % ip, command],
+                       shell=False,
+                       stdout=subprocess.PIPE,
+                       stderr=subprocess.PIPE)
+    result = ssh.stdout.readlines()
+    return result != []
 
 # nodes creation
 freeDriveList = [s for s in drive.list() if s['status'] == 'unmounted']
@@ -140,7 +176,10 @@ for name, driv, memory, cpus in zip(node_names, freeDriveList, mem, cpu): #drive
 db_store = 'ansible-cloudsigma.db'
 
 print 'waiting some time to let VM start ssh service...'
-time.sleep(80)
+started = check_run()
+if not started:
+    print 'SSH service not started. Failing'
+    os._exit(2)
 
 get_servers = cloudsigma.resource.Server()
 freeServerList = [s for s in get_servers.list() if (s['name'] in node_names)]
