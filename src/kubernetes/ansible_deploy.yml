@@ -1,10 +1,10 @@
 ---
 
-  - name: Run docker and kubernetes deployment
-    become: yes
-    hosts: all
-    roles:
-     - role: pre-deploy
+#  - name: Run docker and kubernetes deployment
+#    become: yes
+#    hosts: all
+#    roles:
+#     - role: pre-deploy
 
   - hosts: [master]
     become: yes
