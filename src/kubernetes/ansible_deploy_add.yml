@@ -29,7 +29,7 @@
         template: src=scripts/vdc.yaml dest=vdc{{ blueprintNumber }}.yaml
 
       - name: Add VDC
-        shell: scripts/deployvdc.sh {{ blueprintNumber }}
+        script: scripts/deployvdc.sh {{ blueprintNumber }}
 
   - hosts: localhost
     tasks:
