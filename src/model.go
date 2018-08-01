@@ -38,6 +38,13 @@ type dep struct {
 	Nodes        []node `json:"resources"`
 }
 
+func executeCommand(name string, args ...string) error {
+	cmd := exec.Command(name, args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
 func (u *dep) getDep(db *sql.DB) error {
 	statement := fmt.Sprintf("SELECT id, description, status, type, api_endpoint, api_type, keypair_id FROM deploymentsBlueprint WHERE id='%s'", u.Id)
 	return db.QueryRow(statement).Scan(&u.Id, &u.Description, &u.Status, &u.Type, &u.Api_endpoint, &u.Api_type, &u.Keypair_id)
@@ -79,8 +86,7 @@ func (u *dep) deleteDep(db *sql.DB) error {
 		return err
 	}
 	fmt.Println("\nGO: Calling python script to remove old deployment:", u.Id)
-	out, err := exec.Command("kubernetes/delete_vm.py", pythonArgs...).Output()
-	fmt.Print(string(out))
+	err = executeCommand("kubernetes/delete_vm.py", pythonArgs...)
 	if err != nil {
 		fmt.Println(err.Error())
 		return err
@@ -111,8 +117,7 @@ func (u *dep) createDep(db *sql.DB) error {
 		}
 		fmt.Println("\nGO: Calling python script with arguments below: ")
 		fmt.Println(pythonArgs)
-		out, err := exec.Command("kubernetes/create_vm.py", pythonArgs...).Output()
-		fmt.Print(string(out))
+		err := executeCommand("kubernetes/create_vm.py", pythonArgs...)
 		if err != nil {
 			fmt.Println(err.Error())
 			return err
@@ -122,19 +127,8 @@ func (u *dep) createDep(db *sql.DB) error {
 		//80 seconds failed, try with 180 to be safe
 		fmt.Println("\nGO: Calling Ansible for initial k8s deployment")
 		//time.Sleep(180 * time.Second)
-		cmd := exec.Command("ansible-playbook", "kubernetes/ansible_deploy.yml", "--inventory=kubernetes/inventory")
-		out2, err2 := cmd.Output()
-		//log file
-		name2 := "./log" + strconv.Itoa(BlueprintCount) + ".txt"
-		log, err := os.Create(name2)
-		if err != nil {
-			panic(err)
-		}
-		log.WriteString("Log for ansible \n")
-		log.WriteString(string(out2))
-		log.Close()
-		//
-		fmt.Print(string(out2))
+		err2 := executeCommand("ansible-playbook", "kubernetes/ansible_deploy.yml", "--inventory=kubernetes/inventory")
+
 		if err2 != nil {
 			fmt.Println(err2.Error())
 			return err2
@@ -155,19 +149,8 @@ func (u *dep) createDep(db *sql.DB) error {
 	jsonFile.Close()
 	fmt.Println("\nGO: Calling Ansible to add more components")
 	//time.Sleep(20 * time.Second) //safety valve in case of one command after another
-	cmd := exec.Command("ansible-playbook", "kubernetes/ansible_deploy_add.yml", "--inventory=kubernetes/inventory", "--extra-vars", "blueprintNumber="+strconv.Itoa(BlueprintCount))
-	out2, err2 := cmd.Output()
-	//log file
-	name2 := "./log" + strconv.Itoa(BlueprintCount) + ".txt"
-	log, err := os.Create(name2)
-	if err != nil {
-		panic(err)
-	}
-	log.WriteString("Log for ansible \n")
-	log.WriteString(string(out2))
-	log.Close()
-	//
-	fmt.Print(string(out2))
+	err2 := executeCommand("ansible-playbook", "kubernetes/ansible_deploy_add.yml", "--inventory=kubernetes/inventory", "--extra-vars", "blueprintNumber="+strconv.Itoa(BlueprintCount))
+
 	if err2 != nil {
 		fmt.Println(err2.Error())
 		return err2

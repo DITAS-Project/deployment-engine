@@ -6,7 +6,7 @@ import os.path
 import sys
 import MySQLdb
 import mysql
-import subprocess
+import socket
 
 # ---# input data #--- #
 # data from go
@@ -133,13 +133,14 @@ def checkSSh(servers):
     return started
 
 def sshStarted(ip):
-    command = "uname -a"
-    ssh = subprocess.Popen(["ssh", "cloudsigma@%s" % ip, command],
-                       shell=False,
-                       stdout=subprocess.PIPE,
-                       stderr=subprocess.PIPE)
-    result = ssh.stdout.readlines()
-    return result != []
+    ClientSocket = socket.socket()
+    try:
+        ClientSocket.connect((ip, 22))
+        return True
+    except socket.error:
+        return False
+    finally:
+        return True
 
 # nodes creation
 freeDriveList = [s for s in drive.list() if s['status'] == 'unmounted']
