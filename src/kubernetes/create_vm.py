@@ -178,7 +178,7 @@ print 'waiting some time to let VM start ssh service...'
 started = check_run()
 if not started:
     print 'SSH service not started. Failing'
-    os._exit(2)
+    sys.exit(2)
 
 get_servers = cloudsigma.resource.Server()
 freeServerList = [s for s in get_servers.list() if (s['name'] in node_names)]
