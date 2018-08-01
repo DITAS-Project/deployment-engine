@@ -21,10 +21,10 @@ metadata:
 spec:
   containers:
   - name: slalite
-  image: ditas/slalite
-  ports:
+    image: ditas/slalite
+    ports:
     - containerPort: 8090
-  volumeMounts:
+    volumeMounts:
     - name: blueprint
       mountPath: /opt/blueprint
 
@@ -44,10 +44,10 @@ metadata:
 spec:
   containers:
   - name: due
-  image: ditas/data-utility-evaluator:latest
-  ports:
+    image: ditas/data-utility-evaluator:latest
+    ports:
     - containerPort: 8080
-  volumeMounts:
+    volumeMounts:
     - name: blueprint
       mountPath: /opt/blueprint
 
@@ -67,11 +67,11 @@ metadata:
 spec:
   containers:
   - name: ideko-uc
-  image: ditas/ideko-use-case:001
-  ports:
+    image: ditas/ideko-use-case:latest
+    ports:
     - containerPort: 8080
     - containerPort: 8484
-  volumeMounts:
+    volumeMounts:
     - name: blueprint
       mountPath: /opt/blueprint
 
