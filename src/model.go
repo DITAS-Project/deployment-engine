@@ -123,11 +123,24 @@ func (u *dep) createDep(db *sql.DB) error {
 			return err
 		}
 
+		//here json file is created
+		u.getDep(db)
+		u.getNodes(db)
+		jsonData, _ := json.Marshal(u)
+		name := "./blueprint" + strconv.Itoa(BlueprintCount) + ".json"
+		jsonFile, err := os.Create(name)
+		if err != nil {
+			panic(err)
+		}
+		defer jsonFile.Close()
+		jsonFile.Write(jsonData)
+		jsonFile.Close()
+
 		//here after successful python call, ansible playbook is run, at least 30s of pause is needed for a node (experimental)
 		//80 seconds failed, try with 180 to be safe
 		fmt.Println("\nGO: Calling Ansible for initial k8s deployment")
 		//time.Sleep(180 * time.Second)
-		err2 := executeCommand("ansible-playbook", "kubernetes/ansible_deploy.yml", "--inventory=kubernetes/inventory")
+		err2 := executeCommand("ansible-playbook", "kubernetes/ansible_deploy.yml", "--inventory=kubernetes/inventory", "--extra-vars", "blueprintNumber="+strconv.Itoa(BlueprintCount))
 
 		if err2 != nil {
 			fmt.Println(err2.Error())
@@ -135,19 +148,7 @@ func (u *dep) createDep(db *sql.DB) error {
 		}
 	}
 
-	//here json file is created
-	u.getDep(db)
-	u.getNodes(db)
-	jsonData, _ := json.Marshal(u)
-	name := "./blueprint" + strconv.Itoa(BlueprintCount) + ".json"
-	jsonFile, err := os.Create(name)
-	if err != nil {
-		panic(err)
-	}
-	defer jsonFile.Close()
-	jsonFile.Write(jsonData)
-	jsonFile.Close()
-	fmt.Println("\nGO: Calling Ansible to add more components")
+	fmt.Printf("\nGO: Calling Ansible to add VDC %d", BlueprintCount)
 	//time.Sleep(20 * time.Second) //safety valve in case of one command after another
 	err2 := executeCommand("ansible-playbook", "kubernetes/ansible_deploy_add.yml", "--inventory=kubernetes/inventory", "--extra-vars", "blueprintNumber="+strconv.Itoa(BlueprintCount))
 

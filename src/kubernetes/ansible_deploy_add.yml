@@ -1,26 +1,5 @@
 ---
 
-  - hosts: all
-    tasks:
-      - name: Create blueprint directory
-        file:
-          path: /home/cloudsigma/blueprint{{ blueprintNumber }}
-          state: directory
-          mode: "a+rw"
-
-  - hosts: all
-    tasks:
-      - copy:
-          src: /deployment-engine/src/blueprint{{ blueprintNumber }}.json
-          dest: /home/cloudsigma/blueprint{{ blueprintNumber }}/blueprint.json
-
-  - hosts: all
-    tasks:
-      - name: Copy github json repo
-        copy:
-          src: /deployment-engine/src/VDC-Shared-Config
-          dest: /home/cloudsigma/blueprint{{ blueprintNumber }}
-
   - hosts: [master]
     become: yes
     become_user: "{{ hostvars[groups['master'][0]]['ansible_ssh_user'] }}"
@@ -29,7 +8,7 @@
         template: src=scripts/vdc.yaml dest=vdc{{ blueprintNumber }}.yaml
 
       - name: Add VDC
-        script: scripts/deployvdc.sh {{ blueprintNumber }}
+        script: scripts/deploy.sh vdc {{ blueprintNumber }}
 
   - hosts: localhost
     tasks:

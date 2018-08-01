@@ -15,46 +15,70 @@ spec:
 apiVersion: v1
 kind: Pod
 metadata:
-  name: "vdc{{ blueprintNumber }}"
+  name: "slalite{{ blueprintNumber }}"
   labels:
     component: "vdc{{ blueprintNumber }}"
 spec:
   containers:
-  - name: ds4m
-    image: ditas/decision-system-for-data-and-computation-movement
-    ports:
-    - containerPort: 8080
-    volumeMounts:
+  - name: slalite
+  image: ditas/slalite
+  ports:
+    - containerPort: 8090
+  volumeMounts:
     - name: blueprint
       mountPath: /opt/blueprint
-
-  - name: slalite
-    image: ditas/slalite
-    ports:
-      - containerPort: 8090
-    volumeMounts:
-      - name: blueprint
-        mountPath: /opt/blueprint
-
-  - name: due
-    image: ditas/data-utility-evaluator:latest
-    ports:
-      - containerPort: 8080
-    volumeMounts:
-      - name: blueprint
-        mountPath: /opt/blueprint 
-         
-  - name: ideko-uc
-    image: ditas/ideko-use-case:001
-    ports:
-      - containerPort: 8080
-      - containerPort: 8484
-    volumeMounts:
-      - name: blueprint
-        mountPath: /opt/blueprint
 
   volumes:
   - name: blueprint
     hostPath:
-      path: "/home/cloudsigma/blueprint{{ blueprintNumber }}"
-      type: Directory
+        path: "/home/cloudsigma/blueprint{{ blueprintNumber }}"
+        type: Directory
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "due{{ blueprintNumber }}"
+  labels:
+    component: "vdc{{ blueprintNumber }}"
+spec:
+  containers:
+  - name: due
+  image: ditas/data-utility-evaluator:latest
+  ports:
+    - containerPort: 8080
+  volumeMounts:
+    - name: blueprint
+      mountPath: /opt/blueprint
+
+  volumes:
+  - name: blueprint
+    hostPath:
+        path: "/home/cloudsigma/blueprint{{ blueprintNumber }}"
+        type: Directory
+  
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "ideko{{ blueprintNumber }}"
+  labels:
+    component: "vdc{{ blueprintNumber }}"
+spec:
+  containers:
+  - name: ideko-uc
+  image: ditas/ideko-use-case:001
+  ports:
+    - containerPort: 8080
+    - containerPort: 8484
+  volumeMounts:
+    - name: blueprint
+      mountPath: /opt/blueprint
+
+  volumes:
+  - name: blueprint
+    hostPath:
+        path: "/home/cloudsigma/blueprint{{ blueprintNumber }}"
+        type: Directory
+
+  
