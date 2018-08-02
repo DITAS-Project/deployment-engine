@@ -12,11 +12,8 @@ pipeline {
             }
             steps {
 		        // Build
-		        echo "Build stage ..."
-		        sh "ln -sf ${WORKSPACE} /go/src/deployment-engine"
-                sh "go get -d -v ./..."
-                sh "cd ${WORKSPACE}/src && CGO_ENABLED=0 GOOS=linux go build -a -o deployment-engine"
-		        // No unit tests available
+		        sh "chmod +x jenkins/build.sh"
+                sh "jenkins/build.sh ${WORKSPACE}"
             }
         }
         stage('Image creation') {

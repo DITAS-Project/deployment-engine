@@ -3,6 +3,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -11,13 +12,16 @@ import (
 	//"os"
 	"strconv"
 
+	blueprint "github.com/DITAS-Project/blueprint-go"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/mux"
+	mongo "github.com/mongodb/mongo-go-driver/mongo"
 )
 
 type App struct {
-	Router *mux.Router
-	DB     *sql.DB //db handler
+	Router     *mux.Router
+	DB         *sql.DB //db handler
+	Controller *DeploymentEngineController
 }
 
 func (a *App) Initialize(user, password, dbname string) {
@@ -26,12 +30,31 @@ func (a *App) Initialize(user, password, dbname string) {
 	var err error
 	a.DB, err = sql.Open("mysql", connectionString)
 	if err != nil {
-		log.Fatal(err)
+		//log.Fatal(err)
 	}
 
 	a.Router = mux.NewRouter()
 	a.initializeRoutes()
 	a.createDB(a.DB)
+
+	client, err := mongo.NewClient("mongodb://mongo:27017")
+	if err == nil {
+		err = client.Connect(context.Background())
+		if err == nil {
+			db := client.Database("deployment_engine")
+			if db != nil {
+				controller := DeploymentEngineController{
+					collection: db.Collection("deployments"),
+				}
+				a.Controller = &controller
+			}
+		} else {
+			fmt.Printf("Error connecting to MongoDB: %s", err.Error())
+		}
+	} else {
+		fmt.Printf("Error getting client for MongoDB: %s", err.Error())
+	}
+
 }
 
 func (a *App) Run(addr string) {
@@ -85,20 +108,20 @@ func (a *App) getDeps(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) createDep(w http.ResponseWriter, r *http.Request) {
-	var u dep
+	var bp blueprint.BlueprintType
 	decoder := json.NewDecoder(r.Body)
-	if err := decoder.Decode(&u); err != nil {
+	if err := decoder.Decode(&bp); err != nil {
 		respondWithError(w, http.StatusBadRequest, "Invalid request payload")
 		return
 	}
 	defer r.Body.Close()
 
-	if err := u.createDep(a.DB); err != nil {
+	if err := a.Controller.createDep(bp); err != nil {
 		respondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	respondWithJSON(w, http.StatusCreated, u)
+	respondWithJSON(w, http.StatusCreated, bp)
 	//respondWithJSON(w, http.StatusOK, map[string]string{"result": "success"})
 }
 

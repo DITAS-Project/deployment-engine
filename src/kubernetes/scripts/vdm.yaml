@@ -1,11 +1,11 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: "vdm{{ blueprintNumber }}"
+  name: "vdm_{{ blueprintName }}"
 spec:
   type: NodePort
   selector:
-    component: "vdm{{ blueprintNumber }}"
+    component: "vdm_{{ blueprintName }}"
   ports:
   - name: http
     port: 8080
@@ -15,9 +15,9 @@ spec:
 apiVersion: v1
 kind: Pod
 metadata:
-  name: "ds4m{{ blueprintNumber }}"
+  name: "ds4m_{{ blueprintName }}"
   labels:
-    component: "vdm{{ blueprintNumber }}"
+    component: "vdm_{{ blueprintName }}"
 spec:
   containers:
   - name: ds4m
@@ -31,5 +31,5 @@ spec:
   volumes:
   - name: blueprint
     hostPath:
-        path: "/home/cloudsigma/blueprint{{ blueprintNumber }}"
+        path: "/home/cloudsigma/blueprint_{{ blueprintName }}"
         type: Directory

@@ -3,13 +3,35 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"strconv"
+
+	blueprint "github.com/DITAS-Project/blueprint-go"
+	bson "github.com/mongodb/mongo-go-driver/bson"
+	mongo "github.com/mongodb/mongo-go-driver/mongo"
 )
+
+const (
+	errorStatus   = "error"
+	runningStatus = "running"
+)
+
+type DeploymentEngineController struct {
+	collection *mongo.Collection
+}
+
+type Deployment struct {
+	ID        string                  `json:"_id"`
+	Blueprint blueprint.BlueprintType `json:"blueprint"`
+	MasterIP  string                  `json:"master_ip"`
+	NumVDCs   int                     `json:"num_vdcs"`
+	Status    string                  `json:"status"`
+}
 
 type node struct {
 	Id                string `json:"name"`
@@ -98,8 +120,107 @@ func (u *dep) deleteDep(db *sql.DB) error {
 	return err
 }
 
-func (u *dep) createDep(db *sql.DB) error {
-	status := "starting"
+func (c *DeploymentEngineController) updateDeployment(bpName string, update *bson.Document) {
+	_, err := c.collection.UpdateOne(context.Background(), bson.NewDocument(
+		bson.EC.String("_id", bpName),
+	), update)
+	if err != nil {
+		fmt.Printf("Error updating blueprint %s status to %v: %s", bpName, update, err.Error())
+	}
+}
+
+func (c *DeploymentEngineController) setStatus(bpName string, status string) {
+	c.updateDeployment(bpName, bson.NewDocument(bson.EC.String("status", status)))
+}
+
+func (c *DeploymentEngineController) createDep(bp blueprint.BlueprintType) error {
+	collection := c.collection
+	bpName := *bp.InternalStructure.Overview.Name
+	var deployment Deployment
+	found := collection.FindOne(context.Background(), bson.NewDocument(
+		bson.EC.String("_id", bpName),
+	))
+	err := found.Decode(deployment)
+	if err != nil {
+		deployment := Deployment{
+			Blueprint: bp,
+			ID:        *bp.InternalStructure.Overview.Name,
+			NumVDCs:   0,
+			Status:    "starting",
+		}
+		depSerial, err := json.Marshal(deployment)
+		if err == nil {
+			document, err := bson.ParseExtJSONObject(string(depSerial))
+			if err == nil {
+				_, err := collection.InsertOne(context.Background(), document)
+				if err == nil {
+					for _, infra := range bp.CookbookAppendix.Infrastructure {
+						pythonArgs := make([]string, 0, len(infra.Resources)*3)
+						for _, node := range infra.Resources {
+							pythonArgs = append(pythonArgs, node.Name)
+							pythonArgs = append(pythonArgs, node.RAM)
+							pythonArgs = append(pythonArgs, node.CPUs)
+						}
+
+						fmt.Println("\nGO: Calling python script with arguments below: ")
+						fmt.Println(pythonArgs)
+						err := executeCommand("kubernetes/create_vm.py", pythonArgs...)
+						if err != nil {
+							fmt.Println(err.Error())
+							c.setStatus(bpName, errorStatus)
+							return err
+						}
+
+						jsonData, err := json.Marshal(bp)
+						name := "./blueprint_" + bpName + ".json"
+						jsonFile, err := os.Create(name)
+						if err != nil {
+							c.setStatus(bpName, errorStatus)
+							panic(err)
+						}
+						defer jsonFile.Close()
+						jsonFile.Write(jsonData)
+						jsonFile.Close()
+
+						//here after successful python call, ansible playbook is run, at least 30s of pause is needed for a node (experimental)
+						//80 seconds failed, try with 180 to be safe
+						fmt.Println("\nGO: Calling Ansible for initial k8s deployment")
+						//time.Sleep(180 * time.Second)
+						err2 := executeCommand("ansible-playbook", "kubernetes/ansible_deploy.yml", "--inventory=kubernetes/inventory", "--extra-vars", "blueprintName="+bpName)
+
+						if err2 != nil {
+							fmt.Println(err2.Error())
+							c.setStatus(bpName, errorStatus)
+							return err2
+						}
+
+						c.setStatus(bpName, runningStatus)
+					}
+				} else {
+					fmt.Printf("Error inserting deployment into database: %s", err.Error())
+				}
+			}
+		}
+	}
+
+	vdcNumber := deployment.NumVDCs
+
+	fmt.Printf("\nGO: Calling Ansible to add VDC %d", vdcNumber)
+	//time.Sleep(20 * time.Second) //safety valve in case of one command after another
+	err2 := executeCommand("ansible-playbook", "kubernetes/ansible_deploy_add.yml", "--inventory=kubernetes/inventory", "--extra-vars", "blueprintName="+bpName+" "+"vdcNumber="+strconv.Itoa(vdcNumber))
+
+	if err2 != nil {
+		fmt.Println(err2.Error())
+		c.setStatus(bpName, errorStatus)
+		return err2
+	}
+
+	c.updateDeployment(bpName, bson.NewDocument(
+		bson.EC.Int32("num_vdcs", int32(vdcNumber+1)),
+	))
+
+	fmt.Println("GO: Finished")
+	/*status := "starting"
 	default_ip := "assigning"
 	region := "default"
 	statement := fmt.Sprintf("INSERT INTO deploymentsBlueprint(id, description, status, type, api_endpoint, api_type, keypair_id) VALUES('%s', '%s', '%s', '%s', '%s', '%s', '%s')", u.Id, u.Description, status, u.Type, u.Api_endpoint, u.Api_type, u.Keypair_id)
@@ -115,37 +236,11 @@ func (u *dep) createDep(db *sql.DB) error {
 			pythonArgs = append(pythonArgs, strconv.Itoa(element.Cpu))
 			//
 		}
-		fmt.Println("\nGO: Calling python script with arguments below: ")
-		fmt.Println(pythonArgs)
-		err := executeCommand("kubernetes/create_vm.py", pythonArgs...)
-		if err != nil {
-			fmt.Println(err.Error())
-			return err
-		}
 
 		//here json file is created
 		u.getDep(db)
 		u.getNodes(db)
-		jsonData, _ := json.Marshal(u)
-		name := "./blueprint" + strconv.Itoa(BlueprintCount) + ".json"
-		jsonFile, err := os.Create(name)
-		if err != nil {
-			panic(err)
-		}
-		defer jsonFile.Close()
-		jsonFile.Write(jsonData)
-		jsonFile.Close()
 
-		//here after successful python call, ansible playbook is run, at least 30s of pause is needed for a node (experimental)
-		//80 seconds failed, try with 180 to be safe
-		fmt.Println("\nGO: Calling Ansible for initial k8s deployment")
-		//time.Sleep(180 * time.Second)
-		err2 := executeCommand("ansible-playbook", "kubernetes/ansible_deploy.yml", "--inventory=kubernetes/inventory", "--extra-vars", "blueprintNumber="+strconv.Itoa(BlueprintCount))
-
-		if err2 != nil {
-			fmt.Println(err2.Error())
-			return err2
-		}
 	}
 
 	fmt.Printf("\nGO: Calling Ansible to add VDC %d", BlueprintCount)
@@ -173,7 +268,7 @@ func (u *dep) createDep(db *sql.DB) error {
 
 	if err != nil {
 		return err
-	}
+	}*/
 
 	return nil
 }
