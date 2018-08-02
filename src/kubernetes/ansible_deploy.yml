@@ -63,10 +63,10 @@
     become_user: "{{ hostvars[groups['master'][0]]['ansible_ssh_user'] }}"
     tasks:
       - name: Copy VDM deployment
-        template: src=scripts/vdm.yaml dest=vdm{{ blueprintName }}.yaml
+        template: src=scripts/vdm.yaml dest=vdm-{{ vdmName }}.yaml
 
       - name: Add VDM
-        script: scripts/deploy.sh vdm {{ blueprintName }}
+        script: scripts/deploy.sh vdm {{ vdmName }}
 
 
   - hosts: localhost

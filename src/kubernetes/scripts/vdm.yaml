@@ -1,11 +1,11 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: "vdm_{{ blueprintName }}"
+  name: "vdm-{{ vdmName }}"
 spec:
   type: NodePort
   selector:
-    component: "vdm_{{ blueprintName }}"
+    component: "vdm-{{ vdmName }}"
   ports:
   - name: http
     port: 8080
@@ -15,9 +15,9 @@ spec:
 apiVersion: v1
 kind: Pod
 metadata:
-  name: "ds4m_{{ blueprintName }}"
+  name: "ds4m-{{ vdmName }}"
   labels:
-    component: "vdm_{{ blueprintName }}"
+    component: "vdm-{{ vdmName }}"
 spec:
   containers:
   - name: ds4m

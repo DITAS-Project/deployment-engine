@@ -1,11 +1,11 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: "vdc{{ blueprintNumber }}"
+  name: "vdc-{{ vdcName }}"
 spec:
   type: NodePort
   selector:
-    component: "vdc{{ blueprintNumber }}"
+    component: "vdc-{{ vdcName }}"
   ports:
   - name: http
     port: 8080
@@ -15,9 +15,9 @@ spec:
 apiVersion: v1
 kind: Pod
 metadata:
-  name: "slalite{{ blueprintNumber }}"
+  name: "slalite-{{ vdcName }}"
   labels:
-    component: "vdc{{ blueprintNumber }}"
+    component: "vdc-{{ vdcName }}"
 spec:
   containers:
   - name: slalite
@@ -31,16 +31,16 @@ spec:
   volumes:
   - name: blueprint
     hostPath:
-        path: "/home/cloudsigma/blueprint{{ blueprintNumber }}"
+        path: "/home/cloudsigma/blueprint_{{ blueprintName }}"
         type: Directory
 
 ---
 apiVersion: v1
 kind: Pod
 metadata:
-  name: "due{{ blueprintNumber }}"
+  name: "due-{{ vdcName }}"
   labels:
-    component: "vdc{{ blueprintNumber }}"
+    component: "vdc-{{ vdcName }}"
 spec:
   containers:
   - name: due
@@ -54,16 +54,16 @@ spec:
   volumes:
   - name: blueprint
     hostPath:
-        path: "/home/cloudsigma/blueprint{{ blueprintNumber }}"
+        path: "/home/cloudsigma/blueprint_{{ blueprintName }}"
         type: Directory
   
 ---
 apiVersion: v1
 kind: Pod
 metadata:
-  name: "ideko{{ blueprintNumber }}"
+  name: "ideko-{{ vdcName }}"
   labels:
-    component: "vdc{{ blueprintNumber }}"
+    component: "vdc-{{ vdcName }}"
 spec:
   containers:
   - name: ideko-uc
@@ -78,7 +78,7 @@ spec:
   volumes:
   - name: blueprint
     hostPath:
-        path: "/home/cloudsigma/blueprint{{ blueprintNumber }}"
+        path: "/home/cloudsigma/blueprint_{{ blueprintName }}"
         type: Directory
 
   

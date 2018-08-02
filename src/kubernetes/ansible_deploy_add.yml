@@ -5,10 +5,10 @@
     become_user: "{{ hostvars[groups['master'][0]]['ansible_ssh_user'] }}"
     tasks:
       - name: Copy VDC deployment
-        template: src=scripts/vdc.yaml dest=vdc{{ blueprintNumber }}.yaml
+        template: src=scripts/vdc.yaml dest=vdc-{{ vdcName }}.yaml
 
       - name: Add VDC
-        script: scripts/deploy.sh vdc {{ blueprintNumber }}
+        script: scripts/deploy.sh vdc {{ vdcName }}
 
   - hosts: localhost
     tasks:

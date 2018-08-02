@@ -21,9 +21,15 @@
 
 [[projects]]
   branch = "master"
-  name = "github.com/buger/jsonparser"
-  packages = ["."]
-  revision = "2cac668e8456b4284edb0715e17e2af02d3ec993"
+  name = "github.com/globalsign/mgo"
+  packages = [
+    ".",
+    "bson",
+    "internal/json",
+    "internal/sasl",
+    "internal/scram"
+  ]
+  revision = "113d3961e7311526535a1ef7042196563d442761"
 
 [[projects]]
   name = "github.com/go-openapi/jsonpointer"
@@ -50,24 +56,6 @@
   version = "0.15.0"
 
 [[projects]]
-  name = "github.com/go-sql-driver/mysql"
-  packages = ["."]
-  revision = "d523deb1b23d913de5bdada721a6071e71283618"
-  version = "v1.4.0"
-
-[[projects]]
-  name = "github.com/go-stack/stack"
-  packages = ["."]
-  revision = "259ab82a6cad3992b4e21ff5cac294ccb06474bc"
-  version = "v1.7.0"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/golang/snappy"
-  packages = ["."]
-  revision = "2e65f85255dbc3072edf28d6b5b8efc472979f5a"
-
-[[projects]]
   name = "github.com/gorilla/context"
   packages = ["."]
   revision = "08b5f424b9271eedf6f9f0ce86cb9396ed337a42"
@@ -90,61 +78,6 @@
   revision = "03f2033d19d5860aef995fe360ac7d395cd8ce65"
 
 [[projects]]
-  name = "github.com/mongodb/mongo-go-driver"
-  packages = [
-    "bson",
-    "bson/builder",
-    "bson/decimal",
-    "bson/elements",
-    "bson/objectid",
-    "bson/parser",
-    "bson/parser/ast",
-    "core/address",
-    "core/auth",
-    "core/auth/internal/gssapi",
-    "core/command",
-    "core/compressor",
-    "core/connection",
-    "core/connstring",
-    "core/description",
-    "core/dispatch",
-    "core/event",
-    "core/option",
-    "core/readconcern",
-    "core/readpref",
-    "core/result",
-    "core/session",
-    "core/tag",
-    "core/topology",
-    "core/uuid",
-    "core/version",
-    "core/wiremessage",
-    "core/writeconcern",
-    "internal",
-    "mongo",
-    "mongo/aggregateopt",
-    "mongo/changestreamopt",
-    "mongo/clientopt",
-    "mongo/collectionopt",
-    "mongo/countopt",
-    "mongo/dbopt",
-    "mongo/deleteopt",
-    "mongo/distinctopt",
-    "mongo/dropcollopt",
-    "mongo/findopt",
-    "mongo/indexopt",
-    "mongo/insertopt",
-    "mongo/listcollectionopt",
-    "mongo/listdbopt",
-    "mongo/mongoopt",
-    "mongo/replaceopt",
-    "mongo/runcmdopt",
-    "mongo/updateopt"
-  ]
-  revision = "8df56f107cdd485351eb2523992c3364114b4b2e"
-  version = "v0.0.10"
-
-[[projects]]
   name = "github.com/sirupsen/logrus"
   packages = ["."]
   revision = "3e01752db0189b9157070a0e1668a620f9a85da2"
@@ -153,26 +86,14 @@
 [[projects]]
   branch = "master"
   name = "golang.org/x/crypto"
-  packages = [
-    "pbkdf2",
-    "ssh/terminal"
-  ]
+  packages = ["ssh/terminal"]
   revision = "c126467f60eb25f8f27e5a981f32a87e3965053f"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/net"
-  packages = [
-    "context",
-    "idna"
-  ]
-  revision = "49c15d80dfbc983ea25246ee959d970efe09ec09"
-
-[[projects]]
-  branch = "master"
-  name = "golang.org/x/sync"
-  packages = ["semaphore"]
-  revision = "1d60e4601c6fd243af51cc01ddf169918a5407ca"
+  packages = ["idna"]
+  revision = "f4c29de78a2a91c00474a2e689954305c350adf9"
 
 [[projects]]
   branch = "master"
@@ -181,7 +102,7 @@
     "unix",
     "windows"
   ]
-  revision = "bd9dbc187b6e1dacfdd2722a87e83093c2d7bd6e"
+  revision = "3dc4335d56c789b04b0ba99b7a37249d9b614314"
 
 [[projects]]
   name = "golang.org/x/text"
@@ -206,12 +127,6 @@
   version = "v0.3.0"
 
 [[projects]]
-  name = "google.golang.org/appengine"
-  packages = ["cloudsql"]
-  revision = "b1f26356af11148e710935ed1ac8a7f5702c7612"
-  version = "v1.1.0"
-
-[[projects]]
   name = "gopkg.in/yaml.v2"
   packages = ["."]
   revision = "5420a8b6744d3b0345ab293f6fcba19c978f1183"
@@ -220,6 +135,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "b24f244a6d85f5adda48ffaa946c7bb1f1e654409e2d64998807d2723df40abc"
+  inputs-digest = "2bb49c2ae4c935e0303750343336b4acdb10177d448d2713152032d1f09d2d7a"
   solver-name = "gps-cdcl"
   solver-version = 1
