@@ -28,11 +28,12 @@
           mode: 0755
 
       - name: copy admin.conf to user's kube config
+        become: yes
         copy:
           src: /etc/kubernetes/admin.conf
-          dest: /home/$USER/.kube/config"
+          dest: /home/{{ hostvars[groups['master'][0]]['ansible_ssh_user'] }}/.kube/config"
           remote_src: yes
-          owner: $USER
+          owner: "{{ hostvars[groups['master'][0]]['ansible_ssh_user'] }}""
 
       - name: installing flannel and allowing access to cluster
         shell: kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/v0.10.0/Documentation/kube-flannel.yml
