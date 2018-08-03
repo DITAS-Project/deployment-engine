@@ -29,8 +29,8 @@ type DeploymentEngineController struct {
 type Deployment struct {
 	ID        string                  `json:"id" bson:"_id"`
 	Blueprint blueprint.BlueprintType `json:"blueprint"`
-	MasterIP  string                  `json:"master_ip"`
-	NumVDCs   int                     `json:"num_vdcs"`
+	MasterIP  string                  `json:"master_ip" bson:"master_ip"`
+	NumVDCs   int                     `json:"num_vdcs" bson:"num_vdcs"`
 	Status    string                  `json:"status"`
 	VDCs      []string                `json:"vdcs"`
 }
