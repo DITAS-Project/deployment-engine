@@ -29,6 +29,8 @@
 
       - name: copy admin.conf to user's kube config
         become: yes
+        become_user: root
+        become_method: sudo
         copy:
           src: /etc/kubernetes/admin.conf
           dest: /home/{{ hostvars[groups['master'][0]]['ansible_ssh_user'] }}/.kube/config"
