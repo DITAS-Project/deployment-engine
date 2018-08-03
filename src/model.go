@@ -156,7 +156,7 @@ func (c *DeploymentEngineController) CreateDep(bp blueprint.BlueprintType) error
 				//80 seconds failed, try with 180 to be safe
 				fmt.Println("\nGO: Calling Ansible for initial k8s deployment")
 				//time.Sleep(180 * time.Second)
-				vars := fmt.Sprintf("\"blueprintName=%s vdmName=%s\"", bpName, bpNameSanitized)
+				vars := fmt.Sprintf("blueprintName=%s vdmName=%s", bpName, bpNameSanitized)
 				err2 := executeCommand("ansible-playbook", "kubernetes/ansible_deploy.yml", "--inventory=kubernetes/inventory", "--extra-vars", vars)
 
 				if err2 != nil {
@@ -177,7 +177,7 @@ func (c *DeploymentEngineController) CreateDep(bp blueprint.BlueprintType) error
 
 	fmt.Printf("\nGO: Calling Ansible to add VDC %d", vdcNumber)
 	//time.Sleep(20 * time.Second) //safety valve in case of one command after another
-	vars := fmt.Sprintf("\"blueprintName=%s vdcName=%s\"", bpName, vdcName)
+	vars := fmt.Sprintf("blueprintName=%s vdcName=%s", bpName, vdcName)
 	err2 := executeCommand("ansible-playbook", "kubernetes/ansible_deploy_add.yml", "--inventory=kubernetes/inventory", "--extra-vars", vars)
 
 	if err2 != nil {
