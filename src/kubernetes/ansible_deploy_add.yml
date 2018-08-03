@@ -8,7 +8,7 @@
         template: src=scripts/vdc.yaml dest=vdc-{{ vdcName }}.yaml
 
       - name: Add VDC
-        script: scripts/deploy.sh vdc {{ vdcName }}
+        shell: kubectl create -f vdc-{{ vdcName }}.yaml
 
   - hosts: localhost
     tasks:

@@ -12,6 +12,7 @@
       - name: using kubernetes init and gathering output info
         shell: kubeadm init --pod-network-cidr 10.244.0.0/16 | grep "kubeadm join"
         register: kube_join
+
       - name: setting variable to join other nodes
         set_fact: join_command="{{ kube_join.stdout }}"
 
@@ -19,16 +20,45 @@
     become: yes
     become_user: "{{ hostvars[groups['master'][0]]['ansible_ssh_user'] }}"
     tasks:
-      - name: installing flannel and allowing access to cluster
-        script: scripts/run.sh
 
-  - hosts: [master]
-    become: yes
-    become_user: "{{ hostvars[groups['master'][0]]['ansible_ssh_user'] }}"
-    tasks:
+      - name: create .kube directory
+        file:
+          path: $HOME/.kube
+          state: directory
+          mode: 0755
+
+      - name: copy admin.conf to user's kube config
+        copy:
+          src: /etc/kubernetes/admin.conf
+          dest: /home/$USER/.kube/config"
+          remote_src: yes
+          owner: $USER
+
+      - name: installing flannel and allowing access to cluster
+        shell: kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/v0.10.0/Documentation/kube-flannel.yml
+      
+      - name: taint cluster to allow pod deployments on master
+        shell: kubectl taint nodes --all node-role.kubernetes.io/master-
+      
       - name: getting slaves join command
         debug: msg={{ kube_join.stdout }}
         when: "'kubeadm join' in kube_join.stdout"
+
+
+  # - hosts: [master]
+  #   become: yes
+  #   become_user: "{{ hostvars[groups['master'][0]]['ansible_ssh_user'] }}"
+  #   tasks:
+  #     - name: installing flannel and allowing access to cluster
+  #       script: scripts/run.sh
+
+  # - hosts: [master]
+  #   become: yes
+  #   become_user: "{{ hostvars[groups['master'][0]]['ansible_ssh_user'] }}"
+  #   tasks:
+  #     - name: getting slaves join command
+  #       debug: msg={{ kube_join.stdout }}
+  #       when: "'kubeadm join' in kube_join.stdout"
 
   - hosts: [slaves]
     become: yes
@@ -45,18 +75,15 @@
           state: directory
           mode: "a+rw"
 
-  - hosts: all
-    tasks:
-      - copy:
+      - name: Copy blueprint file
+        copy:
           src: /deployment-engine/src/blueprint_{{ blueprintName }}.json
           dest: /home/cloudsigma/blueprint_{{ blueprintName }}/blueprint.json
 
-  - hosts: all
-    tasks:
       - name: Copy github json repo
         copy:
           src: /deployment-engine/src/VDC-Shared-Config
-          dest: /home/cloudsigma/blueprint_{{ blueprintName }}
+          dest: /home/cloudsigma/blueprint_{{ blueprintName }}     
   
   - hosts: [master]
     become: yes
@@ -66,7 +93,7 @@
         template: src=scripts/vdm.yaml dest=vdm-{{ vdmName }}.yaml
 
       - name: Add VDM
-        script: scripts/deploy.sh vdm {{ vdmName }}
+        shell: kubectl create -f vdm-{{ vdmName }}.yaml
 
 
   - hosts: localhost
