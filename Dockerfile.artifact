@@ -1,9 +1,9 @@
 # Dockerfile for Python, Go and Ansible with the deployment engine, MongoDB in a parallel container.
 # WIP = work in progress
 # Artifact - executable + dependencies
-FROM alpine:3.7
+FROM alpine:3.8
 
-ENV ANSIBLE_VERSION 2.5.0
+# ENV ANSIBLE_VERSION 2.5.0
 
 ENV BUILD_PACKAGES \
   bash \
@@ -20,7 +20,8 @@ ENV BUILD_PACKAGES \
   py-paramiko \
   py-pip \
   py-yaml \
-  ca-certificates
+  ca-certificates \
+  ansible
 
 # Adding build-dependencies
 RUN apk --update add --virtual .build-dependencies gcc musl-dev libffi-dev python-dev 
@@ -37,10 +38,9 @@ RUN pip install python-keyczar docker-py
 RUN pip install cloudsigma 
 
 # Installing Ansible
-RUN pip install ansible==${ANSIBLE_VERSION} 
+# RUN pip install ansible==${ANSIBLE_VERSION} 
 
 # Cleaning up
-RUN apk del .build-deps
 RUN apk del .build-dependencies
 RUN rm -rf /var/cache/apk/*
 
@@ -52,11 +52,11 @@ RUN echo "localhost" >> /etc/ansible/hosts
 ENV ANSIBLE_GATHERING smart
 ENV ANSIBLE_HOST_KEY_CHECKING false
 ENV ANSIBLE_RETRY_FILES_ENABLED false
-ENV ANSIBLE_ROLES_PATH /ansible/playbooks/roles
+# ENV ANSIBLE_ROLES_PATH /ansible/playbooks/roles
 ENV ANSIBLE_SSH_PIPELINING True
-ENV PYTHONPATH /ansible/lib
-ENV PATH /ansible/bin:$PATH
-ENV ANSIBLE_LIBRARY /ansible/library
+# ENV PYTHONPATH /ansible/lib
+# ENV PATH /ansible/bin:$PATH
+# ENV ANSIBLE_LIBRARY /ansible/library
 
 WORKDIR /deployment-engine/src
 COPY /src/kubernetes /deployment-engine/src/kubernetes
