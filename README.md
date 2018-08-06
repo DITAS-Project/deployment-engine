@@ -39,12 +39,17 @@ The next section assumes that we have a successful build running. To check that 
 
 #### Running the deployment engine
 
-The deployment engine can be started by running `docker-compose up` in the sources root folder. To check that it's working, a `GET` request to `http://localhost:50012/deps` should return something.
+* Create a folder in your local filesystem (i.e `$HOME/dep-engine-home`)
+* Put your `.cloudsigma.conf` file with your CloudSigma credentials into that folder
+* Create a `.ssh` subfolder and create a key-pair into it. For example `ssh-keygen -q -t rsa -N '' -f $HOME/dep-engine-home/.ssh/id_rsa`
+* Download this Docker Compose [deployment file](https://raw.githubusercontent.com/DITAS-Project/deployment-engine/review_demo/docker-compose.yml) to any folder.
+* Change the default `/home/cloudsigma/dep-engine-home` path to the path to the folder created in the first step.
+* The deployment engine can be started by running `docker-compose up` in the folder that contains the Docker Compose file.
+* To check that it's working, a `GET` request to `http://localhost:50012/deps` should return something.
 
 #### Add a deployment
 
-To add a deployment `test` use curl command
-`curl -H "Content-Type: application/json" -d '{"id":"test", "name":"AddedDep", "status":"starting", "nodes": [{"id": "sth1", "region": "ZRH", "public_ip": "168.192.0.1", "role": "none", "ram":2048, "cpu":2000, "status":"starting"}, {"id": "sth2", "region": "MIA", "public_ip": "168.192.0.2", "role": "none", "ram":1024, "cpu":2000, "status":"starting"}]}' localhost:50012/dep` or any other tool able to send arbitrary HTTP requests like [Postman](https://www.getpostman.com/).
+To add a deployment send a `POST` request to `http://localhost:50012/deps` with content type `application\json` header and a DITAS blueprint with a valid `COOKBOOK_APPENDIX` section with the description of the deployment as body of the request. You can do it with `curl` or with any other tool that's able to send arbitrary HTTP requests like [Postman](https://www.getpostman.com/).
 
 It takes time to set everything up. You will be informed by the API once the job is done or have failed. There is no intermediate output possible due to the fact that only a JSON can be returned and
 all printing happens inside the container.
@@ -52,22 +57,24 @@ all printing happens inside the container.
 Having that, if you want to make sure that the machines were created correctly, you can view the status of the nodes on the [http://localhost:50012/deps](http://localhost:50012/deps) page.
 If the nodes show `running` it means the python script has finished its job and VM are created, as long as the full deployment is not `running` some other tasks, such as creating the cluster with ansible, are being performed.
 
+Once the status is running, everything is set-up. All nodes are created and a VDM and VDC should be created for the DITAS blueprint. The id of this deployment is the name of this blueprint.
+
 #### View the deployments
 
-To view deployments from the command line type `curl localhost:50012/deps` for all and `curl localhost:50012/dep/test` for a specific one - `test` in this case.
+To view deployments from the command line type send a `GET` request to `http://localhost:50012/deps` such as `curl localhost:50012/deps` for all and `curl localhost:50012/deps/<blueprint_name>` for a specific one.
 
 #### Rerun the deployment
 
-If you decide to feed the engine with a deployment that has the same main name, the engine will understand that as a command to add another version of all components that are currently running in the cluster. It will create new pods/services/deployments for components such as SLAlite, ds4m or VDC.
+The second time a blueprint is received, it won't launch a second infrastructure deployment. It will just create another instance of a VDC in the deployment already available. You can see the list of the VDC Identifiers in the deployment data.
 
 #### Remove the deployment
 
-To remove a deployment called `test` run `curl -X DELETE 31.171.247.156:50012/dep/test`
+To remove a deployment called `test` run `curl -X DELETE localhost:50012/deps/test?deleteDeployment=true`
 Remember to remove the deployment after you are done! Otherwise it will stay and take your resources until you do.
 
 #### Final note
 
-Remember that the name of the deployment and names of nodes are unique. Depending on the available resources more nodes can be added. The example works with 2 - one master and one slave. Parameters such as RAM, CPU are also modifiable - just change them in `curl`.
+Remember that the name of the deployment and names of nodes are unique. Depending on the available resources more nodes can be added. The example works with 2 - one master and one slave. Parameters such as RAM, CPU are also modifiable - just change them in the blueprint.
 Parameters such as IP address, status are downloaded from CloudSigma servers and set in the database by python script.
 
 The deployment engine works on an account with limited resources (4GHz and 9GB RAM left) and with username and password saved privately so that the access is restricted to the members allowed to edit the core components.
