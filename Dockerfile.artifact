@@ -22,38 +22,33 @@ ENV BUILD_PACKAGES \
   py-yaml \
   ca-certificates
 
-RUN set -x && \
-    \
-    echo "==> Adding build-dependencies..."  && \
-    apk --update add --virtual build-dependencies \
-      gcc \
-      musl-dev \
-      libffi-dev \
-      python-dev && \
-    \
-    echo "==> Upgrading apk and system..."  && \
-    apk update && apk upgrade && \
-    \
-    echo "==> Adding Python runtime and packages..."  && \
-    apk add --no-cache ${BUILD_PACKAGES} && \
-    pip install --upgrade pip && \
-    pip install python-keyczar docker-py && \
-    \
-    echo "==> Adding Cloudsigma Python api..."  && \
-    pip install cloudsigma && \
-    \
-    echo "==> Installing Ansible..."  && \
-    pip install ansible==${ANSIBLE_VERSION} && \
-    \
-    echo "==> Cleaning up..."  && \
-    apk del .build-deps && \
-    apk del build-dependencies && \
-    rm -rf /var/cache/apk/* && \
-    \
-    echo "==> Adding hosts for convenience..."  && \
-    mkdir -p /etc/ansible /ansible && \
-    echo "[local]" >> /etc/ansible/hosts && \
-    echo "localhost" >> /etc/ansible/hosts
+RUN set -x 
+RUN echo "==> Adding build-dependencies..."
+RUN apk --update add --virtual build-dependencies gcc musl-dev libffi-dev python-dev 
+
+RUN echo "==> Upgrading apk and system..."  
+RUN apk update && apk upgrade 
+
+RUN echo "==> Adding Python runtime and packages..."
+RUN apk add --no-cache ${BUILD_PACKAGES}
+RUN pip install --upgrade pip
+RUN pip install python-keyczar docker-py 
+
+RUN echo "==> Adding Cloudsigma Python api..."
+RUN pip install cloudsigma 
+
+RUN echo "==> Installing Ansible..."
+RUN pip install ansible==${ANSIBLE_VERSION} 
+
+RUN echo "==> Cleaning up..."
+RUN apk del .build-deps
+RUN apk del build-dependencies
+RUN rm -rf /var/cache/apk/*
+
+RUN echo "==> Adding hosts for convenience..."
+RUN mkdir -p /etc/ansible /ansible
+RUN echo "[local]" >> /etc/ansible/hosts
+RUN echo "localhost" >> /etc/ansible/hosts
 
 ENV ANSIBLE_GATHERING smart
 ENV ANSIBLE_HOST_KEY_CHECKING false
