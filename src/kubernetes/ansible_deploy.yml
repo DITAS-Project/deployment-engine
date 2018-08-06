@@ -109,15 +109,13 @@
       - name: final
         debug:
           msg:
-          - "Job done! You can now access cluster from master node! If you have error with port connection - input as a regular user:"
-          - export KUBECONFIG=$HOME/admin.conf
+          - "Job done! You can now access cluster from master node! Now you can connect with:"
+          - ssh {{ hostvars[groups['master'][0]]['ansible_ssh_user'] }}@{{ hostvars[groups['master'][0]]['ansible_ssh_host'] }}
+          - ssh {{ hostvars[groups['slaves'][0]]['ansible_ssh_user'] }}@{{ hostvars[groups['slaves'][0]]['ansible_ssh_host'] }}
+          - "For more machines refer to inventory file"
           - --------------------------
           - "You can use next commands now to check cluster status:"
           - kubectl get nodes -o wide
           - kubectl get pods --all-namespaces
           - kubectl cluster-info
           - --------------------------
-          - "Now you can connect with:"
-          - ssh {{ hostvars[groups['master'][0]]['ansible_ssh_user'] }}@{{ hostvars[groups['master'][0]]['ansible_ssh_host'] }}
-          - ssh {{ hostvars[groups['slaves'][0]]['ansible_ssh_user'] }}@{{ hostvars[groups['slaves'][0]]['ansible_ssh_host'] }}
-          - "For more machines refer to inventory file"

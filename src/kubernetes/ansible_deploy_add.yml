@@ -15,4 +15,4 @@
       - name: final
         debug:
           msg:
-          - "Additional components added - their name is based on the date in YYYYMMDDhhmmss format"
+          - "Additional components added"

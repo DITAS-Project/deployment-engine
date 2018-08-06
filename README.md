@@ -4,26 +4,23 @@ This is a WIP - work in progress readme of a docker-based version of the deploym
 
 ### Structure
 The project consists of two docker containers, where the first one contains:
-1. REST API in GOlang allowing an upload, viewing and removal of deployments
+1. REST API in Golang allowing an upload, viewing and removal of deployments
 
 2. Virtual machine creation and removal scripts in Python to access CloudSigma resources
 
 3. Ansible playbook used on the created virtual machine to set up a kubernetes cluster
 
-And the other one is a MySQL database to store the deployments and nodes information
-and is accessible through port 50013 at the same IP address.
+And the other one is a MongoDB database to store the deployments and nodes information
+and is accessible through port 50014 at the same IP address.
 
 Data is structured as in the following schema - swagger api file (available in /src/api/):
 https://app.swaggerhub.com/apis/jacekwachowiak/REST-Kubernetes/1.1
 
 ### Steps to go:
 * rewrite scripts if multiple masters are needed - abandoned for now, useful only with very large networks
-* handle deployment requests with automatic installing of the apps inside the cluster - for now just SLA available
 
 ### Requirements
-To run the project in its current state it is not necessary to have a working instance of MySQL,
-neither go nor 
-curl or python 2.7.
+To run the project in its current state it is necessary to have a working instance of MongoDB either native or in a docker container.
 The principal component necessary to run the deployment is access to a machine with docker installed. To make changes to the project download the repository and add/commit/push.
 
 ### Instructions
