@@ -4,8 +4,6 @@ import time
 import os
 import os.path
 import sys
-import MySQLdb
-import mysql
 import socket
 
 # ---# input data #--- #
