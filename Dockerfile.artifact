@@ -23,7 +23,7 @@ ENV BUILD_PACKAGES \
   ca-certificates
 
 # Adding build-dependencies
-RUN apk --update add --virtual build-dependencies gcc musl-dev libffi-dev python-dev 
+RUN apk --update add --virtual .build-dependencies gcc musl-dev libffi-dev python-dev 
 
 # Upgrading apk and system
 RUN apk update && apk upgrade 
@@ -41,7 +41,7 @@ RUN pip install ansible==${ANSIBLE_VERSION}
 
 # Cleaning up
 RUN apk del .build-deps
-RUN apk del build-dependencies
+RUN apk del .build-dependencies
 RUN rm -rf /var/cache/apk/*
 
 # Adding hosts for convenience
