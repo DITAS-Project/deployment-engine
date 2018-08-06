@@ -22,7 +22,6 @@ ENV BUILD_PACKAGES \
   py-yaml \
   ca-certificates
 
-RUN set -x 
 RUN echo "==> Adding build-dependencies..."
 RUN apk --update add --virtual build-dependencies gcc musl-dev libffi-dev python-dev 
 
