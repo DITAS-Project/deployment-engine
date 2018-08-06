@@ -3,6 +3,7 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -26,9 +27,15 @@ type DeploymentEngineController struct {
 	collection *mgo.Collection
 }
 
+type NodeInfo struct {
+	Name string `json:"name"`
+	IP   string `json:"ip"`
+}
+
 type Deployment struct {
 	ID        string                  `json:"id" bson:"_id"`
 	Blueprint blueprint.BlueprintType `json:"blueprint"`
+	Nodes     []NodeInfo              `json:"nodes"`
 	MasterIP  string                  `json:"master_ip" bson:"master_ip"`
 	NumVDCs   int                     `json:"num_vdcs" bson:"num_vdcs"`
 	Status    string                  `json:"status"`
@@ -107,6 +114,42 @@ func (c *DeploymentEngineController) findDeployment(bpName string) (Deployment, 
 	return deployment, err
 }
 
+func (c *DeploymentEngineController) getNodeIps() (map[string]string, error) {
+	result := make(map[string]string)
+	file, err := os.Open("kubernetes/inventory")
+	defer file.Close()
+	if err != nil {
+		return result, err
+	}
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		text := scanner.Text()
+		if strings.Index(text, "[") != 0 {
+			tokens := strings.Split(text, " ")
+			if len(tokens) > 1 {
+				host := tokens[0]
+				hostInfo := tokens[1]
+				hostInfoTokens := strings.Split(hostInfo, "=")
+				if len(hostInfoTokens) > 1 && hostInfoTokens[0] == "ansible_ssh_host" {
+					result[host] = hostInfoTokens[1]
+				} else {
+					fmt.Printf("Invalid ansible_ssh_host found in inventory for host %s: %s\n", host, hostInfo)
+				}
+			} else {
+				fmt.Printf("Invalid host info line found in inventory: %s\n", text)
+			}
+		}
+	}
+
+	if scanner.Err() != nil {
+		return result, scanner.Err()
+	}
+
+	return result, nil
+
+}
+
 func (c *DeploymentEngineController) CreateDep(bp blueprint.BlueprintType) error {
 	collection := c.collection
 	bpName := *bp.InternalStructure.Overview.Name
@@ -123,10 +166,14 @@ func (c *DeploymentEngineController) CreateDep(bp blueprint.BlueprintType) error
 			Status:    "starting",
 		}
 		err = collection.Insert(deployment)
+		var masterName string
 		if err == nil {
 			for _, infra := range bp.CookbookAppendix.Infrastructure {
 				pythonArgs := make([]string, 0, len(infra.Resources)*3)
 				for _, node := range infra.Resources {
+					if strings.ToLower(node.Role) == "master" {
+						masterName = node.Name
+					}
 					pythonArgs = append(pythonArgs, node.Name)
 					pythonArgs = append(pythonArgs, node.RAM)
 					pythonArgs = append(pythonArgs, node.CPUs)
@@ -140,6 +187,29 @@ func (c *DeploymentEngineController) CreateDep(bp blueprint.BlueprintType) error
 					c.setStatus(bpName, errorStatus)
 					return err
 				}
+
+				nodeIps, err := c.getNodeIps()
+				if err != nil {
+					fmt.Printf("Error reading node ips: %s\n", err.Error())
+					c.setStatus(bpName, errorStatus)
+					return err
+				}
+
+				var masterIp string
+				nodes := make([]NodeInfo, 0, len(nodeIps))
+				for name, ip := range nodeIps {
+					if name == masterName {
+						masterIp = ip
+					}
+					nodes = append(nodes, NodeInfo{
+						Name: name,
+						IP:   ip,
+					})
+				}
+
+				c.updateDeployment(bpName, bson.M{
+					"$set": bson.M{"master_ip": masterIp, "nodes": nodes},
+				})
 
 				jsonData, err := json.Marshal(bp)
 				name := "./blueprint_" + bpName + ".json"

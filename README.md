@@ -13,9 +13,6 @@ The project consists of two docker containers, where the first one contains:
 And the other one is a MongoDB database to store the deployments and nodes information
 and is accessible through port 50014 at the same IP address.
 
-Data is structured as in the following schema - swagger api file (available in /src/api/):
-https://app.swaggerhub.com/apis/jacekwachowiak/REST-Kubernetes/1.1
-
 ### Steps to go
 
 * rewrite scripts if multiple masters are needed - abandoned for now, useful only with very large networks
