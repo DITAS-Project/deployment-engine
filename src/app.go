@@ -26,7 +26,7 @@ func (a *App) Initialize() {
 	a.Router = mux.NewRouter()
 	a.initializeRoutes()
 
-	client, err := mgo.Dial("mongodb://mongo:27017")
+	client, err := mgo.Dial("mongodb://localhost:27017")
 	if err == nil {
 		db := client.DB("deployment_engine")
 		if db != nil {

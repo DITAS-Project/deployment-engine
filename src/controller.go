@@ -4,6 +4,8 @@ package main
 
 import (
 	"bufio"
+	"deployment-engine/src/cloudsigma"
+	"deployment-engine/src/ditas"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -27,23 +29,9 @@ type DeploymentEngineController struct {
 	collection *mgo.Collection
 }
 
-type NodeInfo struct {
-	Name string `json:"name"`
-	IP   string `json:"ip"`
-}
-
-type Deployment struct {
-	ID        string                  `json:"id" bson:"_id"`
-	Blueprint blueprint.BlueprintType `json:"blueprint"`
-	Nodes     []NodeInfo              `json:"nodes"`
-	MasterIP  string                  `json:"master_ip" bson:"master_ip"`
-	NumVDCs   int                     `json:"num_vdcs" bson:"num_vdcs"`
-	Status    string                  `json:"status"`
-	VDCs      []string                `json:"vdcs"`
-}
-
 func sanitize(name string) (string, error) {
 	replaced := strings.Replace(name, "_", "-", -1)
+	replaced = strings.Replace(replaced, " ", "-", -1)
 	valid, err := regexp.Match(componentNameRegexp, []byte(replaced))
 	if !valid {
 		return "", fmt.Errorf("Sanitized blueprint name %s is not valid for kubernetes deployment", replaced)
@@ -58,7 +46,7 @@ func executeCommand(name string, args ...string) error {
 	return cmd.Run()
 }
 
-func (c *DeploymentEngineController) deleteDeployment(bpName string, deployment Deployment) error {
+func (c *DeploymentEngineController) deleteDeployment(bpName string, deployment ditas.Deployment) error {
 	var pythonArgs []string
 	for _, inf := range deployment.Blueprint.CookbookAppendix.Infrastructure {
 		for _, node := range inf.Resources {
@@ -108,8 +96,8 @@ func (c *DeploymentEngineController) setStatus(bpName string, status string) {
 
 }
 
-func (c *DeploymentEngineController) findDeployment(bpName string) (Deployment, error) {
-	var deployment Deployment
+func (c *DeploymentEngineController) findDeployment(bpName string) (ditas.Deployment, error) {
+	var deployment ditas.Deployment
 	err := c.collection.FindId(bpName).One(&deployment)
 	return deployment, err
 }
@@ -151,6 +139,27 @@ func (c *DeploymentEngineController) getNodeIps() (map[string]string, error) {
 }
 
 func (c *DeploymentEngineController) CreateDep(bp blueprint.BlueprintType) error {
+	bpName := *bp.InternalStructure.Overview.Name
+	bpNameSanitized, err := sanitize(bpName)
+	if err != nil {
+		return err
+	}
+	var deployer ditas.Deployer
+	for _, infra := range bp.CookbookAppendix.Infrastructure {
+		if strings.ToLower(infra.APIType) == "cloudsigma" {
+			deployer, err = cloudsigma.NewDeployer()
+			if err != nil {
+				fmt.Printf("Error creating cloudsigma deployer: %s\n", err.Error())
+				return err
+			}
+			_, err := deployer.DeployInfrastructure(infra, bpNameSanitized)
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *DeploymentEngineController) CreateDepOld(bp blueprint.BlueprintType) error {
 	collection := c.collection
 	bpName := *bp.InternalStructure.Overview.Name
 	bpNameSanitized, err := sanitize(bpName)
@@ -159,7 +168,7 @@ func (c *DeploymentEngineController) CreateDep(bp blueprint.BlueprintType) error
 	}
 	deployment, err := c.findDeployment(bpName)
 	if err != nil {
-		deployment := Deployment{
+		deployment := ditas.Deployment{
 			Blueprint: bp,
 			ID:        *bp.InternalStructure.Overview.Name,
 			NumVDCs:   0,
@@ -196,12 +205,12 @@ func (c *DeploymentEngineController) CreateDep(bp blueprint.BlueprintType) error
 				}
 
 				var masterIp string
-				nodes := make([]NodeInfo, 0, len(nodeIps))
+				nodes := make([]ditas.NodeInfo, 0, len(nodeIps))
 				for name, ip := range nodeIps {
 					if name == masterName {
 						masterIp = ip
 					}
-					nodes = append(nodes, NodeInfo{
+					nodes = append(nodes, ditas.NodeInfo{
 						Name: name,
 						IP:   ip,
 					})
@@ -262,65 +271,16 @@ func (c *DeploymentEngineController) CreateDep(bp blueprint.BlueprintType) error
 	})
 
 	fmt.Println("GO: Finished")
-	/*status := "starting"
-	default_ip := "assigning"
-	region := "default"
-	statement := fmt.Sprintf("INSERT INTO deploymentsBlueprint(id, description, status, type, api_endpoint, api_type, keypair_id) VALUES('%s', '%s', '%s', '%s', '%s', '%s', '%s')", u.Id, u.Description, status, u.Type, u.Api_endpoint, u.Api_type, u.Keypair_id)
-	_, err := db.Exec(statement)
-	if err == nil {
-		var pythonArgs []string
-		for _, element := range u.Nodes {
-			statement = fmt.Sprintf("INSERT INTO nodesBlueprint(id, dep_id, region, public_ip, role, ram, cpu, status, type, disc, generate_ssh_keys, ssh_keys_id, baseimage, arch, os) VALUES('%s', '%s', '%s', '%s', '%s', '%d', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')", element.Id, u.Id, region, default_ip, element.Role, element.RAM, element.Cpu, status, element.Type, element.Disc, element.Generate_ssh_keys, element.Ssh_keys_id, element.Base_image, element.Arch, element.Os)
-			_, err = db.Exec(statement)
-			//here arguments for python are prepared - name/ram/cpu of nodesBlueprint are prepared
-			pythonArgs = append(pythonArgs, element.Id)
-			pythonArgs = append(pythonArgs, strconv.Itoa(element.RAM))
-			pythonArgs = append(pythonArgs, strconv.Itoa(element.Cpu))
-			//
-		}
-
-		//here json file is created
-		u.getDep(db)
-		u.getNodes(db)
-
-	}
-
-	fmt.Printf("\nGO: Calling Ansible to add VDC %d", BlueprintCount)
-	//time.Sleep(20 * time.Second) //safety valve in case of one command after another
-	err2 := executeCommand("ansible-playbook", "kubernetes/ansible_deploy_add.yml", "--inventory=kubernetes/inventory", "--extra-vars", "blueprintNumber="+strconv.Itoa(BlueprintCount))
-
-	if err2 != nil {
-		fmt.Println(err2.Error())
-		return err2
-	}
-	BlueprintCount++
-
-	BlueprintCount++
-	// update database with deployment status - running
-	status = "running"
-	statement = fmt.Sprintf("UPDATE deploymentsBlueprint SET deploymentsBlueprint.status = \042%s\042 WHERE deploymentsBlueprint.id = \042%s\042", status, u.Id)
-	_, err = db.Exec(statement)
-	if err != nil {
-		fmt.Println(err.Error())
-		//return err
-	}
-	fmt.Println("GO: Finished")
-	//
-	err = db.QueryRow("SELECT LAST_INSERT_Id()").Scan(&u.Id) //check
-
-	if err != nil {
-		return err
-	}*/
 
 	return nil
 }
 
-func (c *DeploymentEngineController) GetAllDeps() ([]Deployment, error) {
-	var result []Deployment
+func (c *DeploymentEngineController) GetAllDeps() ([]ditas.Deployment, error) {
+	var result []ditas.Deployment
 	err := c.collection.Find(nil).All(&result)
 	return result, err
 }
 
-func (c *DeploymentEngineController) GetDep(id string) (Deployment, error) {
+func (c *DeploymentEngineController) GetDep(id string) (ditas.Deployment, error) {
 	return c.findDeployment(id)
 }
