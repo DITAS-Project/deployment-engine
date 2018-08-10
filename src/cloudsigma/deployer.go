@@ -30,7 +30,7 @@ type NodeCreationResult struct {
 func NewDeployer() (*CloudsigmaDeployer, error) {
 	home, err := homedir.Dir()
 	if err != nil {
-		fmt.Printf("Error getting home folder: %s\n", err.Error())
+		log.Infof("Error getting home folder: %s\n", err.Error())
 		return nil, err
 	}
 	viper.SetDefault("debug_cs_client", false)
@@ -50,10 +50,10 @@ func NewDeployer() (*CloudsigmaDeployer, error) {
 			}, nil
 		}
 
-		fmt.Printf("Error reading public key: %s\n", err.Error())
+		log.Infof("Error reading public key: %s\n", err.Error())
 
 	} else {
-		fmt.Printf("Error reading configuration: %s\n", err.Error())
+		log.Infof("Error reading configuration: %s\n", err.Error())
 	}
 	return nil, err
 }
@@ -294,12 +294,11 @@ func (d *CloudsigmaDeployer) deletePartialDeployment(nodeInfo NodeCreationResult
 	return nodeInfo.Error
 }
 
-func (d *CloudsigmaDeployer) DeployInfrastructure(infrastructure blueprint.InfrastructureType, namePrefix string) (ditas.Deployment, error) {
+func (d *CloudsigmaDeployer) DeployInfrastructure(infrastructure blueprint.InfrastructureType, namePrefix string) (ditas.InfrastructureDeployment, error) {
 
 	numNodes := len(infrastructure.Resources)
-	deployment := ditas.Deployment{
+	deployment := ditas.InfrastructureDeployment{
 		ID:     namePrefix,
-		Status: "starting",
 		Slaves: make([]ditas.NodeInfo, 0, numNodes-1),
 	}
 

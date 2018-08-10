@@ -5,7 +5,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
 	//"os"
@@ -14,6 +13,8 @@ import (
 	blueprint "github.com/DITAS-Project/blueprint-go"
 	"github.com/globalsign/mgo"
 	"github.com/gorilla/mux"
+	homedir "github.com/mitchellh/go-homedir"
+	log "github.com/sirupsen/logrus"
 )
 
 type App struct {
@@ -26,17 +27,23 @@ func (a *App) Initialize() {
 	a.Router = mux.NewRouter()
 	a.initializeRoutes()
 
-	client, err := mgo.Dial("mongodb://localhost:27017")
+	home, err := homedir.Dir()
 	if err == nil {
-		db := client.DB("deployment_engine")
-		if db != nil {
-			controller := DeploymentEngineController{
-				collection: db.C("deployments"),
+		client, err := mgo.Dial("mongodb://localhost:27017")
+		if err == nil {
+			db := client.DB("deployment_engine")
+			if db != nil {
+				controller := DeploymentEngineController{
+					collection: db.C("deployments"),
+					homedir:    home,
+				}
+				a.Controller = &controller
 			}
-			a.Controller = &controller
+		} else {
+			log.Errorf("Error getting client for MongoDB: %s", err.Error())
 		}
 	} else {
-		fmt.Printf("Error getting client for MongoDB: %s", err.Error())
+		log.Errorf("Error getting home dir")
 	}
 
 }

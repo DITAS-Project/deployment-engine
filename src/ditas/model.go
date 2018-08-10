@@ -13,8 +13,8 @@ type NodeInfo struct {
 	DriveUUID string `json:"drive_uuid" bson:"drive_uuid"`
 }
 
-type Deployment struct {
-	ID        string                  `json:"id" bson:"_id"`
+type InfrastructureDeployment struct {
+	ID        string                  `json:"id"`
 	Blueprint blueprint.BlueprintType `json:"blueprint"`
 	Slaves    []NodeInfo              `json:"slaves"`
 	Master    NodeInfo                `json:"master"`
@@ -23,6 +23,13 @@ type Deployment struct {
 	VDCs      []string                `json:"vdcs"`
 }
 
+type Deployment struct {
+	ID              string                     `json:"id" bson:"_id"`
+	Blueprint       blueprint.BlueprintType    `json:"blueprint"`
+	Infrastructures []InfrastructureDeployment `json:"infrastructures"`
+	Status          string                     `json:"status"`
+}
+
 type Deployer interface {
-	DeployInfrastructure(infrastructure blueprint.InfrastructureType, namePrefix string) (Deployment, error)
+	DeployInfrastructure(infrastructure blueprint.InfrastructureType, namePrefix string) (InfrastructureDeployment, error)
 }

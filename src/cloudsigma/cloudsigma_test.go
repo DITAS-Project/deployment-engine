@@ -29,7 +29,7 @@ func TestMain(m *testing.M) {
 		if err == nil {
 			pubKey = string(pubKeyRaw)
 			client = NewClient(viper.GetString("api_endpoint"),
-				viper.GetString("username"), viper.GetString("password"))
+				viper.GetString("username"), viper.GetString("password"), true)
 			os.Exit(m.Run())
 		}
 

@@ -79,29 +79,29 @@
     tasks:
       - name: Create blueprint directory
         file:
-          path: /home/cloudsigma/blueprint_{{ blueprintName }}
+          path: /home/cloudsigma/blueprint_{{ blueprintId }}
           state: directory
           mode: "a+rw"
 
       - name: Copy blueprint file
         copy:
-          src: /deployment-engine/src/blueprint_{{ blueprintName }}.json
-          dest: /home/cloudsigma/blueprint_{{ blueprintName }}/blueprint.json
+          src: /deployment-engine/src/kubernetes/{{ blueprintId }}/blueprint.json
+          dest: /home/cloudsigma/blueprint_{{ blueprintId }}/blueprint.json
 
       - name: Copy github json repo
         copy:
           src: /deployment-engine/src/VDC-Shared-Config
-          dest: /home/cloudsigma/blueprint_{{ blueprintName }}     
+          dest: /home/cloudsigma/blueprint_{{ blueprintId }}     
   
   - hosts: [master]
     become: yes
     become_user: "{{ hostvars[groups['master'][0]]['ansible_ssh_user'] }}"
     tasks:
       - name: Copy VDM deployment
-        template: src=scripts/vdm.yaml dest=vdm-{{ vdmName }}.yaml
+        template: src=scripts/vdm.yaml dest=vdm-{{ blueprintId }}.yaml
 
       - name: Add VDM
-        shell: kubectl create -f vdm-{{ vdmName }}.yaml
+        shell: kubectl create -f vdm-{{ blueprintId }}.yaml
 
 
   - hosts: localhost
