@@ -255,6 +255,8 @@ func (c *DeploymentEngineController) verifySshHost(logInput *log.Entry, node dit
 }
 
 func (c *DeploymentEngineController) addHostCallback(hostname string, remote net.Addr, key ssh.PublicKey) error {
+	logger := log.WithField("host", remote.String())
+	logger.Info("Adding host to known_hosts")
 	line := knownhosts.Line([]string{knownhosts.Normalize(remote.String())}, key)
 	return ioutil.WriteFile(c.homedir+"/.ssh/known_hosts", []byte(line), os.ModeAppend)
 }
@@ -300,6 +302,28 @@ func (c *DeploymentEngineController) verifySsh(logger *log.Entry, infra ditas.In
 	return err
 }
 
+func (c *DeploymentEngineController) addToHostFile(logger *log.Entry, infra ditas.InfrastructureDeployment) error {
+	command := "ssh -o \"StrictHostKeyChecking no\" cloudsigma@%s sudo echo %s %s | sudo tee -a /etc/hosts > /dev/null 2>&1"
+	commandMaster := fmt.Sprintf(command, infra.Master.IP, infra.Master.IP, infra.Master.Name)
+	err := executeCommand(logger, commandMaster)
+
+	if err != nil {
+		logger.WithError(err).Error("Error adding master to hosts")
+		return err
+	}
+
+	for _, slave := range infra.Slaves {
+		commandSlave := fmt.Sprintf(command, slave.IP, slave.IP, slave.Name)
+		err = executeCommand(logger, commandSlave)
+		if err != nil {
+			logger.WithError(err).Errorf("Error adding slave %s to hosts", slave.Name)
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (c *DeploymentEngineController) CreateDep(bp blueprint.BlueprintType) error {
 
 	bpName := *bp.InternalStructure.Overview.Name
@@ -338,7 +362,7 @@ func (c *DeploymentEngineController) CreateDep(bp blueprint.BlueprintType) error
 					logger.WithError(err).Error("Error updating deployment status")
 				}
 
-				err = c.verifySsh(logger, infraDeployment)
+				err = c.addToHostFile(logger, infraDeployment)
 				if err != nil {
 					logger.WithError(err).Error("SSH is not available")
 					return err
