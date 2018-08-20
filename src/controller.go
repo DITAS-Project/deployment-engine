@@ -303,7 +303,7 @@ func (c *DeploymentEngineController) verifySsh(logger *log.Entry, infra ditas.In
 }
 
 func (c *DeploymentEngineController) addToHostFile(logger *log.Entry, infra ditas.InfrastructureDeployment) error {
-	command := "ssh -o \"StrictHostKeyChecking no\" %s@%s sudo echo %s %s | sudo tee -a /etc/hosts > /dev/null 2>&1"
+	command := "ssh -o \"StrictHostKeyChecking no\" %s@%s \"echo %s %s | sudo tee -a /etc/hosts > /dev/null 2>&1\""
 	commandMaster := fmt.Sprintf(command, infra.Master.Username, infra.Master.IP, infra.Master.IP, infra.Master.Name)
 	err := executeCommand(logger, commandMaster)
 
