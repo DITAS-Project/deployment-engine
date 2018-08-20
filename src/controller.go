@@ -302,10 +302,17 @@ func (c *DeploymentEngineController) verifySsh(logger *log.Entry, infra ditas.In
 	return err
 }
 
+func (c *DeploymentEngineController) addHostToHostFile(logger *log.Entry, hostInfo ditas.NodeInfo) error {
+	host := "%s@%s"
+	command := "echo %s %s | sudo tee -a /etc/hosts > /dev/null 2>&1"
+	return executeCommand(logger, "ssh", "-o \"StrictHostKeyChecking no\"",
+		fmt.Sprintf(host, hostInfo.Username, hostInfo.IP),
+		fmt.Sprintf(command, hostInfo.Name, hostInfo.IP))
+}
+
 func (c *DeploymentEngineController) addToHostFile(logger *log.Entry, infra ditas.InfrastructureDeployment) error {
-	command := "ssh -o \"StrictHostKeyChecking no\" %s@%s \"echo %s %s | sudo tee -a /etc/hosts > /dev/null 2>&1\""
-	commandMaster := fmt.Sprintf(command, infra.Master.Username, infra.Master.IP, infra.Master.IP, infra.Master.Name)
-	err := executeCommand(logger, commandMaster)
+
+	err := c.addHostToHostFile(logger, infra.Master)
 
 	if err != nil {
 		logger.WithError(err).Error("Error adding master to hosts")
@@ -313,8 +320,7 @@ func (c *DeploymentEngineController) addToHostFile(logger *log.Entry, infra dita
 	}
 
 	for _, slave := range infra.Slaves {
-		commandSlave := fmt.Sprintf(command, slave.Username, slave.IP, slave.IP, slave.Name)
-		err = executeCommand(logger, commandSlave)
+		err = c.addHostToHostFile(logger, slave)
 		if err != nil {
 			logger.WithError(err).Errorf("Error adding slave %s to hosts", slave.Name)
 			return err

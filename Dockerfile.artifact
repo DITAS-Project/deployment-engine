@@ -6,42 +6,30 @@ FROM alpine:3.8
 # ENV ANSIBLE_VERSION 2.5.0
 
 ENV BUILD_PACKAGES \
-  bash \
-  curl \
-  tar \
   openssh-client \
   sshpass \
   git \
-  python \
-  py-boto \
-  py-dateutil \
-  py-httplib2 \
-  py-jinja2 \
-  py-paramiko \
-  py-pip \
-  py-yaml \
-  ca-certificates \
   ansible
 
 # Adding build-dependencies
-RUN apk --update add --virtual .build-dependencies gcc musl-dev libffi-dev python-dev 
+# RUN apk --update add --virtual .build-dependencies gcc musl-dev libffi-dev python-dev 
 
 # Upgrading apk and system
 RUN apk update && apk upgrade 
 
 # Adding Python runtime and packages
 RUN apk add --no-cache ${BUILD_PACKAGES}
-RUN pip install --upgrade pip
-RUN pip install python-keyczar docker-py 
+# RUN pip install --upgrade pip
+# RUN pip install python-keyczar docker-py 
 
 # Adding Cloudsigma Python api
-RUN pip install cloudsigma 
+# RUN pip install cloudsigma 
 
 # Installing Ansible
 # RUN pip install ansible==${ANSIBLE_VERSION} 
 
 # Cleaning up
-RUN apk del .build-dependencies
+# RUN apk del .build-dependencies
 RUN rm -rf /var/cache/apk/*
 
 # Adding hosts for convenience
