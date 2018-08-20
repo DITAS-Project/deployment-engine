@@ -244,7 +244,7 @@ func (c *DeploymentEngineController) verifySshHost(logInput *log.Entry, node dit
 	logger := logInput.WithField("host", node.IP)
 	logger.Info("Verifying host ssh availability")
 
-	_, err := ssh.Dial("tcp", node.IP, config)
+	_, err := ssh.Dial("tcp", node.IP+":22", config)
 	if err != nil {
 		logger.WithError(err).Errorf("Failed to dial: " + err.Error())
 		return err
