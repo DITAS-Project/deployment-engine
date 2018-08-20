@@ -219,9 +219,19 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:3f3a05ae0b95893d90b9b3b5afdb79a9b3d96e4e36e099d841ae602e4aca0da8"
+  digest = "1:72a671c35f2692683381448a996ea4318205e6467e8b8d2875bc5c413878dd88"
   name = "golang.org/x/crypto"
-  packages = ["ssh/terminal"]
+  packages = [
+    "curve25519",
+    "ed25519",
+    "ed25519/internal/edwards25519",
+    "internal/chacha20",
+    "internal/subtle",
+    "poly1305",
+    "ssh",
+    "ssh/knownhosts",
+    "ssh/terminal",
+  ]
   pruneopts = "UT"
   revision = "c126467f60eb25f8f27e5a981f32a87e3965053f"
 
@@ -297,7 +307,10 @@
     "github.com/gorilla/mux",
     "github.com/mitchellh/go-homedir",
     "github.com/sethvargo/go-password/password",
+    "github.com/sirupsen/logrus",
     "github.com/spf13/viper",
+    "golang.org/x/crypto/ssh",
+    "golang.org/x/crypto/ssh/knownhosts",
     "gopkg.in/resty.v1",
   ]
   solver-name = "gps-cdcl"

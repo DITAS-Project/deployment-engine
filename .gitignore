@@ -6,5 +6,4 @@
 id*
 #for changing ansible inventory
 ansible_deploy.retry
-vendor
 src/debug
