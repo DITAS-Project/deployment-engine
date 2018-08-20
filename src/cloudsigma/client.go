@@ -86,6 +86,12 @@ func (c *Client) GetDriveDetails(uuid string) (ResourceType, error) {
 	return result, err
 }
 
+func (c *Client) DeleteDrive(uuid string) error {
+	path := fmt.Sprintf("/drives/%s/", uuid)
+	err := execute(c.httpClient.R(), path, resty.MethodDelete, nil)
+	return err
+}
+
 func (c *Client) CreateServers(servers RequestResponseType) (RequestResponseType, error) {
 	var result RequestResponseType
 	err := execute(c.httpClient.R().SetBody(servers), "/servers/", resty.MethodPost, &result)

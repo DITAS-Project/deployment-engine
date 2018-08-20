@@ -290,8 +290,7 @@ func (d *CloudsigmaDeployer) deletePartialDeployment(nodeInfo NodeCreationResult
 		logger = logger.WithField("disk", nodeInfo.Info.DriveUUID)
 	}
 	logger.Info("Undoing partial deployment...")
-	//TODO: Undo partial deployment in case of failure
-	return nodeInfo.Error
+	return d.deleteHost(logger, nodeInfo.Info)
 }
 
 func (d *CloudsigmaDeployer) DeployInfrastructure(infrastructure blueprint.InfrastructureType, namePrefix string) (ditas.InfrastructureDeployment, error) {
@@ -332,4 +331,101 @@ func (d *CloudsigmaDeployer) DeployInfrastructure(infrastructure blueprint.Infra
 	logger.Infof("Nodes successfully created")
 
 	return deployment, nil
+}
+
+func (d *CloudsigmaDeployer) deleteHost(log *log.Entry, host ditas.NodeInfo) error {
+
+	logger := log.WithField("host", host.Name)
+	if host.UUID != "" {
+		logger.Info("Stopping server")
+		stopResult, err := d.client.ExecuteServerAction(host.UUID, ServerStopAction)
+		if err != nil {
+			log.WithError(err).Error("Error issuing stop action")
+			return err
+		}
+
+		if stopResult.Result != "success" {
+			msg := "Stop action was unsuccessful"
+			log.Errorf(msg)
+			return errors.New(msg)
+		}
+
+		logger.Info("Waiting for server to stop")
+		server, timedOut, err := d.waitForStatusChange(host.UUID, "stopping", 60*time.Second, func(uuid string) (ResourceType, error) {
+			return d.client.GetServerDetails(uuid)
+		})
+
+		if err != nil {
+			logger.WithError(err).Error("Error stopping server")
+			return err
+		}
+
+		if timedOut {
+			msg := "Timeout while waiting for server to stop"
+			logger.Error(msg)
+			return errors.New(msg)
+		}
+
+		if server.Status != "stopped" {
+			msg := fmt.Sprintf("Invalid server status. Expected 'stopped' but found '%s'", server.Status)
+			logger.Error(msg)
+			return errors.New(msg)
+		}
+		logger.Info("Server stopped. Deleting")
+
+		err = d.client.DeleteServerWithDrives(host.UUID)
+
+		if err != nil {
+			logger.WithError(err).Error("Error deleting server with drives")
+			return err
+		}
+		logger.Info("Host successfully deleted")
+		return nil
+	}
+
+	if host.DriveUUID != "" {
+		logger.Info("Deleting drive from host")
+		err := d.client.DeleteDrive(host.DriveUUID)
+		if err != nil {
+			logger.WithError(err).Error("Error deleting drive")
+			return err
+		}
+		logger.Info("Drive deleted")
+		return nil
+	}
+
+	return nil
+
+}
+
+func (d *CloudsigmaDeployer) DeleteInfrastructure(infra ditas.InfrastructureDeployment, bpName string) map[string]error {
+	logger := log.WithField("blueprint", bpName)
+
+	logger.Info("Deleting infrastructure")
+
+	result := make(map[string]error)
+
+	logger.Info("Deleting slaves")
+	for _, slave := range infra.Slaves {
+		errSlave := d.deleteHost(logger, slave)
+		if errSlave != nil {
+			logger.WithError(errSlave).Error("Error deleting slave %s", slave.Name)
+			result[slave.Name] = errSlave
+		}
+	}
+
+	if len(result) == 0 {
+		logger.Info("Slaves deleted")
+	}
+
+	logger.Info("Now deleting master")
+	errMaster := d.deleteHost(logger, infra.Master)
+	if errMaster != nil {
+		logger.WithError(errMaster).Error("Error deleting master %s", infra.Master.Name)
+		result[infra.Master.Name] = errMaster
+	} else {
+		logger.Info("Master deleted. Infrastructure clear")
+	}
+
+	return result
 }

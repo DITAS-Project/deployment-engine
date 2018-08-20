@@ -108,42 +108,6 @@ func (c *DeploymentEngineController) findDeployment(bpName string) (ditas.Infras
 	return deployment, err
 }
 
-/*func (c *DeploymentEngineController) getNodeIps() (map[string]string, error) {
-	result := make(map[string]string)
-	file, err := os.Open("kubernetes/inventory")
-	defer file.Close()
-	if err != nil {
-		return result, err
-	}
-
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		text := scanner.Text()
-		if strings.Index(text, "[") != 0 {
-			tokens := strings.Split(text, " ")
-			if len(tokens) > 1 {
-				host := tokens[0]
-				hostInfo := tokens[1]
-				hostInfoTokens := strings.Split(hostInfo, "=")
-				if len(hostInfoTokens) > 1 && hostInfoTokens[0] == "ansible_ssh_host" {
-					result[host] = hostInfoTokens[1]
-				} else {
-					fmt.Printf("Invalid ansible_ssh_host found in inventory for host %s: %s\n", host, hostInfo)
-				}
-			} else {
-				fmt.Printf("Invalid host info line found in inventory: %s\n", text)
-			}
-		}
-	}
-
-	if scanner.Err() != nil {
-		return result, scanner.Err()
-	}
-
-	return result, nil
-
-}*/
-
 func writeHost(node ditas.NodeInfo, file *os.File) (int, error) {
 	line := fmt.Sprintf("%s ansible_ssh_host=%s ansible_ssh_user=%s\n", node.Name, node.IP, node.Username)
 	return file.WriteString(line)
@@ -307,7 +271,7 @@ func (c *DeploymentEngineController) addHostToHostFile(logger *log.Entry, hostIn
 	command := "echo %s %s | sudo tee -a /etc/hosts > /dev/null 2>&1"
 	return executeCommand(logger, "ssh", "-o", "StrictHostKeyChecking=no",
 		fmt.Sprintf(host, hostInfo.Username, hostInfo.IP),
-		fmt.Sprintf(command, hostInfo.Name, hostInfo.IP))
+		fmt.Sprintf(command, hostInfo.IP, hostInfo.Name))
 }
 
 func (c *DeploymentEngineController) addToHostFile(logger *log.Entry, infra ditas.InfrastructureDeployment) error {
