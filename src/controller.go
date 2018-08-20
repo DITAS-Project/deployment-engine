@@ -305,7 +305,7 @@ func (c *DeploymentEngineController) verifySsh(logger *log.Entry, infra ditas.In
 func (c *DeploymentEngineController) addHostToHostFile(logger *log.Entry, hostInfo ditas.NodeInfo) error {
 	host := "%s@%s"
 	command := "echo %s %s | sudo tee -a /etc/hosts > /dev/null 2>&1"
-	return executeCommand(logger, "ssh", "-o \"StrictHostKeyChecking no\"",
+	return executeCommand(logger, "ssh", "-o", "StrictHostKeyChecking=no",
 		fmt.Sprintf(host, hostInfo.Username, hostInfo.IP),
 		fmt.Sprintf(command, hostInfo.Name, hostInfo.IP))
 }
