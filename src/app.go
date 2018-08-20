@@ -29,7 +29,7 @@ func (a *App) Initialize() {
 
 	home, err := homedir.Dir()
 	if err == nil {
-		client, err := mgo.Dial("mongodb://localhost:27017")
+		client, err := mgo.Dial("mongodb://mongo:27017")
 		if err == nil {
 			db := client.DB("deployment_engine")
 			if db != nil {
