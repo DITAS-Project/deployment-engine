@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 
 echo_time() {
-    date +"%R $*"
+    date +"%T $*"
 }
 
 echo_time "Setting GOPATH"
@@ -10,8 +10,8 @@ mkdir $WORKDIR
 echo_time "Copying sources"
 cp -a . $WORKDIR
 cd $WORKDIR
-echo_time "Ensure dependencies"
-dep ensure
+# echo_time "Ensure dependencies"
+# dep ensure
 cd src
 echo_time "Building"
 CGO_ENABLED=0 GOOS=linux go build -a -o deployment-engine
