@@ -9,8 +9,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
-	"net"
 	"os"
 	"regexp"
 	"strings"
@@ -21,8 +19,6 @@ import (
 	"github.com/globalsign/mgo/bson"
 
 	log "github.com/sirupsen/logrus"
-	"golang.org/x/crypto/ssh"
-	"golang.org/x/crypto/ssh/knownhosts"
 )
 
 const (
@@ -197,68 +193,6 @@ func (c *DeploymentEngineController) deployK8s(logger *log.Entry, bpId string, d
 
 	logger.Info("k8s cluster created!!!!")
 	return nil
-}
-
-func (c *DeploymentEngineController) verifySshHost(logInput *log.Entry, node ditas.NodeInfo, config *ssh.ClientConfig) error {
-	logger := logInput.WithField("host", node.IP)
-	logger.Info("Verifying host ssh availability")
-
-	_, err := ssh.Dial("tcp", node.IP+":22", config)
-	if err != nil {
-		logger.WithError(err).Errorf("Failed to dial: " + err.Error())
-		return err
-	}
-
-	logger.Info("SSH Verified for host")
-	return nil
-}
-
-func (c *DeploymentEngineController) addHostCallback(hostname string, remote net.Addr, key ssh.PublicKey) error {
-	logger := log.WithField("host", remote.String())
-	logger.Info("Adding host to known_hosts")
-	line := knownhosts.Line([]string{knownhosts.Normalize(remote.String())}, key)
-	return ioutil.WriteFile(c.homedir+"/.ssh/known_hosts", []byte(line), os.ModeAppend)
-}
-
-func (c *DeploymentEngineController) verifySsh(logger *log.Entry, infra ditas.InfrastructureDeployment) error {
-
-	logger.Info("Verifying SSH availability")
-	key, err := ioutil.ReadFile(c.homedir + "/.ssh/id_rsa")
-	if err != nil {
-		log.WithError(err).Error("Error reading keystore")
-		return err
-	}
-
-	// Create the Signer for this private key.
-	signer, err := ssh.ParsePrivateKey(key)
-	if err != nil {
-		log.WithError(err).Error("Error parsing private key")
-		return err
-	}
-
-	config := &ssh.ClientConfig{
-		User: "cloudsigma",
-		Auth: []ssh.AuthMethod{
-			// Use the PublicKeys method for remote authentication.
-			ssh.PublicKeys(signer),
-		},
-		HostKeyCallback: c.addHostCallback,
-	}
-
-	err = c.verifySshHost(logger, infra.Master, config)
-	if err != nil {
-		logger.WithError(err).Error("Error validating ssh on the master")
-		return err
-	}
-	for _, resource := range infra.Slaves {
-		err = c.verifySshHost(logger, resource, config)
-		if err != nil {
-			logger.WithError(err).Errorf("Error validating ssh on the slave %s", resource.Name)
-			return err
-		}
-	}
-	logger.Info("SSH availability verified")
-	return err
 }
 
 func (c *DeploymentEngineController) addHostToHostFile(log *log.Entry, hostInfo ditas.NodeInfo) error {
