@@ -18,30 +18,32 @@ var pubKey string
 var integration = flag.Bool("integration", false, "run DS4M integration tests")
 
 func TestMain(m *testing.M) {
-	home, err := homedir.Dir()
-	if err != nil {
-		msg := fmt.Sprintf("Error getting home folder: %s", err.Error())
-		panic(msg)
-	}
-	viper.SetConfigType("properties")
-	viper.SetConfigFile(home + "/.cloudsigma.conf")
-	err = viper.ReadInConfig()
-	if err == nil {
-
-		pubKeyRaw, err := ioutil.ReadFile(home + "/.ssh/id_rsa.pub")
-		if err == nil {
-			pubKey = string(pubKeyRaw)
-			client = NewClient(viper.GetString("api_endpoint"),
-				viper.GetString("username"), viper.GetString("password"), true)
-			os.Exit(m.Run())
+	if *integration {
+		home, err := homedir.Dir()
+		if err != nil {
+			msg := fmt.Sprintf("Error getting home folder: %s", err.Error())
+			panic(msg)
 		}
+		viper.SetConfigType("properties")
+		viper.SetConfigFile(home + "/.cloudsigma.conf")
+		err = viper.ReadInConfig()
+		if err == nil {
 
-		msg := fmt.Sprintf("Error reading public key: %s", err.Error())
-		panic(msg)
+			pubKeyRaw, err := ioutil.ReadFile(home + "/.ssh/id_rsa.pub")
+			if err == nil {
+				pubKey = string(pubKeyRaw)
+				client = NewClient(viper.GetString("api_endpoint"),
+					viper.GetString("username"), viper.GetString("password"), true)
+				os.Exit(m.Run())
+			}
 
-	} else {
-		msg := fmt.Sprintf("Error reading configuration: %s", err.Error())
-		panic(msg)
+			msg := fmt.Sprintf("Error reading public key: %s", err.Error())
+			panic(msg)
+
+		} else {
+			msg := fmt.Sprintf("Error reading configuration: %s", err.Error())
+			panic(msg)
+		}
 	}
 
 }
@@ -72,12 +74,14 @@ func waitForStatusChange(t *testing.T, tag string, resourceType string, status s
 }
 
 func TestTag(t *testing.T) {
-	tag, err := client.CreateTag("test-tag", []ResourceType{})
-	err = client.DeleteTag(tag.UUID)
-	tag, err = client.GetTagInformation(tag.UUID)
+	if *integration {
+		tag, err := client.CreateTag("test-tag", []ResourceType{})
+		err = client.DeleteTag(tag.UUID)
+		tag, err = client.GetTagInformation(tag.UUID)
 
-	if err == nil {
-		t.Fatalf("Expected 404 error getting tag but got tag %s", tag.UUID)
+		if err == nil {
+			t.Fatalf("Expected 404 error getting tag but got tag %s", tag.UUID)
+		}
 	}
 }
 
