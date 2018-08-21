@@ -5,14 +5,16 @@ package main
 import (
 	"deployment-engine/src/cloudsigma"
 	"deployment-engine/src/ditas"
+	"deployment-engine/src/utils"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
-	"os/exec"
 	"regexp"
 	"strings"
+	"time"
 
 	blueprint "github.com/DITAS-Project/blueprint-go"
 	"github.com/globalsign/mgo"
@@ -43,13 +45,6 @@ func sanitize(name string) (string, error) {
 		return "", fmt.Errorf("Sanitized blueprint name %s is not valid for kubernetes deployment", replaced)
 	}
 	return replaced, err
-}
-
-func executeCommand(logger *log.Entry, name string, args ...string) error {
-	cmd := exec.Command(name, args...)
-	cmd.Stdout = logger.Writer()
-	cmd.Stderr = logger.Writer()
-	return cmd.Run()
 }
 
 func (c *DeploymentEngineController) deleteDeployment(bpName string, deployment ditas.InfrastructureDeployment) error {
@@ -193,7 +188,7 @@ func (c *DeploymentEngineController) deployK8s(logger *log.Entry, bpId string, d
 	//time.Sleep(180 * time.Second)
 	vars := fmt.Sprintf("blueprintName=%s", bpId)
 	inventory := fmt.Sprintf("--inventory=kubernetes/%s/inventory", bpId)
-	err2 := executeCommand(logger, "ansible-playbook", "kubernetes/ansible_deploy.yml", inventory, "--extra-vars", vars)
+	err2 := utils.ExecuteCommand(logger, "ansible-playbook", "kubernetes/ansible_deploy.yml", inventory, "--extra-vars", vars)
 
 	if err2 != nil {
 		logger.WithError(err).Error("Error executing ansible deployment for k8s deployment")
@@ -266,22 +261,40 @@ func (c *DeploymentEngineController) verifySsh(logger *log.Entry, infra ditas.In
 	return err
 }
 
-func (c *DeploymentEngineController) addHostToHostFile(logger *log.Entry, hostInfo ditas.NodeInfo) error {
-	host := "%s@%s"
-	command := "echo %s %s | sudo tee -a /etc/hosts > /dev/null 2>&1"
-	return executeCommand(logger, "ssh", "-o", "StrictHostKeyChecking=no",
-		fmt.Sprintf(host, hostInfo.Username, hostInfo.IP),
-		fmt.Sprintf(command, hostInfo.IP, hostInfo.Name))
+func (c *DeploymentEngineController) addHostToHostFile(log *log.Entry, hostInfo ditas.NodeInfo) error {
+	logger := log.WithField("host", hostInfo.Name)
+	host := fmt.Sprintf("%s@%s", hostInfo.Username, hostInfo.IP)
+	command := fmt.Sprintf("echo %s %s | sudo tee -a /etc/hosts > /dev/null 2>&1", hostInfo.IP, hostInfo.Name)
+	timeout := 30 * time.Second
+	logger.Info("Waiting for ssh service to be ready")
+	_, timedOut, _ := utils.WaitForStatusChange("starting", timeout, func() (string, error) {
+		err := utils.ExecuteCommand(logger, "ssh", "-o", "StrictHostKeyChecking=no", host, command)
+		if err != nil {
+			return "starting", nil
+		}
+		return "started", nil
+	})
+	if timedOut {
+		msg := "Timeout waiting for ssh service to start"
+		logger.Errorf(msg)
+		return errors.New(msg)
+	}
+	logger.Info("Ssh service ready")
+
+	return nil
 }
 
 func (c *DeploymentEngineController) addToHostFile(logger *log.Entry, infra ditas.InfrastructureDeployment) error {
 
+	logger.Info("Adding master to hosts")
 	err := c.addHostToHostFile(logger, infra.Master)
 
 	if err != nil {
 		logger.WithError(err).Error("Error adding master to hosts")
 		return err
 	}
+
+	logger.Info("Master added. Adding slaves to hosts")
 
 	for _, slave := range infra.Slaves {
 		err = c.addHostToHostFile(logger, slave)
@@ -290,6 +303,8 @@ func (c *DeploymentEngineController) addToHostFile(logger *log.Entry, infra dita
 			return err
 		}
 	}
+
+	logger.Info("Slaves added")
 
 	return nil
 }

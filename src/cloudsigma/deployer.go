@@ -2,6 +2,7 @@ package cloudsigma
 
 import (
 	"deployment-engine/src/ditas"
+	"deployment-engine/src/utils"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -269,15 +270,13 @@ func (d *CloudsigmaDeployer) CreateServer(resource blueprint.ResourceType, pfx s
 }
 
 func (d *CloudsigmaDeployer) waitForStatusChange(uuid string, status string, timeout time.Duration, getter func(string) (ResourceType, error)) (ResourceType, bool, error) {
-	waited := 0 * time.Second
 	var resource ResourceType
 	var err error
-	for resource, err = getter(uuid); resource.Status == status && waited < timeout && err == nil; resource, err = getter(uuid) {
-		time.Sleep(3 * time.Second)
-		waited += 3 * time.Second
-		//fmt.Print(".")
-	}
-	return resource, waited >= timeout, err
+	_, timedOut, err := utils.WaitForStatusChange(status, timeout, func() (string, error) {
+		resource, err = getter(uuid)
+		return resource.Status, err
+	})
+	return resource, timedOut, err
 }
 
 func (d *CloudsigmaDeployer) deletePartialDeployment(nodeInfo NodeCreationResult) error {
