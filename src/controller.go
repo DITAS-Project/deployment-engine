@@ -277,7 +277,7 @@ func (c *DeploymentEngineController) CreateDep(bp blueprint.BlueprintType) error
 	var deployment ditas.Deployment
 	c.collection.FindId(bpNameSanitized).One(&deployment)
 	if err != nil || deployment.ID == "" {
-		deployment := ditas.Deployment{
+		deployment = ditas.Deployment{
 			ID:              bpNameSanitized,
 			Blueprint:       bp,
 			Infrastructures: make([]ditas.InfrastructureDeployment, len(bp.CookbookAppendix.Infrastructure)),
