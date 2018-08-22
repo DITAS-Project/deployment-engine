@@ -17,8 +17,6 @@
         set_fact: join_command="{{ kube_join.stdout }}"
 
   - hosts: [master]
-    become: yes
-    become_user: "{{ hostvars[groups['master'][0]]['ansible_ssh_user'] }}"
     tasks:
 
       - name: create .kube directory
@@ -33,9 +31,9 @@
         become_method: sudo
         copy:
           src: /etc/kubernetes/admin.conf
-          dest: /home/{{ hostvars[groups['master'][0]]['ansible_ssh_user'] }}/.kube/config
+          dest: /home/{{ masterUsername }}/.kube/config
           remote_src: yes
-          owner: "{{ hostvars[groups['master'][0]]['ansible_ssh_user'] }}"
+          owner: "{{ masterUsername }}"
 
       - name: copy flannel file
         copy:
@@ -79,23 +77,21 @@
     tasks:
       - name: Create blueprint directory
         file:
-          path: /home/cloudsigma/blueprint_{{ blueprintId }}
+          path: /home/{{ ansible_user_id }}/blueprint
           state: directory
           mode: "a+rw"
 
       - name: Copy blueprint file
         copy:
           src: /deployment-engine/src/kubernetes/{{ blueprintId }}/blueprint.json
-          dest: /home/cloudsigma/blueprint_{{ blueprintId }}/blueprint.json
+          dest: /home/{{ ansible_user_id }}/blueprint/blueprint.json
 
       - name: Copy github json repo
         copy:
           src: /deployment-engine/src/VDC-Shared-Config
-          dest: /home/cloudsigma/blueprint_{{ blueprintId }}     
+          dest: /home/{{ ansible_user_id }}/blueprint     
   
   - hosts: [master]
-    become: yes
-    become_user: "{{ hostvars[groups['master'][0]]['ansible_ssh_user'] }}"
     tasks:
       - name: Copy VDM deployment
         template: src=scripts/vdm.yaml dest=vdm-{{ blueprintId }}.yaml

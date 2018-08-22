@@ -2,7 +2,7 @@
 
   - hosts: [master]
     become: yes
-    become_user: "{{ hostvars[groups['master'][0]]['ansible_ssh_user'] }}"
+    become_user: "{{ username }}"
     tasks:
       - name: Copy VDC deployment
         template: src=scripts/vdc.yaml dest=vdc-{{ vdcName }}.yaml

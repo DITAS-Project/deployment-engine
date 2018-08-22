@@ -182,7 +182,7 @@ func (c *DeploymentEngineController) deployK8s(logger *log.Entry, bpId string, d
 
 	logger.Info("Calling Ansible for initial k8s deployment")
 	//time.Sleep(180 * time.Second)
-	vars := fmt.Sprintf("blueprintName=%s", bpId)
+	vars := fmt.Sprintf("blueprintId=%s masterUsername=%s", bpId, deployment.Master.Username)
 	inventory := fmt.Sprintf("--inventory=kubernetes/%s/inventory", bpId)
 	err2 := utils.ExecuteCommand(logger, "ansible-playbook", "kubernetes/ansible_deploy.yml", inventory, "--extra-vars", vars)
 

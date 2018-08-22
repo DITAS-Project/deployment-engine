@@ -31,7 +31,7 @@ spec:
   volumes:
   - name: blueprint
     hostPath:
-        path: "/home/cloudsigma/blueprint_{{ blueprintName }}"
+        path: "/home/{{ ansible_user_id }}/blueprint"
         type: Directory
 
 ---
@@ -54,7 +54,7 @@ spec:
   volumes:
   - name: blueprint
     hostPath:
-        path: "/home/cloudsigma/blueprint_{{ blueprintName }}"
+        path: "/home/{{ ansible_user_id }}/blueprint"
         type: Directory
   
 ---
@@ -78,7 +78,7 @@ spec:
   volumes:
   - name: blueprint
     hostPath:
-        path: "/home/cloudsigma/blueprint_{{ blueprintName }}"
+        path: "/home/{{ ansible_user_id }}/blueprint"
         type: Directory
 
   
