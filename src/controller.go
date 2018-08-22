@@ -100,7 +100,7 @@ func (c *DeploymentEngineController) findDeployment(bpName string) (ditas.Infras
 }
 
 func writeHost(node ditas.NodeInfo, file *os.File) (int, error) {
-	line := fmt.Sprintf("%s ansible_ssh_host=%s ansible_ssh_user=%s\n", node.Name, node.IP, node.Username)
+	line := fmt.Sprintf("%s ansible_host=%s ansible_user=%s\n", node.Name, node.IP, node.Username)
 	return file.WriteString(line)
 }
 
