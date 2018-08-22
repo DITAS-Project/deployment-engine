@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -187,7 +188,7 @@ func (c *DeploymentEngineController) deployK8s(logger *log.Entry, bpId string, d
 	err2 := utils.ExecuteCommand(logger, "ansible-playbook", "kubernetes/ansible_deploy.yml", inventory, "--extra-vars", vars)
 
 	if err2 != nil {
-		logger.WithError(err).Error("Error executing ansible deployment for k8s deployment")
+		logger.WithError(err2).Error("Error executing ansible deployment for k8s deployment")
 		return err2
 	}
 
@@ -243,6 +244,26 @@ func (c *DeploymentEngineController) addToHostFile(logger *log.Entry, infra dita
 	return nil
 }
 
+func (c *DeploymentEngineController) deployVdc(log *log.Entry, bpId string, deployments []ditas.InfrastructureDeployment) error {
+	for _, deployment := range deployments {
+		vdcNumber := deployment.NumVDCs
+		logger := log.WithField("deployment", deployment.ID).WithField("VDC", "vdc-"+strconv.Itoa(vdcNumber))
+		logger.Infof("Deploying VDC")
+		//time.Sleep(180 * time.Second)
+		vars := fmt.Sprintf("vdcName=%d", vdcNumber)
+		inventory := fmt.Sprintf("--inventory=kubernetes/%s/inventory", bpId)
+		err2 := utils.ExecuteCommand(logger, "ansible-playbook", "kubernetes/ansible_deploy_add.yml", inventory, "--extra-vars", vars)
+
+		if err2 != nil {
+			logger.WithError(err2).Error("Error adding VDC")
+			return err2
+		}
+		logger.Info("VDC added!!!")
+	}
+
+	return nil
+}
+
 func (c *DeploymentEngineController) CreateDep(bp blueprint.BlueprintType) error {
 
 	bpName := *bp.InternalStructure.Overview.Name
@@ -253,54 +274,73 @@ func (c *DeploymentEngineController) CreateDep(bp blueprint.BlueprintType) error
 		return err
 	}
 
-	deployment := ditas.Deployment{
-		ID:              bpNameSanitized,
-		Blueprint:       bp,
-		Infrastructures: make([]ditas.InfrastructureDeployment, len(bp.CookbookAppendix.Infrastructure)),
-		Status:          "starting",
-	}
-	err = c.collection.Insert(deployment)
-	if err != nil {
-		logger.WithError(err).Error("Error inserting deployment in the database")
-		return err
-	}
+	var deployment ditas.Deployment
+	c.collection.FindId(bpNameSanitized).One(&deployment)
+	if err != nil || deployment.ID == "" {
+		deployment := ditas.Deployment{
+			ID:              bpNameSanitized,
+			Blueprint:       bp,
+			Infrastructures: make([]ditas.InfrastructureDeployment, len(bp.CookbookAppendix.Infrastructure)),
+			Status:          "starting",
+		}
+		err = c.collection.Insert(deployment)
+		if err != nil {
+			logger.WithError(err).Error("Error inserting deployment in the database")
+			return err
+		}
 
-	var deployer ditas.Deployer
-	for i, infra := range bp.CookbookAppendix.Infrastructure {
-		if strings.ToLower(infra.APIType) == "cloudsigma" {
-			deployer, err = cloudsigma.NewDeployer()
-			if err != nil {
-				fmt.Printf("Error creating cloudsigma deployer: %s\n", err.Error())
-				return err
-			}
-			infraDeployment, err := deployer.DeployInfrastructure(infra, bpNameSanitized)
-			if err == nil {
-				deployment.Infrastructures[i] = infraDeployment
-				err = c.collection.UpdateId(deployment.ID, deployment)
+		var deployer ditas.Deployer
+		for i, infra := range bp.CookbookAppendix.Infrastructure {
+			if strings.ToLower(infra.APIType) == "cloudsigma" {
+				deployer, err = cloudsigma.NewDeployer()
 				if err != nil {
-					logger.WithError(err).Error("Error updating deployment status")
-				}
-
-				err = c.addToHostFile(logger, infraDeployment)
-				if err != nil {
-					logger.WithError(err).Error("SSH is not available")
+					fmt.Printf("Error creating cloudsigma deployer: %s\n", err.Error())
 					return err
 				}
+				infraDeployment, err := deployer.DeployInfrastructure(infra, bpNameSanitized)
+				if err == nil {
+					deployment.Infrastructures[i] = infraDeployment
+					err = c.collection.UpdateId(deployment.ID, deployment)
+					if err != nil {
+						logger.WithError(err).Error("Error updating deployment status")
+					}
 
-				err = c.writeBlueprint(logger, bp, bpNameSanitized)
-				if err != nil {
-					logger.WithError(err).Error("Error writing blueprint")
-					return err
-				}
+					err = c.addToHostFile(logger, infraDeployment)
+					if err != nil {
+						logger.WithError(err).Error("SSH is not available")
+						return err
+					}
 
-				err = c.deployK8s(logger, bpNameSanitized, infraDeployment)
-				if err != nil {
-					logger.WithError(err).Error("Error deploying kubernetes cluster")
-					return err
+					err = c.writeBlueprint(logger, bp, bpNameSanitized)
+					if err != nil {
+						logger.WithError(err).Error("Error writing blueprint")
+						return err
+					}
+
+					err = c.deployK8s(logger, bpNameSanitized, infraDeployment)
+					if err != nil {
+						logger.WithError(err).Error("Error deploying kubernetes cluster")
+						return err
+					}
 				}
 			}
 		}
 	}
+
+	err = c.deployVdc(logger, bpNameSanitized, deployment.Infrastructures)
+	if err != nil {
+		logger.WithError(err).Error("Error adding VDC")
+		return err
+	}
+
+	for _, dep := range deployment.Infrastructures {
+		numVDCs := dep.NumVDCs + 1
+		dep.VDCs = append(dep.VDCs, "vdc-"+strconv.Itoa(numVDCs))
+		dep.NumVDCs = numVDCs
+	}
+
+	c.collection.UpdateId(bpNameSanitized, deployment)
+
 	return nil
 }
 
