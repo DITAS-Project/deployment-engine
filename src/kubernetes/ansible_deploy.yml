@@ -17,6 +17,7 @@
         set_fact: join_command="{{ kube_join.stdout }}"
 
   - hosts: [master]
+    gather_facts: no
     tasks:
 
       - name: create .kube directory
