@@ -40,6 +40,8 @@ RUN echo "localhost" >> /etc/ansible/hosts
 ENV ANSIBLE_GATHERING smart
 ENV ANSIBLE_HOST_KEY_CHECKING false
 ENV ANSIBLE_RETRY_FILES_ENABLED false
+# For unknown reasons ansible might find a host unreachable but it can be reached.
+ENV ANSIBLE_SSH_RETRIES 10
 # ENV ANSIBLE_ROLES_PATH /ansible/playbooks/roles
 ENV ANSIBLE_SSH_PIPELINING True
 # ENV PYTHONPATH /ansible/lib
