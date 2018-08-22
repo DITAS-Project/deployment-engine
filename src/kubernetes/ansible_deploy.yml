@@ -78,19 +78,19 @@
     tasks:
       - name: Create blueprint directory
         file:
-          path: /home/{{ ansible_user_id }}/blueprint
+          path: /home/{{ ansible_user }}/blueprint
           state: directory
           mode: "a+rw"
 
       - name: Copy blueprint file
         copy:
           src: /deployment-engine/src/kubernetes/{{ blueprintId }}/blueprint.json
-          dest: /home/{{ ansible_user_id }}/blueprint/blueprint.json
+          dest: /home/{{ ansible_user }}/blueprint/blueprint.json
 
       - name: Copy github json repo
         copy:
           src: /deployment-engine/src/VDC-Shared-Config
-          dest: /home/{{ ansible_user_id }}/blueprint     
+          dest: /home/{{ ansible_user }}/blueprint     
   
   - hosts: [master]
     tasks:

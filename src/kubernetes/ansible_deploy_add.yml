@@ -1,8 +1,6 @@
 ---
 
   - hosts: [master]
-    become: yes
-    become_user: "{{ username }}"
     tasks:
       - name: Copy VDC deployment
         template: src=scripts/vdc.yaml dest=vdc-{{ vdcName }}.yaml

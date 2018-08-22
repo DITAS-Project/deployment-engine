@@ -31,5 +31,5 @@ spec:
   volumes:
   - name: blueprint
     hostPath:
-        path: "/home/{{ ansible_user_id }}/blueprint"
+        path: "/home/{{ ansible_user }}/blueprint"
         type: Directory
