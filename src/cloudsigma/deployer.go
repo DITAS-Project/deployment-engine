@@ -18,6 +18,10 @@ import (
 	"github.com/spf13/viper"
 )
 
+const (
+	DeploymentType = "cloudsigma"
+)
+
 type CloudsigmaDeployer struct {
 	publicKey string
 	client    *Client
@@ -117,7 +121,7 @@ func (d *CloudsigmaDeployer) cloneDisk(logInput *log.Entry, resource blueprint.R
 		return nil, d.returnError(logger, msg, *result, errors.New(msg), c)
 	}
 
-	logger.Infof(" Disk %s Ready!", cloned.UUID)
+	logger.Infof("Disk %s Ready!", cloned.UUID)
 
 	return &cloned, nil
 }
@@ -296,7 +300,8 @@ func (d *CloudsigmaDeployer) DeployInfrastructure(infrastructure blueprint.Infra
 
 	numNodes := len(infrastructure.Resources)
 	deployment := ditas.InfrastructureDeployment{
-		ID:     namePrefix,
+		ID:     namePrefix + "_cs",
+		Type:   DeploymentType,
 		Slaves: make([]ditas.NodeInfo, 0, numNodes-1),
 	}
 

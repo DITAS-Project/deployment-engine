@@ -89,6 +89,8 @@ type queryWrapper struct {
 	Query          interface{} `bson:"$query"`
 	OrderBy        interface{} `bson:"$orderby,omitempty"`
 	Hint           interface{} `bson:"$hint,omitempty"`
+	Min            interface{} `bson:"$min,omitempty"`
+	Max            interface{} `bson:"$max,omitempty"`
 	Explain        bool        `bson:"$explain,omitempty"`
 	Snapshot       bool        `bson:"$snapshot,omitempty"`
 	ReadPreference bson.D      `bson:"$readPreference,omitempty"`
@@ -158,12 +160,13 @@ type insertOp struct {
 }
 
 type updateOp struct {
-	Collection string      `bson:"-"` // "database.collection"
-	Selector   interface{} `bson:"q"`
-	Update     interface{} `bson:"u"`
-	Flags      uint32      `bson:"-"`
-	Multi      bool        `bson:"multi,omitempty"`
-	Upsert     bool        `bson:"upsert,omitempty"`
+	Collection   string      `bson:"-"` // "database.collection"
+	Selector     interface{} `bson:"q"`
+	Update       interface{} `bson:"u"`
+	Flags        uint32      `bson:"-"`
+	Multi        bool        `bson:"multi,omitempty"`
+	Upsert       bool        `bson:"upsert,omitempty"`
+	ArrayFilters interface{} `bson:"arrayFilters,omitempty"`
 }
 
 type deleteOp struct {
@@ -210,8 +213,8 @@ func (socket *mongoSocket) Server() *mongoServer {
 	return server
 }
 
-// ServerInfo returns details for the server at the time the socket
-// was initially acquired.
+// ServerInfo returns details for the server at the time the socket was
+// initially acquired.
 func (socket *mongoSocket) ServerInfo() *mongoServerInfo {
 	if socket == nil {
 		return &mongoServerInfo{}
@@ -220,6 +223,16 @@ func (socket *mongoSocket) ServerInfo() *mongoServerInfo {
 	serverInfo := socket.serverInfo
 	socket.Unlock()
 	return serverInfo
+}
+
+// Dead returns the internal status of the socket
+//
+// It will return nil or an error if the socket is dead
+func (socket *mongoSocket) Dead() error {
+	socket.Lock()
+	defer socket.Unlock()
+
+	return socket.dead
 }
 
 // InitialAcquire obtains the first reference to the socket, either

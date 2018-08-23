@@ -3,33 +3,19 @@
 # Artifact - executable + dependencies
 FROM alpine:3.8
 
-# ENV ANSIBLE_VERSION 2.5.0
-
 ENV BUILD_PACKAGES \
   openssh-client \
   sshpass \
   git \
   ansible
 
-# Adding build-dependencies
-# RUN apk --update add --virtual .build-dependencies gcc musl-dev libffi-dev python-dev 
-
 # Upgrading apk and system
 RUN apk update && apk upgrade 
 
-# Adding Python runtime and packages
+# Adding runtime packages
 RUN apk add --no-cache ${BUILD_PACKAGES}
-# RUN pip install --upgrade pip
-# RUN pip install python-keyczar docker-py 
-
-# Adding Cloudsigma Python api
-# RUN pip install cloudsigma 
-
-# Installing Ansible
-# RUN pip install ansible==${ANSIBLE_VERSION} 
 
 # Cleaning up
-# RUN apk del .build-dependencies
 RUN rm -rf /var/cache/apk/*
 
 # Adding hosts for convenience
@@ -42,11 +28,7 @@ ENV ANSIBLE_HOST_KEY_CHECKING false
 ENV ANSIBLE_RETRY_FILES_ENABLED false
 # For unknown reasons ansible might find a host unreachable but it can be reached.
 ENV ANSIBLE_SSH_RETRIES 10
-# ENV ANSIBLE_ROLES_PATH /ansible/playbooks/roles
 ENV ANSIBLE_SSH_PIPELINING True
-# ENV PYTHONPATH /ansible/lib
-# ENV PATH /ansible/bin:$PATH
-# ENV ANSIBLE_LIBRARY /ansible/library
 
 WORKDIR /deployment-engine/src
 COPY /src/kubernetes /deployment-engine/src/kubernetes

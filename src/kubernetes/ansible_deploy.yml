@@ -84,12 +84,12 @@
 
       - name: Copy blueprint file
         copy:
-          src: /deployment-engine/src/kubernetes/{{ blueprintId }}/blueprint.json
+          src: "{{ blueprintId }}/blueprint.json"
           dest: /home/{{ ansible_user }}/blueprint/blueprint.json
 
       - name: Copy github json repo
         copy:
-          src: /deployment-engine/src/VDC-Shared-Config
+          src: VDC-Shared-Config
           dest: /home/{{ ansible_user }}/blueprint     
   
   - hosts: [master]

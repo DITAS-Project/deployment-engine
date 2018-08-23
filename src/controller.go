@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"os"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
@@ -44,38 +43,61 @@ func sanitize(name string) (string, error) {
 	return replaced, err
 }
 
-func (c *DeploymentEngineController) deleteDeployment(bpName string, deployment ditas.InfrastructureDeployment) error {
-	/*var pythonArgs []string
-	for _, inf := range deployment.Blueprint.CookbookAppendix.Infrastructure {
-		for _, node := range inf.Resources {
-			fmt.Println(node.Name)
-			pythonArgs = append(pythonArgs, node.Name)
-		}
-	}
-	// update database with deployment status - deleting
-	c.setStatus(bpName, deletingStatus)
+func (c *DeploymentEngineController) deleteDeployment(log *log.Entry, bpName string, deployment ditas.InfrastructureDeployment) error {
 
-	fmt.Println("\nGO: Calling python script to remove old deployment:", bpName)
-	err := executeCommand("kubernetes/delete_vm.py", pythonArgs...)
-	if err != nil {
-		fmt.Println(err.Error())
-		return err
+	c.setInfraStatus(bpName, deployment.ID, "deleting")
+	if deployment.Type == cloudsigma.DeploymentType {
+		depLogger := log.WithField("infrastructure", deployment.ID)
+		depLogger.Info("Deleting infrastructure")
+		deployer, err := cloudsigma.NewDeployer()
+		if err != nil {
+			depLogger.WithError(err).Error("Error getting deployer")
+			return err
+		}
+		errMap := deployer.DeleteInfrastructure(deployment, bpName)
+		if len(errMap) > 0 {
+			errMsg := "Error deleting infrastructure"
+			c.setInfraStatus(bpName, deployment.ID, "error")
+			return errors.New(errMsg)
+		}
+		c.removeInfra(bpName, deployment.ID)
 	}
-	err = c.collection.RemoveId(bpName)
-	fmt.Println("GO: Finished")*/
+
 	return nil
 }
 
 func (c *DeploymentEngineController) DeleteVDC(bpName string, vdcId string, deleteDeployment bool) error {
+	logger := log.WithField("blueprint", bpName)
+
+	if vdcId != "" {
+		logger = logger.WithField("VDC", vdcId)
+	}
+
 	deployment, err := c.findDeployment(bpName)
 	if err == nil {
 		if vdcId != "" {
 			//TODO: Remove VDC
 		}
 
-		if deleteDeployment && (vdcId == "" || len(deployment.VDCs) == 0) {
-			return c.deleteDeployment(bpName, deployment)
+		for _, infra := range deployment.Infrastructures {
+			if deleteDeployment && (vdcId == "" || len(infra.VDCs) == 0) {
+				err := c.deleteDeployment(logger, bpName, infra)
+				if err != nil {
+					logger.WithError(err).Error("Error deleting infrastructure")
+					return err
+				}
+			}
 		}
+
+		c.collection.RemoveId(bpName)
+
+		err = os.RemoveAll("kubernetes/" + bpName)
+		if err != nil {
+			logger.WithError(err).Error("Error cleaning blueprint folder")
+			return err
+		}
+
+		logger.Info("Deployment successfully deleted")
 
 		return nil
 	}
@@ -89,13 +111,36 @@ func (c *DeploymentEngineController) updateDeployment(bpName string, update bson
 	}
 }
 
-func (c *DeploymentEngineController) setStatus(bpName string, status string) {
-	c.updateDeployment(bpName, bson.M{"$set": bson.M{"status": status}})
-
+func (c *DeploymentEngineController) removeInfra(bpName, infraId string) {
+	c.updateDeployment(bpName, bson.M{
+		"$pull": bson.M{"infrastructures": bson.M{"id": infraId}},
+	})
 }
 
-func (c *DeploymentEngineController) findDeployment(bpName string) (ditas.InfrastructureDeployment, error) {
-	var deployment ditas.InfrastructureDeployment
+func (c *DeploymentEngineController) setInfraStatus(bpName, infraId string, status string) {
+	c.collection.UpdateWithArrayFilters(
+		bson.M{"_id": bpName},
+		bson.M{"$set": bson.M{"infrastructures.$[infra].status": status}},
+		[]bson.M{bson.M{"infra.id": infraId}},
+		false)
+}
+
+func (c *DeploymentEngineController) setGlobalStatus(bpName string, status string) {
+	c.updateDeployment(bpName, bson.M{"$set": bson.M{"status": status}})
+}
+
+func (c *DeploymentEngineController) addVdcToInfra(bpName, infraId, vdcId string) {
+	c.collection.UpdateWithArrayFilters(
+		bson.M{"_id": bpName},
+		bson.M{
+			"$inc":  bson.M{"infrastructures.$[infra].num_vdcs": 1},
+			"$push": bson.M{"infrastructures.$[infra].vdcs": vdcId}},
+		[]bson.M{bson.M{"infra.id": infraId}},
+		false)
+}
+
+func (c *DeploymentEngineController) findDeployment(bpName string) (ditas.Deployment, error) {
+	var deployment ditas.Deployment
 	err := c.collection.FindId(bpName).One(&deployment)
 	return deployment, err
 }
@@ -247,7 +292,8 @@ func (c *DeploymentEngineController) addToHostFile(logger *log.Entry, infra dita
 func (c *DeploymentEngineController) deployVdc(log *log.Entry, bpId string, deployments []ditas.InfrastructureDeployment) error {
 	for _, deployment := range deployments {
 		vdcNumber := deployment.NumVDCs
-		logger := log.WithField("deployment", deployment.ID).WithField("VDC", "vdc-"+strconv.Itoa(vdcNumber))
+		vdcName := fmt.Sprintf("vdc-%d", vdcNumber)
+		logger := log.WithField("deployment", deployment.ID).WithField("VDC", vdcName)
 		logger.Infof("Deploying VDC")
 		//time.Sleep(180 * time.Second)
 		vars := fmt.Sprintf("vdcName=%d", vdcNumber)
@@ -258,6 +304,7 @@ func (c *DeploymentEngineController) deployVdc(log *log.Entry, bpId string, depl
 			logger.WithError(err2).Error("Error adding VDC")
 			return err2
 		}
+		c.addVdcToInfra(bpId, deployment.ID, vdcName)
 		logger.Info("VDC added!!!")
 	}
 
@@ -322,9 +369,13 @@ func (c *DeploymentEngineController) CreateDep(bp blueprint.BlueprintType) error
 						logger.WithError(err).Error("Error deploying kubernetes cluster")
 						return err
 					}
+
+					c.setInfraStatus(bpNameSanitized, infraDeployment.ID, "running")
 				}
 			}
 		}
+
+		c.setGlobalStatus(bpNameSanitized, "running")
 	}
 
 	err = c.deployVdc(logger, bpNameSanitized, deployment.Infrastructures)
@@ -333,139 +384,15 @@ func (c *DeploymentEngineController) CreateDep(bp blueprint.BlueprintType) error
 		return err
 	}
 
-	for _, dep := range deployment.Infrastructures {
-		numVDCs := dep.NumVDCs + 1
-		dep.VDCs = append(dep.VDCs, "vdc-"+strconv.Itoa(numVDCs))
-		dep.NumVDCs = numVDCs
-	}
-
-	c.collection.UpdateId(bpNameSanitized, deployment)
-
 	return nil
 }
 
-func (c *DeploymentEngineController) CreateDepOld(bp blueprint.BlueprintType) error {
-	/*	collection := c.collection
-		bpName := *bp.InternalStructure.Overview.Name
-		bpNameSanitized, err := sanitize(bpName)
-		if err != nil {
-			return err
-		}
-		deployment, err := c.findDeployment(bpName)
-		if err != nil {
-			deployment := ditas.InfrastructureDeployment{
-				Blueprint: bp,
-				ID:        *bp.InternalStructure.Overview.Name,
-				NumVDCs:   0,
-				Status:    "starting",
-			}
-			err = collection.Insert(deployment)
-			var masterName string
-			if err == nil {
-				for _, infra := range bp.CookbookAppendix.Infrastructure {
-					pythonArgs := make([]string, 0, len(infra.Resources)*3)
-					for _, node := range infra.Resources {
-						if strings.ToLower(node.Role) == "master" {
-							masterName = node.Name
-						}
-						pythonArgs = append(pythonArgs, node.Name)
-						pythonArgs = append(pythonArgs, node.RAM)
-						pythonArgs = append(pythonArgs, node.CPUs)
-					}
-
-					fmt.Println("\nGO: Calling python script with arguments below: ")
-					fmt.Println(pythonArgs)
-					err := executeCommand("kubernetes/create_vm.py", pythonArgs...)
-					if err != nil {
-						fmt.Println(err.Error())
-						c.setStatus(bpName, errorStatus)
-						return err
-					}
-
-					nodeIps, err := c.getNodeIps()
-					if err != nil {
-						fmt.Printf("Error reading node ips: %s\n", err.Error())
-						c.setStatus(bpName, errorStatus)
-						return err
-					}
-
-					var masterIp string
-					nodes := make([]ditas.NodeInfo, 0, len(nodeIps))
-					for name, ip := range nodeIps {
-						if name == masterName {
-							masterIp = ip
-						}
-						nodes = append(nodes, ditas.NodeInfo{
-							Name: name,
-							IP:   ip,
-						})
-					}
-
-					c.updateDeployment(bpName, bson.M{
-						"$set": bson.M{"master_ip": masterIp, "nodes": nodes},
-					})
-
-					jsonData, err := json.Marshal(bp)
-					name := "./blueprint_" + bpName + ".json"
-					jsonFile, err := os.Create(name)
-					if err != nil {
-						c.setStatus(bpName, errorStatus)
-						panic(err)
-					}
-					defer jsonFile.Close()
-					jsonFile.Write(jsonData)
-					jsonFile.Close()
-
-					//here after successful python call, ansible playbook is run, at least 30s of pause is needed for a node (experimental)
-					//80 seconds failed, try with 180 to be safe
-					fmt.Println("\nGO: Calling Ansible for initial k8s deployment")
-					//time.Sleep(180 * time.Second)
-					vars := fmt.Sprintf("blueprintName=%s vdmName=%s", bpName, bpNameSanitized)
-					err2 := executeCommand("ansible-playbook", "kubernetes/ansible_deploy.yml", "--inventory=kubernetes/inventory", "--extra-vars", vars)
-
-					if err2 != nil {
-						fmt.Println(err2.Error())
-						c.setStatus(bpName, errorStatus)
-						return err2
-					}
-
-					c.setStatus(bpName, runningStatus)
-				}
-			} else {
-				fmt.Printf("Error inserting deployment into database: %s", err.Error())
-			}
-		}
-
-		vdcNumber := deployment.NumVDCs
-		vdcName := fmt.Sprintf("%s%d", bpNameSanitized, vdcNumber)
-
-		fmt.Printf("\nGO: Calling Ansible to add VDC %d", vdcNumber)
-		//time.Sleep(20 * time.Second) //safety valve in case of one command after another
-		vars := fmt.Sprintf("blueprintName=%s vdcName=%s", bpName, vdcName)
-		err2 := executeCommand("ansible-playbook", "kubernetes/ansible_deploy_add.yml", "--inventory=kubernetes/inventory", "--extra-vars", vars)
-
-		if err2 != nil {
-			fmt.Println(err2.Error())
-			c.setStatus(bpName, errorStatus)
-			return err2
-		}
-
-		c.updateDeployment(bpName, bson.M{
-			"$inc":  bson.M{"num_vdcs": 1},
-			"$push": bson.M{"vdcs": vdcName},
-		})
-
-		fmt.Println("GO: Finished")*/
-
-	return nil
-}
-
-func (c *DeploymentEngineController) GetAllDeps() ([]ditas.InfrastructureDeployment, error) {
-	var result []ditas.InfrastructureDeployment
+func (c *DeploymentEngineController) GetAllDeps() ([]ditas.Deployment, error) {
+	var result []ditas.Deployment
 	err := c.collection.Find(nil).All(&result)
 	return result, err
 }
 
-func (c *DeploymentEngineController) GetDep(id string) (ditas.InfrastructureDeployment, error) {
+func (c *DeploymentEngineController) GetDep(id string) (ditas.Deployment, error) {
 	return c.findDeployment(id)
 }

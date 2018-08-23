@@ -15,6 +15,7 @@ type NodeInfo struct {
 
 type InfrastructureDeployment struct {
 	ID        string                  `json:"id"`
+	Type      string                  `json:"type"`
 	Blueprint blueprint.BlueprintType `json:"blueprint"`
 	Slaves    []NodeInfo              `json:"slaves"`
 	Master    NodeInfo                `json:"master"`

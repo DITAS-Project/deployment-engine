@@ -30,7 +30,7 @@
   name = "github.com/DITAS-Project/blueprint-go"
 
 [[constraint]]
-  branch = "master"
+  branch = "development"
   name = "github.com/globalsign/mgo"
 
 [[constraint]]
