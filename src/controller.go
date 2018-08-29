@@ -36,7 +36,11 @@ type DeploymentEngineController struct {
 func sanitize(name string) (string, error) {
 	replaced := strings.Replace(name, "_", "-", -1)
 	replaced = strings.Replace(replaced, " ", "-", -1)
+	replaced = strings.ToLower(replaced)
 	valid, err := regexp.Match(componentNameRegexp, []byte(replaced))
+	if err != nil {
+		return "", err
+	}
 	if !valid {
 		return "", fmt.Errorf("Sanitized blueprint name %s is not valid for kubernetes deployment", replaced)
 	}
@@ -292,11 +296,11 @@ func (c *DeploymentEngineController) addToHostFile(logger *log.Entry, infra dita
 func (c *DeploymentEngineController) deployVdc(log *log.Entry, bpId string, deployments []ditas.InfrastructureDeployment) error {
 	for _, deployment := range deployments {
 		vdcNumber := deployment.NumVDCs
-		vdcName := fmt.Sprintf("vdc-%d", vdcNumber)
-		logger := log.WithField("deployment", deployment.ID).WithField("VDC", vdcName)
+		vdcID := fmt.Sprintf("vdc-%d", vdcNumber)
+		logger := log.WithField("deployment", deployment.ID).WithField("VDC", vdcID)
 		logger.Infof("Deploying VDC")
 		//time.Sleep(180 * time.Second)
-		vars := fmt.Sprintf("vdcName=%d", vdcNumber)
+		vars := fmt.Sprintf("vdcId=%s blueprintId=%s", vdcID, bpId)
 		inventory := fmt.Sprintf("--inventory=kubernetes/%s/inventory", bpId)
 		err2 := utils.ExecuteCommand(logger, "ansible-playbook", "kubernetes/ansible_deploy_add.yml", inventory, "--extra-vars", vars)
 
@@ -304,7 +308,7 @@ func (c *DeploymentEngineController) deployVdc(log *log.Entry, bpId string, depl
 			logger.WithError(err2).Error("Error adding VDC")
 			return err2
 		}
-		c.addVdcToInfra(bpId, deployment.ID, vdcName)
+		c.addVdcToInfra(bpId, deployment.ID, vdcID)
 		logger.Info("VDC added!!!")
 	}
 
@@ -371,6 +375,9 @@ func (c *DeploymentEngineController) CreateDep(bp blueprint.BlueprintType) error
 					}
 
 					c.setInfraStatus(bpNameSanitized, infraDeployment.ID, "running")
+				} else {
+					c.collection.RemoveId(bpNameSanitized)
+					return err
 				}
 			}
 		}

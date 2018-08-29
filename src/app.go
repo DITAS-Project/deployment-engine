@@ -3,6 +3,7 @@
 package main
 
 import (
+	"deployment-engine/src/utils"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -15,11 +16,23 @@ import (
 	"github.com/gorilla/mux"
 	homedir "github.com/mitchellh/go-homedir"
 	log "github.com/sirupsen/logrus"
+
+	"github.com/spf13/viper"
 )
 
 type App struct {
 	Router     *mux.Router
 	Controller *DeploymentEngineController
+}
+
+func (a *App) ReadConfig(home string) {
+	viper.SetEnvPrefix(utils.ConfigPrefix)
+	viper.AutomaticEnv()
+	viper.SetDefault(utils.ElasticSearchURLName, utils.ElasticSearchURLDefault)
+	viper.SetDefault(utils.MongoDBURLName, utils.MongoDBURLDefault)
+
+	viper.SetConfigFile(utils.ConfigFileName)
+	viper.AddConfigPath(home)
 }
 
 func (a *App) Initialize() {
@@ -29,7 +42,7 @@ func (a *App) Initialize() {
 
 	home, err := homedir.Dir()
 	if err == nil {
-		client, err := mgo.Dial("mongodb://mongo:27017")
+		client, err := mgo.Dial(viper.GetString(utils.MongoDBURLName))
 		if err == nil {
 			db := client.DB("deployment_engine")
 			if db != nil {

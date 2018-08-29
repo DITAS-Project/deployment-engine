@@ -1,12 +1,33 @@
 ---
 
+  - hosts: all
+    vars_files:
+      - config.yml
+    tasks:
+      - name: Create configuration directory
+        file:
+          path: /home/{{ ansible_user }}/{{ vdcId }}
+          state: directory
+          mode: "a+rw"
+
+      - name: Copy blueprint file
+        copy:
+          src: "{{ blueprintId }}/blueprint.json"
+          dest: /home/{{ ansible_user }}/{{ vdcId }}/blueprint.json
+          
+      - name: Copy VDC configuration files
+        template: src={{ item }} dest=/home/{{ ansible_user }}/{{ vdcId }}/{{ item | basename | regex_replace('\.j2','') }}
+        with_fileglob:
+          - VDC-Shared-Config/vdcs/*
+
+
   - hosts: [master]
     tasks:
       - name: Copy VDC deployment
-        template: src=scripts/vdc.yaml dest=vdc-{{ vdcName }}.yaml
+        template: src=scripts/vdc.yaml dest={{ vdcId }}.yaml
 
       - name: Add VDC
-        shell: kubectl create -f vdc-{{ vdcName }}.yaml
+        shell: kubectl create -f {{ vdcId }}.yaml
 
   - hosts: localhost
     tasks:

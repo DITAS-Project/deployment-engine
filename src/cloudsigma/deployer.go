@@ -66,7 +66,10 @@ func NewDeployer() (*CloudsigmaDeployer, error) {
 func (d *CloudsigmaDeployer) returnError(logger *log.Entry, msg string, result NodeCreationResult, err error, c chan NodeCreationResult) error {
 	logger.Errorf(msg)
 	result.Error = err
-	result.Error = d.deletePartialDeployment(result)
+	deleteError := d.deletePartialDeployment(result)
+	if deleteError != nil {
+		result.Error = deleteError
+	}
 	c <- result
 	return err
 }
@@ -148,6 +151,7 @@ func (d *CloudsigmaDeployer) createServer(logger *log.Entry, name, pw string, cp
 			Meta: map[string]string{
 				"ssh_public_key": d.publicKey,
 			},
+			SMP: 2,
 		}},
 	}
 
@@ -205,7 +209,7 @@ func (d *CloudsigmaDeployer) startServer(logger *log.Entry, uuid string, result 
 }
 
 func (d *CloudsigmaDeployer) CreateServer(resource blueprint.ResourceType, pfx string, c chan NodeCreationResult) error {
-	nodeName := pfx + "-" + resource.Name
+	nodeName := strings.ToLower(pfx + "-" + resource.Name)
 	logger := log.WithField("server", nodeName)
 	result := NodeCreationResult{
 		Info: ditas.NodeInfo{

@@ -7,6 +7,18 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+const (
+	ConfigPrefix = "DEP_ENGINE"
+
+	ConfigFileName = "dep_engine_config.properties"
+
+	ElasticSearchURLName = "elasticsearch.url"
+	MongoDBURLName       = "mongodb.url"
+
+	ElasticSearchURLDefault = "http://localhost:9200"
+	MongoDBURLDefault       = "mongodb://localhost:27017"
+)
+
 func ExecuteCommand(logger *log.Entry, name string, args ...string) error {
 	cmd := exec.Command(name, args...)
 	cmd.Stdout = logger.Writer()

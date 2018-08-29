@@ -16,6 +16,7 @@ type ResourceType struct {
 	NICS         []ServerNICType   `json:"nics,omitempty"`
 	Meta         map[string]string `json:"meta,omitempty"`
 	Runtime      RuntimeType       `json:"runtime,omitempty"`
+	SMP          int               `json:"smp,omitempty"`
 }
 
 /*type Drive struct {

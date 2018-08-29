@@ -51,22 +51,6 @@
         debug: msg={{ kube_join.stdout }}
         when: "'kubeadm join' in kube_join.stdout"
 
-
-  # - hosts: [master]
-  #   become: yes
-  #   become_user: "{{ hostvars[groups['master'][0]]['ansible_ssh_user'] }}"
-  #   tasks:
-  #     - name: installing flannel and allowing access to cluster
-  #       script: scripts/run.sh
-
-  # - hosts: [master]
-  #   become: yes
-  #   become_user: "{{ hostvars[groups['master'][0]]['ansible_ssh_user'] }}"
-  #   tasks:
-  #     - name: getting slaves join command
-  #       debug: msg={{ kube_join.stdout }}
-  #       when: "'kubeadm join' in kube_join.stdout"
-
   - hosts: [slaves]
     become: yes
     gather_facts: no
@@ -75,31 +59,37 @@
         command: "{{ hostvars[groups['master'][0]]['join_command'] }}"
 
   - hosts: all
+    vars_files:
+      - config.yml
     tasks:
       - name: Create blueprint directory
         file:
-          path: /home/{{ ansible_user }}/blueprint
+          path: /home/{{ ansible_user }}/vdm
           state: directory
           mode: "a+rw"
 
       - name: Copy blueprint file
         copy:
           src: "{{ blueprintId }}/blueprint.json"
-          dest: /home/{{ ansible_user }}/blueprint/blueprint.json
+          dest: /home/{{ ansible_user }}/vdm/blueprint.json
 
-      - name: Copy github json repo
-        copy:
-          src: VDC-Shared-Config
-          dest: /home/{{ ansible_user }}/blueprint     
+      #- name: Copy github json repo
+       # copy:
+        #  src: VDC-Shared-Config/vdm
+         # dest: /home/{{ ansible_user }}/vdm  
+          
+      - name: Copy VDM configuration files
+        template: src={{ item }} dest=/home/{{ ansible_user }}/vdm/{{ item | basename | regex_replace('\.j2','') }}
+        with_fileglob:
+          - VDC-Shared-Config/vdm/*
   
   - hosts: [master]
     tasks:
       - name: Copy VDM deployment
-        template: src=scripts/vdm.yaml dest=vdm-{{ blueprintId }}.yaml
+        template: src=scripts/vdm.yaml dest=vdm.yaml
 
       - name: Add VDM
-        shell: kubectl create -f vdm-{{ blueprintId }}.yaml
-
+        shell: kubectl create -f vdm.yaml
 
   - hosts: localhost
     tasks:
