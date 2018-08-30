@@ -14,19 +14,17 @@ type NodeInfo struct {
 }
 
 type InfrastructureDeployment struct {
-	ID        string                  `json:"id"`
-	Type      string                  `json:"type"`
-	Blueprint blueprint.BlueprintType `json:"blueprint"`
-	Slaves    []NodeInfo              `json:"slaves"`
-	Master    NodeInfo                `json:"master"`
-	NumVDCs   int                     `json:"num_vdcs" bson:"num_vdcs"`
-	Status    string                  `json:"status"`
-	VDCs      []string                `json:"vdcs"`
+	ID      string                             `json:"id"`
+	Type    string                             `json:"type"`
+	Slaves  []NodeInfo                         `json:"slaves"`
+	Master  NodeInfo                           `json:"master"`
+	NumVDCs int                                `json:"num_vdcs" bson:"num_vdcs"`
+	Status  string                             `json:"status"`
+	VDCs    map[string]blueprint.BlueprintType `json:"vdcs"`
 }
 
 type Deployment struct {
 	ID              string                     `json:"id" bson:"_id"`
-	Blueprint       blueprint.BlueprintType    `json:"blueprint"`
 	Infrastructures []InfrastructureDeployment `json:"infrastructures"`
 	Status          string                     `json:"status"`
 }

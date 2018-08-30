@@ -12,7 +12,7 @@
 
       - name: Copy blueprint file
         copy:
-          src: "{{ blueprintId }}/blueprint.json"
+          src: "{{ blueprintId }}/{{ infraId }}/{{ vdcId }}/blueprint.json"
           dest: /home/{{ ansible_user }}/{{ vdcId }}/blueprint.json
           
       - name: Copy VDC configuration files

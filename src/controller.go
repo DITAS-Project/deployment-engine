@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -73,6 +74,13 @@ func (c *DeploymentEngineController) deleteDeployment(log *log.Entry, bpName str
 func (c *DeploymentEngineController) DeleteVDC(bpName string, vdcId string, deleteDeployment bool) error {
 	logger := log.WithField("blueprint", bpName)
 
+	bpNameSanitized, err := sanitize(bpName)
+
+	if err != nil {
+		logger.Errorf("Error sanitizing blueprint name: %s", err.Error())
+		return err
+	}
+
 	if vdcId != "" {
 		logger = logger.WithField("VDC", vdcId)
 	}
@@ -95,7 +103,7 @@ func (c *DeploymentEngineController) DeleteVDC(bpName string, vdcId string, dele
 
 		c.collection.RemoveId(bpName)
 
-		err = os.RemoveAll("kubernetes/" + bpName)
+		err = os.RemoveAll("kubernetes/" + bpNameSanitized)
 		if err != nil {
 			logger.WithError(err).Error("Error cleaning blueprint folder")
 			return err
@@ -133,12 +141,12 @@ func (c *DeploymentEngineController) setGlobalStatus(bpName string, status strin
 	c.updateDeployment(bpName, bson.M{"$set": bson.M{"status": status}})
 }
 
-func (c *DeploymentEngineController) addVdcToInfra(bpName, infraId, vdcId string) {
+func (c *DeploymentEngineController) addVdcToInfra(bpName, infraId, vdcId string, bp blueprint.BlueprintType) {
 	c.collection.UpdateWithArrayFilters(
 		bson.M{"_id": bpName},
 		bson.M{
-			"$inc":  bson.M{"infrastructures.$[infra].num_vdcs": 1},
-			"$push": bson.M{"infrastructures.$[infra].vdcs": vdcId}},
+			"$inc": bson.M{"infrastructures.$[infra].num_vdcs": 1},
+			"$set": bson.M{"infrastructures.$[infra].vdcs." + vdcId: bp}},
 		[]bson.M{bson.M{"infra.id": infraId}},
 		false)
 }
@@ -156,6 +164,13 @@ func writeHost(node ditas.NodeInfo, file *os.File) (int, error) {
 
 func (c *DeploymentEngineController) createInventory(logger *log.Entry, bpID string, deployment ditas.InfrastructureDeployment) error {
 	path := "kubernetes/" + bpID
+
+	err := os.MkdirAll(path, os.ModePerm)
+	if err != nil {
+		logger.WithError(err).Errorf("Error creating inventory folder %s", path)
+		return err
+	}
+
 	filePath := path + "/inventory"
 	logger.Infof("Creating inventory at %s", filePath)
 	inventory, err := os.Create(filePath)
@@ -196,15 +211,17 @@ func (c *DeploymentEngineController) createInventory(logger *log.Entry, bpID str
 	return nil
 }
 
-func (c *DeploymentEngineController) writeBlueprint(logger *log.Entry, bp blueprint.BlueprintType, bpID string) error {
-	path := "kubernetes/" + bpID
-	name := path + "/blueprint.json"
-	logger.Infof("Copying blueprint to %s", name)
+func (c *DeploymentEngineController) writeBlueprint(logger *log.Entry, bp blueprint.BlueprintType, bpID, vdcId string, infra ditas.InfrastructureDeployment) error {
+	path := "kubernetes/" + bpID + "/" + infra.ID + "/" + vdcId
+
 	err := os.MkdirAll(path, os.ModePerm)
 	if err != nil {
-		logger.WithError(err).Errorf("Error creating inventory folder %s", path)
+		logger.WithError(err).Errorf("Error creating infrastructure blueprints folder %s", path)
 		return err
 	}
+
+	name := path + "/blueprint.json"
+	logger.Infof("Copying blueprint to %s", name)
 
 	jsonData, err := json.Marshal(bp)
 	jsonFile, err := os.Create(name)
@@ -221,6 +238,21 @@ func (c *DeploymentEngineController) writeBlueprint(logger *log.Entry, bp bluepr
 
 	logger.Info("Blueprint copied")
 
+	return nil
+}
+
+func (c *DeploymentEngineController) addVDM(logger *log.Entry, bpId string) error {
+	logger.Info("Adding VDM")
+
+	inventory := fmt.Sprintf("--inventory=kubernetes/%s/inventory", bpId)
+	err := utils.ExecuteCommand(logger, "ansible-playbook", "kubernetes/ansible_deploy_vdm.yml", inventory)
+
+	if err != nil {
+		logger.WithError(err).Error("Error adding VDM")
+		return err
+	}
+
+	logger.Info("VDM added")
 	return nil
 }
 
@@ -241,17 +273,7 @@ func (c *DeploymentEngineController) deployK8s(logger *log.Entry, bpId string, d
 		return err
 	}
 
-	logger.Info("K8s cluster created. Adding VDM")
-
-	vars = fmt.Sprintf("blueprintId=%s", bpId)
-	err = utils.ExecuteCommand(logger, "ansible-playbook", "kubernetes/ansible_deploy_vdm.yml", inventory, "--extra-vars", vars)
-
-	if err != nil {
-		logger.WithError(err).Error("Error adding VDM")
-		return err
-	}
-
-	logger.Info("VDM added")
+	logger.Info("K8s cluster created")
 	return nil
 }
 
@@ -303,24 +325,20 @@ func (c *DeploymentEngineController) addToHostFile(logger *log.Entry, infra dita
 	return nil
 }
 
-func (c *DeploymentEngineController) deployVdc(log *log.Entry, bpId string, deployments []ditas.InfrastructureDeployment) error {
-	for _, deployment := range deployments {
-		vdcNumber := deployment.NumVDCs
-		vdcID := fmt.Sprintf("vdc-%d", vdcNumber)
-		logger := log.WithField("deployment", deployment.ID).WithField("VDC", vdcID)
-		logger.Infof("Deploying VDC")
-		//time.Sleep(180 * time.Second)
-		vars := fmt.Sprintf("vdcId=%s blueprintId=%s", vdcID, bpId)
-		inventory := fmt.Sprintf("--inventory=kubernetes/%s/inventory", bpId)
-		err2 := utils.ExecuteCommand(logger, "ansible-playbook", "kubernetes/ansible_deploy_add.yml", inventory, "--extra-vars", vars)
+func (c *DeploymentEngineController) deployVdc(log *log.Entry, bpId, vdcID string, deployment ditas.InfrastructureDeployment) error {
 
-		if err2 != nil {
-			logger.WithError(err2).Error("Error adding VDC")
-			return err2
-		}
-		c.addVdcToInfra(bpId, deployment.ID, vdcID)
-		logger.Info("VDC added!!!")
+	logger := log.WithField("deployment", deployment.ID).WithField("VDC", vdcID)
+	logger.Infof("Deploying VDC")
+	//time.Sleep(180 * time.Second)
+	vars := fmt.Sprintf("vdcId=%s blueprintId=%s infraId=%s", vdcID, bpId, deployment.ID)
+	inventory := fmt.Sprintf("--inventory=kubernetes/%s/inventory", bpId)
+	err2 := utils.ExecuteCommand(logger, "ansible-playbook", "kubernetes/ansible_deploy_add.yml", inventory, "--extra-vars", vars)
+
+	if err2 != nil {
+		logger.WithError(err2).Error("Error adding VDC")
+		return err2
 	}
+	logger.Info("VDC added")
 
 	return nil
 }
@@ -329,18 +347,24 @@ func (c *DeploymentEngineController) CreateDep(bp blueprint.BlueprintType) error
 
 	bpName := *bp.InternalStructure.Overview.Name
 	logger := log.WithField("blueprint", bpName)
+
+	logger.Info("Starting deployment of a new VDC")
+
 	bpNameSanitized, err := sanitize(bpName)
+
 	if err != nil {
 		logger.Errorf("Error sanitizing blueprint name: %s", err.Error())
 		return err
 	}
 
 	var deployment ditas.Deployment
-	c.collection.FindId(bpNameSanitized).One(&deployment)
+	c.collection.FindId(bpName).One(&deployment)
 	if err != nil || deployment.ID == "" {
+
+		logger.Info("Infrastructure not found. Creating a Kubernetes cluster to host the VDC and VDM")
+
 		deployment = ditas.Deployment{
-			ID:              bpNameSanitized,
-			Blueprint:       bp,
+			ID:              bpName,
 			Infrastructures: make([]ditas.InfrastructureDeployment, len(bp.CookbookAppendix.Infrastructure)),
 			Status:          "starting",
 		}
@@ -372,33 +396,50 @@ func (c *DeploymentEngineController) CreateDep(bp blueprint.BlueprintType) error
 						return err
 					}
 
-					err = c.writeBlueprint(logger, bp, bpNameSanitized)
-					if err != nil {
-						logger.WithError(err).Error("Error writing blueprint")
-						return err
-					}
-
 					err = c.deployK8s(logger, bpNameSanitized, infraDeployment)
 					if err != nil {
 						logger.WithError(err).Error("Error deploying kubernetes cluster")
 						return err
 					}
 
-					c.setInfraStatus(bpNameSanitized, infraDeployment.ID, "running")
+					err = c.addVDM(logger, bpNameSanitized)
+					if err != nil {
+						logger.WithError(err).Error("Error adding VDM")
+						return err
+					}
+
+					c.setInfraStatus(bpName, infraDeployment.ID, "running")
 				} else {
-					c.collection.RemoveId(bpNameSanitized)
+					c.collection.RemoveId(bpName)
 					return err
 				}
 			}
 		}
 
-		c.setGlobalStatus(bpNameSanitized, "running")
+		c.setGlobalStatus(bpName, "running")
 	}
 
-	err = c.deployVdc(logger, bpNameSanitized, deployment.Infrastructures)
-	if err != nil {
-		logger.WithError(err).Error("Error adding VDC")
-		return err
+	for _, infra := range deployment.Infrastructures {
+
+		vdcId := "vdc-" + strconv.Itoa(infra.NumVDCs)
+
+		bp.InternalStructure.Overview.Name = &vdcId
+
+		err = c.writeBlueprint(logger, bp, bpNameSanitized, vdcId, infra)
+		if err != nil {
+			logger.WithError(err).Error("Error writing blueprint")
+			return err
+		}
+
+		err = c.deployVdc(logger, bpNameSanitized, vdcId, infra)
+		if err != nil {
+			logger.WithError(err).Error("Error adding VDC")
+			return err
+		}
+
+		c.addVdcToInfra(bpName, infra.ID, vdcId, bp)
+
+		logger.Info("VDC deployment finished")
 	}
 
 	return nil

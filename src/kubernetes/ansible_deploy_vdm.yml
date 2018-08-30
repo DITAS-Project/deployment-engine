@@ -10,10 +10,10 @@
           state: directory
           mode: "a+rw"
 
-      - name: Copy blueprint file
-        copy:
-          src: "{{ blueprintId }}/blueprint.json"
-          dest: /home/{{ ansible_user }}/vdm/blueprint.json
+      #- name: Copy blueprint file
+       # copy:
+        #  src: "{{ blueprintId }}/blueprint.json"
+         # dest: /home/{{ ansible_user }}/vdm/blueprint.json
 
       #- name: Copy github json repo
        # copy:
