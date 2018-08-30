@@ -35,7 +35,7 @@ func NewClient(baseUrl string, username string, password string, debug bool) *Cl
 
 func execute(request *resty.Request, path string, method string, result interface{}) error {
 
-	request.SetError(&CloudSigmaError{})
+	//request.SetError(&CloudSigmaError{})
 
 	if result != nil {
 		request.SetResult(result)

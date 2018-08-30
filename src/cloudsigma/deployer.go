@@ -231,9 +231,17 @@ func (d *CloudsigmaDeployer) CreateServer(resource blueprint.ResourceType, pfx s
 		return d.returnError(logger, fmt.Sprintf("Error parsing CPU value. It should be an number (of Mhz), found %s: %s\n", resource.CPUs, err.Error()), result, err, c)
 	}
 
+	if cpu < 4000 && result.Info.Role == "master" {
+		log.Warnf("The minimum requirements for a Kubernetes master are 2 cores at 2Ghz. %d of CPU might be insufficient and the Kubernetes deploy might fail due to timeouts.", cpu)
+	}
+
 	mem, err := strconv.Atoi(resource.RAM)
 	if err != nil {
 		return d.returnError(logger, fmt.Sprintf("Error parsing RAM value. It should be an number (of Mb), found %s: %s\n", resource.RAM, err.Error()), result, err, c)
+	}
+
+	if mem < 2024 && result.Info.Role == "master" {
+		log.Warnf("The minimum requirements for a Kubernetes master are 2GB of RAM. %d MB might be insufficient and the Kubernetes deploy might fail due to timeouts.", mem)
 	}
 
 	mem = mem * 1024 * 1024

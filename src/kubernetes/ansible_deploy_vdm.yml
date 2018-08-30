@@ -1,0 +1,34 @@
+---
+  
+  - hosts: all
+    vars_files:
+      - "{{ lookup('env','HOME') }}/config.yml"
+    tasks:
+      - name: Create blueprint directory
+        file:
+          path: /home/{{ ansible_user }}/vdm
+          state: directory
+          mode: "a+rw"
+
+      - name: Copy blueprint file
+        copy:
+          src: "{{ blueprintId }}/blueprint.json"
+          dest: /home/{{ ansible_user }}/vdm/blueprint.json
+
+      #- name: Copy github json repo
+       # copy:
+        #  src: VDC-Shared-Config/vdm
+         # dest: /home/{{ ansible_user }}/vdm  
+          
+      - name: Copy VDM configuration files
+        template: src={{ item }} dest=/home/{{ ansible_user }}/vdm/{{ item | basename | regex_replace('\.j2','') }}
+        with_fileglob:
+          - VDC-Shared-Config/vdm/*
+  
+  - hosts: [master]
+    tasks:
+      - name: Copy VDM deployment
+        template: src=scripts/vdm.yaml dest=vdm.yaml
+
+      - name: Add VDM
+        shell: kubectl create -f vdm.yaml

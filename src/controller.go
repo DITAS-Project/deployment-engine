@@ -232,16 +232,26 @@ func (c *DeploymentEngineController) deployK8s(logger *log.Entry, bpId string, d
 
 	logger.Info("Calling Ansible for initial k8s deployment")
 	//time.Sleep(180 * time.Second)
-	vars := fmt.Sprintf("blueprintId=%s masterUsername=%s", bpId, deployment.Master.Username)
+	vars := fmt.Sprintf("masterUsername=%s", deployment.Master.Username)
 	inventory := fmt.Sprintf("--inventory=kubernetes/%s/inventory", bpId)
-	err2 := utils.ExecuteCommand(logger, "ansible-playbook", "kubernetes/ansible_deploy.yml", inventory, "--extra-vars", vars)
+	err = utils.ExecuteCommand(logger, "ansible-playbook", "kubernetes/ansible_deploy.yml", inventory, "--extra-vars", vars)
 
-	if err2 != nil {
-		logger.WithError(err2).Error("Error executing ansible deployment for k8s deployment")
-		return err2
+	if err != nil {
+		logger.WithError(err).Error("Error executing ansible deployment for k8s deployment")
+		return err
 	}
 
-	logger.Info("k8s cluster created!!!!")
+	logger.Info("K8s cluster created. Adding VDM")
+
+	vars = fmt.Sprintf("blueprintId=%s", bpId)
+	err = utils.ExecuteCommand(logger, "ansible-playbook", "kubernetes/ansible_deploy_vdm.yml", inventory, "--extra-vars", vars)
+
+	if err != nil {
+		logger.WithError(err).Error("Error adding VDM")
+		return err
+	}
+
+	logger.Info("VDM added")
 	return nil
 }
 
