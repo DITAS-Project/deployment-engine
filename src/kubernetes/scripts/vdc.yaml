@@ -8,37 +8,15 @@ spec:
     component: "{{ vdcId }}"
   ports:
   - name: http
-    port: 8080
-    targetPort: 50003
+    port: {{ internalPort }}
+    targetPort: 1880
+    nodePort: {{ vdcPort }}
 
 ---
 apiVersion: v1
 kind: Pod
 metadata:
-  name: "slalite-{{ vdcId }}"
-  labels:
-    component: "{{ vdcId }}"
-spec:
-  containers:
-  - name: slalite
-    image: ditas/slalite
-    ports:
-    - containerPort: 8090
-    volumeMounts:
-    - name: blueprint
-      mountPath: /opt/blueprint
-
-  volumes:
-  - name: blueprint
-    hostPath:
-        path: "/home/{{ ansible_user }}/{{ vdcId }}"
-        type: Directory
-
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: "due-{{ vdcId }}"
+  name: "{{ vdcId }}-pod"
   labels:
     component: "{{ vdcId }}"
 spec:
@@ -51,26 +29,18 @@ spec:
     - name: blueprint
       mountPath: /opt/blueprint
 
-  volumes:
-  - name: blueprint
-    hostPath:
-        path: "/home/{{ ansible_user }}/{{ vdcId }}"
-        type: Directory
-  
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: "ideko-{{ vdcId }}"
-  labels:
-    component: "{{ vdcId }}"
-spec:
-  containers:
-  - name: ideko-uc
-    image: ditas/ideko-use-case:latest
+  - name: slalite
+    image: ditas/slalite
     ports:
-    - containerPort: 8080
-    - containerPort: 8484
+    - containerPort: 8090
+    volumeMounts:
+    - name: blueprint
+      mountPath: /opt/blueprint
+
+  - name: ideko-uc
+    image: ditas/ideko-use-case-with-flow-demo:latest
+    ports:
+    - containerPort: 1880
     volumeMounts:
     - name: blueprint
       mountPath: /opt/blueprint
@@ -80,5 +50,4 @@ spec:
     hostPath:
         path: "/home/{{ ansible_user }}/{{ vdcId }}"
         type: Directory
-
   

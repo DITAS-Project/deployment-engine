@@ -92,9 +92,18 @@ func (d *CloudsigmaDeployer) cloneDisk(logInput *log.Entry, resource blueprint.R
 		return nil, d.returnError(logger, msg, *result, errors.New(msg), c)
 	}
 
+	if resource.Disk != "" {
+		drive.Size, err = strconv.Atoi(resource.Disk)
+		if err != nil {
+			log.WithError(err).Error("Error setting size. Default size will be used")
+		}
+	}
+
+	drive.Name = fmt.Sprintf("%s-%s", drive.Name, resource.Name)
+
 	logger.Infof("Image found. Cloning disk %s\n", drive.UUID)
 
-	cloned, err := d.client.CloneDrive(drive.UUID)
+	cloned, err := d.client.CloneDrive(drive.UUID, &drive)
 
 	if err != nil {
 		return nil, d.returnError(logger, fmt.Sprintf("Error cloning disk: %s\n", err.Error()), *result, err, c)
@@ -129,7 +138,11 @@ func (d *CloudsigmaDeployer) cloneDisk(logInput *log.Entry, resource blueprint.R
 	return &cloned, nil
 }
 
-func (d *CloudsigmaDeployer) createServer(logger *log.Entry, name, pw string, cpu, mem int, disk ResourceType, result NodeCreationResult, c chan NodeCreationResult) (*ResourceType, error) {
+func (d *CloudsigmaDeployer) createServer(logger *log.Entry, name, pw string, cpu, mem int, disk ResourceType, ip string, result NodeCreationResult, c chan NodeCreationResult) (*ResourceType, error) {
+	conf := "dhcp"
+	if ip != "" {
+		conf = "static"
+	}
 	servers := RequestResponseType{
 		Objects: []ResourceType{ResourceType{
 			Name:        name,
@@ -144,7 +157,8 @@ func (d *CloudsigmaDeployer) createServer(logger *log.Entry, name, pw string, cp
 			}},
 			NICS: []ServerNICType{ServerNICType{
 				IPV4Conf: ServerIPV4ConfType{
-					Conf: "dhcp",
+					Conf: conf,
+					IP:   ip,
 				},
 				Model: "virtio",
 			}},
@@ -251,9 +265,11 @@ func (d *CloudsigmaDeployer) CreateServer(resource blueprint.ResourceType, pfx s
 		return err
 	}
 
+	ip := resource.IP
+
 	logger.Infof("Creating server")
 
-	server, err := d.createServer(logger, nodeName, pw, cpu, mem, *cloned, result, c)
+	server, err := d.createServer(logger, nodeName, pw, cpu, mem, *cloned, ip, result, c)
 	if err != nil {
 		return err
 	}
@@ -270,7 +286,7 @@ func (d *CloudsigmaDeployer) CreateServer(resource blueprint.ResourceType, pfx s
 		return d.returnError(logger, msg, result, errors.New(msg), c)
 	}
 
-	ip := server.Runtime.NICs[0].IPV4Info.UUID
+	ip = server.Runtime.NICs[0].IPV4Info.UUID
 
 	if ip == "" {
 		msg := "Can't find IP address for server"

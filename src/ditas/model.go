@@ -13,14 +13,20 @@ type NodeInfo struct {
 	DriveUUID string `json:"drive_uuid" bson:"drive_uuid"`
 }
 
+type VDCInfo struct {
+	Blueprint blueprint.BlueprintType
+	Port      int
+}
+
 type InfrastructureDeployment struct {
-	ID      string                             `json:"id"`
-	Type    string                             `json:"type"`
-	Slaves  []NodeInfo                         `json:"slaves"`
-	Master  NodeInfo                           `json:"master"`
-	NumVDCs int                                `json:"num_vdcs" bson:"num_vdcs"`
-	Status  string                             `json:"status"`
-	VDCs    map[string]blueprint.BlueprintType `json:"vdcs"`
+	ID       string             `json:"id"`
+	Type     string             `json:"type"`
+	Slaves   []NodeInfo         `json:"slaves"`
+	Master   NodeInfo           `json:"master"`
+	NumVDCs  int                `json:"num_vdcs" bson:"num_vdcs"`
+	LastPort int                `json:"last_port" bson:"last_port"`
+	Status   string             `json:"status"`
+	VDCs     map[string]VDCInfo `json:"vdcs"`
 }
 
 type Deployment struct {

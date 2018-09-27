@@ -17,6 +17,7 @@ type ResourceType struct {
 	Meta         map[string]string `json:"meta,omitempty"`
 	Runtime      RuntimeType       `json:"runtime,omitempty"`
 	SMP          int               `json:"smp,omitempty"`
+	Size         int               `json:"size,omitempty"`
 }
 
 /*type Drive struct {

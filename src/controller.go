@@ -145,7 +145,10 @@ func (c *DeploymentEngineController) addVdcToInfra(bpName, infraId, vdcId string
 	c.collection.UpdateWithArrayFilters(
 		bson.M{"_id": bpName},
 		bson.M{
-			"$inc": bson.M{"infrastructures.$[infra].num_vdcs": 1},
+			"$inc": bson.M{
+				"infrastructures.$[infra].num_vdcs":  1,
+				"infrastructures.$[infra].last_port": 1,
+			},
 			"$set": bson.M{"infrastructures.$[infra].vdcs." + vdcId: bp}},
 		[]bson.M{bson.M{"infra.id": infraId}},
 		false)
@@ -330,7 +333,8 @@ func (c *DeploymentEngineController) deployVdc(log *log.Entry, bpId, vdcID strin
 	logger := log.WithField("deployment", deployment.ID).WithField("VDC", vdcID)
 	logger.Infof("Deploying VDC")
 	//time.Sleep(180 * time.Second)
-	vars := fmt.Sprintf("vdcId=%s blueprintId=%s infraId=%s", vdcID, bpId, deployment.ID)
+	internalPort := deployment.LastPort + 20000
+	vars := fmt.Sprintf("vdcId=%s blueprintId=%s infraId=%s vdcPort=%d internalPort=%d", vdcID, bpId, deployment.ID, deployment.LastPort, internalPort)
 	inventory := fmt.Sprintf("--inventory=kubernetes/%s/inventory", bpId)
 	err2 := utils.ExecuteCommand(logger, "ansible-playbook", "kubernetes/ansible_deploy_add.yml", inventory, "--extra-vars", vars)
 
@@ -384,6 +388,7 @@ func (c *DeploymentEngineController) CreateDep(bp blueprint.BlueprintType) error
 				}
 				infraDeployment, err := deployer.DeployInfrastructure(infra, bpNameSanitized)
 				if err == nil {
+					infraDeployment.LastPort = 31000
 					deployment.Infrastructures[i] = infraDeployment
 					err = c.collection.UpdateId(deployment.ID, deployment)
 					if err != nil {

@@ -31,6 +31,7 @@ type ResourceType struct {
 	Role            string `json:"role"`
 	BaseImage       string `json:"baseimage"`
 	OS              string `json:"os"`
+	IP              string `json:"ip,omitempty"`
 }
 type InfrastructureType struct {
 	Name        string         `json:"name"`
@@ -78,6 +79,21 @@ type MetricPropertyType struct {
 	Minimum *float64     `json:"minimum"`
 	Maximum *float64     `json:"maximum"`
 	Value   *interface{} `json:"value"`
+}
+
+//IsMinimumConstraint test if the MetricPropertyType has a minimum constraint
+func (m *MetricPropertyType) IsMinimumConstraint() bool {
+	return m.Minimum != nil
+}
+
+//IsMaximumConstraint test if the MetricPropertyType has a maximum constraint
+func (m *MetricPropertyType) IsMaximumConstraint() bool {
+	return m.Maximum != nil
+}
+
+//IsEqualityConstraint test if the MetricPropertyType has only a value and no min or max constraints
+func (m *MetricPropertyType) IsEqualityConstraint() bool {
+	return m.Value != nil && m.Maximum == nil && m.Minimum == nil
 }
 
 type ConstraintType struct {

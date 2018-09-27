@@ -74,9 +74,13 @@ func (c *Client) GetLibDrive(params map[string]string) (ResourceType, error) {
 	return getFirstObjectOfList(c.httpClient.R().SetQueryParams(params), "/libdrives", resty.MethodGet)
 }
 
-func (c *Client) CloneDrive(uuid string) (ResourceType, error) {
+func (c *Client) CloneDrive(uuid string, info *ResourceType) (ResourceType, error) {
 	path := fmt.Sprintf("/libdrives/%s/action/?do=clone", uuid)
-	return getFirstObjectOfList(c.httpClient.R(), path, resty.MethodPost)
+	request := c.httpClient.R()
+	if info != nil {
+		request = request.SetBody(info)
+	}
+	return getFirstObjectOfList(request, path, resty.MethodPost)
 }
 
 func (c *Client) GetDriveDetails(uuid string) (ResourceType, error) {

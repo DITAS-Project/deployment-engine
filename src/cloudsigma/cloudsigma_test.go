@@ -104,7 +104,7 @@ func TestListDrives(t *testing.T) {
 			t.Fatalf("Invalid version found: %s", drive.Version)
 		}
 
-		clone, err := client.CloneDrive(drive.UUID)
+		clone, err := client.CloneDrive(drive.UUID, nil)
 
 		if err != nil {
 			t.Fatalf("Error cloning DITAS drive %s", err.Error())
