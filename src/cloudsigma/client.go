@@ -96,6 +96,10 @@ func (c *Client) DeleteDrive(uuid string) error {
 	return err
 }
 
+func (c *Client) CreateDrive(drive ResourceType) (ResourceType, error) {
+	return getFirstObjectOfList(c.httpClient.R().SetBody(drive), "/drives/", resty.MethodPost)
+}
+
 func (c *Client) CreateServers(servers RequestResponseType) (RequestResponseType, error) {
 	var result RequestResponseType
 	err := execute(c.httpClient.R().SetBody(servers), "/servers/", resty.MethodPost, &result)
@@ -152,4 +156,17 @@ func (c *Client) DeleteTag(uuid string) error {
 	path := fmt.Sprintf("/tags/%s/", uuid)
 	err := execute(c.httpClient.R(), path, resty.MethodDelete, nil)
 	return err
+}
+
+func (c *Client) GetAvailableIps() (RequestResponseType, error) {
+	var result RequestResponseType
+	err := execute(c.httpClient.R(), "/ips", resty.MethodGet, &result)
+	return result, err
+}
+
+func (c *Client) GetIPReference(ip string) (IPReferenceType, error) {
+	var result IPReferenceType
+	path := fmt.Sprintf("/ips/%s/", ip)
+	err := execute(c.httpClient.R(), path, resty.MethodGet, &result)
+	return result, err
 }

@@ -5,12 +5,13 @@ import (
 )
 
 type NodeInfo struct {
-	Name      string `json:"name"`
-	Role      string `json:"role"`
-	IP        string `json:"ip"`
-	Username  string `json:"username"`
-	UUID      string `json:"uuid"`
-	DriveUUID string `json:"drive_uuid" bson:"drive_uuid"`
+	Name          string `json:"name"`
+	Role          string `json:"role"`
+	IP            string `json:"ip"`
+	Username      string `json:"username"`
+	UUID          string `json:"uuid"`
+	DriveUUID     string `json:"drive_uuid" bson:"drive_uuid"`
+	DataDriveUUID string `json:"data_drive_uuid" bson:"data_drive_uuid"`
 }
 
 type VDCInfo struct {

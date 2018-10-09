@@ -13,41 +13,52 @@ spec:
     nodePort: {{ vdcPort }}
 
 ---
-apiVersion: v1
-kind: Pod
+apiVersion: apps/v1
+kind: StatefulSet
 metadata:
   name: "{{ vdcId }}-pod"
   labels:
     component: "{{ vdcId }}"
 spec:
-  containers:
-  - name: due
-    image: ditas/data-utility-evaluator:latest
-    ports:
-    - containerPort: 8080
-    volumeMounts:
-    - name: blueprint
-      mountPath: /opt/blueprint
+  selector:
+    matchLabels:
+      component: "{{ vdcId }}"
+  serviceName: "{{ vdcId }}"
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        component: "{{ vdcId }}"
+    spec:
+      terminationGracePeriodSeconds: 10
+      containers:
+      - name: due
+        image: ditas/data-utility-evaluator:latest
+        ports:
+        - containerPort: 8080
+        volumeMounts:
+        - name: blueprint
+          mountPath: /opt/blueprint
+    
+      - name: slalite
+        image: ditas/slalite
+        ports:
+        - containerPort: 8090
+        volumeMounts:
+        - name: blueprint
+          mountPath: /opt/blueprint
+    
+      - name: ideko-uc
+        image: ditas/ideko-use-case-with-flow-demo:latest
+        ports:
+        - containerPort: 1880
+        volumeMounts:
+        - name: blueprint
+          mountPath: /opt/blueprint
 
-  - name: slalite
-    image: ditas/slalite
-    ports:
-    - containerPort: 8090
-    volumeMounts:
-    - name: blueprint
-      mountPath: /opt/blueprint
-
-  - name: ideko-uc
-    image: ditas/ideko-use-case-with-flow-demo:latest
-    ports:
-    - containerPort: 1880
-    volumeMounts:
-    - name: blueprint
-      mountPath: /opt/blueprint
-
-  volumes:
-  - name: blueprint
-    hostPath:
-        path: "/home/{{ ansible_user }}/{{ vdcId }}"
-        type: Directory
+      volumes:
+      - name: blueprint
+        hostPath:
+          path: "/home/{{ ansible_user }}/{{ vdcId }}"
+          type: Directory
   

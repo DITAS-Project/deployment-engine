@@ -18,6 +18,15 @@ type ResourceType struct {
 	Runtime      RuntimeType       `json:"runtime,omitempty"`
 	SMP          int               `json:"smp,omitempty"`
 	Size         int               `json:"size,omitempty"`
+	Server       *ResourceType     `json:"server,omitempty"`
+	Media        string            `json:"media,omitempty"`
+}
+
+type IPReferenceType struct {
+	Gateway     string   `json:"gateway,omitempty"`
+	Nameservers []string `json:"nameservers,omitempty"`
+	Netmask     int      `json:"netmask,omitempty"`
+	UUID        string   `json:"uuid,omitempty"`
 }
 
 /*type Drive struct {
@@ -48,13 +57,13 @@ type ServerDriveType struct {
 }
 
 type ServerIPV4ConfType struct {
-	Conf string `json:"conf"`
-	IP   string `json:"ip,omitempty"`
-	UUID string `json:"uuid,omitempty"`
+	Conf string          `json:"conf"`
+	IP   IPReferenceType `json:"ip,omitempty"`
+	UUID string          `json:"uuid,omitempty"`
 }
 
 type RuntimeType struct {
-	NICs []NICInfoType `json:"nics"`
+	NICs []NICInfoType `json:"nics,omitempty"`
 }
 
 type NICInfoType struct {
