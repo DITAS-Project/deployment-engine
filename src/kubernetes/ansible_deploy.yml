@@ -6,9 +6,38 @@
 #    roles:
 #     - role: pre-deploy
 
+  - hosts: [all]
+    become: yes
+    tasks:
+      - name: generate /etc/hosts file
+        template: 
+          src: scripts/hosts.j2 
+          dest: /etc/hosts
+          owner: root 
+          group: root 
+          mode: 0644
+
+      - name: load glusterfs snapshot
+        modprobe:
+          name: dm_snapshot
+          state: present
+      - name: load glusterfs mirror
+        modprobe:
+          name: dm_mirror
+          state: present
+      - name: load glusterfs thin pool
+        modprobe:
+          name: dm_thin_pool
+          state: present
+
   - hosts: [master]
     become: yes
     tasks:
+      - name: install glusterfs server
+        apt:
+          name: glusterfs-server
+          state: present
+
       - name: using kubernetes init and gathering output info
         shell: kubeadm init --pod-network-cidr 10.244.0.0/16 | grep "kubeadm join"
         register: kube_join

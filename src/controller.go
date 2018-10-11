@@ -1,4 +1,20 @@
-// model.go
+/**
+ * Copyright 2018 Atos
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ *
+ * This is being developed for the DITAS Project: https://www.ditas-project.eu/
+ */
 
 package main
 
@@ -280,8 +296,19 @@ func (c *DeploymentEngineController) deployK8s(logger *log.Entry, bpId string, d
 	return nil
 }
 
+func (c *DeploymentEngineController) clearKnownHost(logger *log.Entry, ip string) error {
+	return utils.ExecuteCommand(logger, "ansible-playbook", "kubernetes/clear_known_hosts.yml", "--extra-vars", fmt.Sprintf("host_ip=%s", ip))
+}
+
 func (c *DeploymentEngineController) addHostToHostFile(log *log.Entry, hostInfo ditas.NodeInfo) error {
 	logger := log.WithField("host", hostInfo.Name)
+
+	err := c.clearKnownHost(logger, hostInfo.IP)
+	if err != nil {
+		logger.WithError(err).Error("Error clearing known hosts")
+		return err
+	}
+
 	host := fmt.Sprintf("%s@%s", hostInfo.Username, hostInfo.IP)
 	command := fmt.Sprintf("echo %s %s | sudo tee -a /etc/hosts > /dev/null 2>&1", hostInfo.IP, hostInfo.Name)
 	timeout := 30 * time.Second
