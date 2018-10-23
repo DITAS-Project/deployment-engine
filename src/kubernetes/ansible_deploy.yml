@@ -17,26 +17,44 @@
           group: root 
           mode: 0644
 
-      - name: load glusterfs snapshot
-        modprobe:
-          name: dm_snapshot
-          state: present
-      - name: load glusterfs mirror
-        modprobe:
-          name: dm_mirror
-          state: present
-      - name: load glusterfs thin pool
-        modprobe:
-          name: dm_thin_pool
-          state: present
-
   - hosts: [master]
     become: yes
     tasks:
-      - name: install glusterfs server
-        apt:
-          name: glusterfs-server
+      - name: Create data partition
+        parted: 
+          device: /dev/vdb
+          number: 1
           state: present
+
+      - name: Format data partition
+        filesystem:
+          fstype: ext4
+          dev: /dev/vdb1
+      
+      - name: Mount data partition
+        mount:
+          path: /mnt/data
+          src: /dev/vdb1
+          fstype: ext4
+          state: mounted
+      
+      - name: Ensure NFS utilities are installed.
+        apt: name={{ item }} state=installed update_cache=yes
+        with_items:
+          - nfs-common
+          - nfs-kernel-server
+      
+      - name: copy /etc/exports
+        template: 
+          src: scripts/exports.j2 
+          dest: /etc/exports 
+          owner: root 
+          group: root
+
+      - name: restart nfs server
+        service: 
+          name: nfs-kernel-server 
+          state: restarted
 
       - name: using kubernetes init and gathering output info
         shell: kubeadm init --pod-network-cidr 10.244.0.0/16 | grep "kubeadm join"

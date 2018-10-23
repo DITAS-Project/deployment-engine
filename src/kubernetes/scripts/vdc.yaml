@@ -58,7 +58,6 @@ spec:
 
       volumes:
       - name: blueprint
-        hostPath:
-          path: "/home/{{ ansible_user }}/{{ vdcId }}"
-          type: Directory
+        configMap:
+          name: "{{ vdcId }}"
   

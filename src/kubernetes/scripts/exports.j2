@@ -1,0 +1,5 @@
+{% for item in groups['all'] %}
+{%- if item != 'localhost' %}
+/mnt/data {{ item }}(rw,sync,no_root_squash,no_subtree_check)
+{% endif %}
+{% endfor %}
