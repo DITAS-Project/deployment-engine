@@ -361,7 +361,7 @@ func (c *DeploymentEngineController) deployVdc(log *log.Entry, bpId, vdcID strin
 	logger.Infof("Deploying VDC")
 	//time.Sleep(180 * time.Second)
 	internalPort := deployment.LastPort + 20000
-	vars := fmt.Sprintf("vdcId=%s blueprintId=%s infraId=%s vdcPort=%d internalPort=%d", vdcID, bpId, deployment.ID, deployment.LastPort, internalPort)
+	vars := fmt.Sprintf("vdcId=%s blueprintId=%s infraId=%s vdcPort=%d internalPort=%d master_ip=%s", vdcID, bpId, deployment.ID, deployment.LastPort, internalPort, deployment.Master.IP)
 	inventory := fmt.Sprintf("--inventory=kubernetes/%s/inventory", bpId)
 	err2 := utils.ExecuteCommand(logger, "ansible-playbook", "kubernetes/ansible_deploy_add.yml", inventory, "--extra-vars", vars)
 

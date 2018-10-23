@@ -1,6 +1,6 @@
 ---
   
-  - hosts: all
+  - hosts: [master]
     vars_files:
       - "{{ lookup('env','HOME') }}/config.yml"
     tasks:
@@ -24,6 +24,10 @@
         template: src={{ item }} dest=/home/{{ ansible_user }}/vdm/{{ item | basename | regex_replace('\.j2','') }}
         with_fileglob:
           - VDC-Shared-Config/vdm/*
+      
+      - name: Create K8s Config Map
+        shell: kubectl create configmap vdm --from-file=/home/{{ ansible_user }}/vdm
+  
   
   - hosts: [master]
     tasks:

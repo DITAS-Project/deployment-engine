@@ -1,0 +1,27 @@
+---
+  - name: Setting up backend
+    become: yes
+    become_user: root
+    become_method: sudo
+    hosts: [all]
+    gather_facts: false
+  
+    vars:
+  
+       # Set a disk type, Options: JBOD, RAID6, RAID10
+       gluster_infra_disktype: JBOD
+  
+       # Variables for creating volume group
+       gluster_infra_volume_groups:
+         - { vgname: 'vg_vdb', pvname: '/dev/vdb' }
+
+       # Create a thick volume name
+       gluster_infra_thick_lvs:
+         - { vgname: 'vg_vdb', lvname: 'thicklv_1', size: '4.9G' }
+  
+       # Mount the devices
+       gluster_infra_mount_devices:
+         - { path: '/mnt/gluster', vgname: 'vg_vdb', lvname: 'thicklv_1' }
+  
+    roles:
+       - gluster.infra

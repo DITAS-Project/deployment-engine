@@ -39,6 +39,5 @@ spec:
           mountPath: /opt/blueprint
       volumes:
       - name: blueprint
-        hostPath:
-          path: "/home/{{ ansible_user }}/vdm"
-          type: Directory
+        configMap:
+          name: vdm

@@ -39,7 +39,9 @@ spec:
         volumeMounts:
         - name: blueprint
           mountPath: /opt/blueprint
-    
+        - name: data
+          mountPath: /mnt/ditas-data
+
       - name: slalite
         image: ditas/slalite
         ports:
@@ -47,6 +49,8 @@ spec:
         volumeMounts:
         - name: blueprint
           mountPath: /opt/blueprint
+        - name: data
+          mountPath: /mnt/ditas-data
     
       - name: ideko-uc
         image: ditas/ideko-use-case-with-flow-demo:latest
@@ -55,9 +59,14 @@ spec:
         volumeMounts:
         - name: blueprint
           mountPath: /opt/blueprint
+        - name: data
+          mountPath: /mnt/ditas-data
 
       volumes:
       - name: blueprint
         configMap:
           name: "{{ vdcId }}"
+      - name: data
+        persistentVolumeClaim:
+          claimName: "{{ vdcId }}"
   

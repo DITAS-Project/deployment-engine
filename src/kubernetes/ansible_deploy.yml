@@ -17,6 +17,16 @@
           group: root 
           mode: 0644
 
+      # Trying target unattended-upgrades, works every time
+      - name: Wait until apt finishes
+        shell: while pgrep apt; do sleep 2; done;
+
+      - name: Ensure NFS utilities are installed
+        apt: 
+          name: nfs-common 
+          state: present 
+          update_cache: yes
+
   - hosts: [master]
     become: yes
     tasks:
@@ -38,23 +48,16 @@
           fstype: ext4
           state: mounted
       
-      - name: Ensure NFS utilities are installed.
-        apt: name={{ item }} state=installed update_cache=yes
-        with_items:
-          - nfs-common
-          - nfs-kernel-server
-      
-      - name: copy /etc/exports
-        template: 
-          src: scripts/exports.j2 
-          dest: /etc/exports 
-          owner: root 
-          group: root
-
-      - name: restart nfs server
-        service: 
+      - name: Install NFS server
+        apt: 
           name: nfs-kernel-server 
-          state: restarted
+          state: present
+
+      - name: Create NFS export directory
+        file:
+          path: /etc/exports.d
+          state: directory
+          mode: "a+rw"
 
       - name: using kubernetes init and gathering output info
         shell: kubeadm init --pod-network-cidr 10.244.0.0/16 | grep "kubeadm join"
