@@ -13,6 +13,6 @@ services:
     links:
       - mongo:mongo
     volumes: 
-      - /home/jose:/root
+      - /home/jose/dep-engine-home:/root
     depends_on:
       - mongo

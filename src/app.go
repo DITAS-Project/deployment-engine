@@ -60,7 +60,8 @@ func (a *App) Initialize() {
 	home, err := homedir.Dir()
 	if err == nil {
 		a.ReadConfig(home)
-		client, err := mgo.Dial(viper.GetString(utils.MongoDBURLName))
+		mongoConnectionURL := viper.GetString(utils.MongoDBURLName)
+		client, err := mgo.Dial(mongoConnectionURL)
 		if err == nil {
 			db := client.DB("deployment_engine")
 			if db != nil {
@@ -71,7 +72,7 @@ func (a *App) Initialize() {
 				a.Controller = &controller
 			}
 		} else {
-			log.Errorf("Error getting client for MongoDB: %s", err.Error())
+			log.WithError(err).Errorf("Error connecting to MongoDB server %s", mongoConnectionURL)
 		}
 	} else {
 		log.Errorf("Error getting home dir")
