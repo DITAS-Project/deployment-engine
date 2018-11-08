@@ -66,17 +66,18 @@ func NewDeployer() (*CloudsigmaDeployer, error) {
 		log.Infof("Error getting home folder: %s\n", err.Error())
 		return nil, err
 	}
-	viper.SetDefault("debug_cs_client", false)
-	viper.SetConfigType("properties")
-	viper.SetConfigFile(home + "/.cloudsigma.conf")
-	err = viper.ReadInConfig()
+	config := viper.New()
+	config.SetDefault("debug_cs_client", false)
+	config.SetConfigType("properties")
+	config.SetConfigFile(home + "/.cloudsigma.conf")
+	err = config.ReadInConfig()
 	if err == nil {
 
 		pubKeyRaw, err := ioutil.ReadFile(home + "/.ssh/id_rsa.pub")
 		if err == nil {
 			pubKey := string(pubKeyRaw)
-			client := NewClient(viper.GetString("api_endpoint"),
-				viper.GetString("username"), viper.GetString("password"), viper.GetBool("debug_cs_client"))
+			client := NewClient(config.GetString("api_endpoint"),
+				config.GetString("username"), config.GetString("password"), config.GetBool("debug_cs_client"))
 			return &CloudsigmaDeployer{
 				client:    client,
 				publicKey: pubKey,
@@ -157,7 +158,7 @@ func (d *CloudsigmaDeployer) waitForDiskReady(logInput *log.Entry, uuid, status 
 
 func (d *CloudsigmaDeployer) cloneDisk(logInput *log.Entry, resource blueprint.ResourceType, c chan DiskCreationResult) {
 
-	params := map[string]string{
+	/*params := map[string]string{
 		"distribution": resource.OS,
 		"version":      resource.BaseImage,
 	}
@@ -191,9 +192,23 @@ func (d *CloudsigmaDeployer) cloneDisk(logInput *log.Entry, resource blueprint.R
 
 	drive.Name = fmt.Sprintf("drive-%s-%s", drive.Name, resource.Name)
 
-	logger.Infof("Image found. Cloning disk %s\n", drive.UUID)
+	logger.Infof("Image found. Cloning disk %s\n", drive.UUID)*/
 
-	cloned, err := d.client.CloneDrive(drive.UUID, &drive)
+	logger := logInput.WithField("disk", resource.BaseImage)
+
+	drive := ResourceType{
+		Media: "disk",
+	}
+
+	var err error
+	if resource.Disk != "" {
+		drive.Size, err = strconv.Atoi(resource.Disk)
+		if err != nil {
+			log.WithError(err).Error("Error setting size. Default size will be used")
+		}
+	}
+
+	cloned, err := d.client.CloneDrive(resource.BaseImage, &drive)
 
 	result := DiskCreationResult{
 		Disk:  cloned,
