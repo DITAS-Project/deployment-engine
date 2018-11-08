@@ -59,6 +59,7 @@ func (a *App) Initialize() {
 
 	home, err := homedir.Dir()
 	if err == nil {
+		a.ReadConfig(home)
 		client, err := mgo.Dial(viper.GetString(utils.MongoDBURLName))
 		if err == nil {
 			db := client.DB("deployment_engine")

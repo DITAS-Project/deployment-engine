@@ -13,6 +13,6 @@ services:
     links:
       - mongo:mongo
     volumes: 
-      - /home/cloudsigma/dep-engine-home:/root
+      - /home/jose:/root
     depends_on:
       - mongo
