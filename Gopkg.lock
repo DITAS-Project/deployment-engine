@@ -26,6 +26,14 @@
   revision = "de5bf2ad457846296e2031421a34e2568e304e35"
 
 [[projects]]
+  digest = "1:0fe063b6681cf9607405b1b8ad2c490754fbb49b1c65fb62adc3a652c669eb3f"
+  name = "github.com/apcera/libretto"
+  packages = ["ssh"]
+  pruneopts = "UT"
+  revision = "3178799fbb1e39c74b02e3ecf46330b3ef0ed486"
+  version = "v0.11.0"
+
+[[projects]]
   digest = "1:abeb38ade3f32a92943e5be54f55ed6d6e3b6602761d74b4aab4c9dd45c18abd"
   name = "github.com/fsnotify/fsnotify"
   packages = ["."]
@@ -219,9 +227,18 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:3f3a05ae0b95893d90b9b3b5afdb79a9b3d96e4e36e099d841ae602e4aca0da8"
+  digest = "1:0a0319f9ca4ef4105cd909596be58789777f985d3ed96bdd01893bb54f639dda"
   name = "golang.org/x/crypto"
-  packages = ["ssh/terminal"]
+  packages = [
+    "curve25519",
+    "ed25519",
+    "ed25519/internal/edwards25519",
+    "internal/chacha20",
+    "internal/subtle",
+    "poly1305",
+    "ssh",
+    "ssh/terminal",
+  ]
   pruneopts = "UT"
   revision = "0709b304e793a5edb4a2c0145f281ecdc20838a4"
 
@@ -292,6 +309,7 @@
   analyzer-version = 1
   input-imports = [
     "github.com/DITAS-Project/blueprint-go",
+    "github.com/apcera/libretto/ssh",
     "github.com/globalsign/mgo",
     "github.com/globalsign/mgo/bson",
     "github.com/gorilla/mux",
