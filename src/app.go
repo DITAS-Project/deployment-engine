@@ -45,14 +45,15 @@ type App struct {
 func (a *App) ReadConfig(home string) {
 	configFile := fmt.Sprintf("%s/%s", home, utils.ConfigFileName)
 
-	log.Infof("Reading configuration from file %s", configFile)
-
 	viper.SetEnvPrefix(utils.ConfigPrefix)
 	viper.AutomaticEnv()
 	viper.SetDefault(utils.ElasticSearchURLName, utils.ElasticSearchURLDefault)
 	viper.SetDefault(utils.MongoDBURLName, utils.MongoDBURLDefault)
 
 	viper.SetConfigFile(configFile)
+	viper.ReadInConfig()
+
+	log.Infof("Reading configuration from file %s", configFile)
 }
 
 func (a *App) Initialize() {
