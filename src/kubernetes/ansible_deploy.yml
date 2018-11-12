@@ -9,6 +9,10 @@
   - hosts: [all]
     become: yes
     tasks:
+      - name: set hostname
+        hostname:
+          name: "{{ inventory_hostname }}"
+          
       - name: generate /etc/hosts file
         template: 
           src: scripts/hosts.j2 
