@@ -135,3 +135,6 @@ fabric.properties
 
 *.iml
 /.idea/
+
+#Ansible failed runs
+**/**/*.retry
