@@ -13,11 +13,11 @@
   apt_repository: repo='deb http://apt.kubernetes.io/ kubernetes-xenial main' state=present filename='kubernetes' update_cache='yes'
 
 
-- name: Install docker-compose
-  get_url:
-    url: https://github.com/docker/compose/releases/download/1.9.0/docker-compose-Linux-x86_64
-    dest: /usr/local/bin/docker-compose
-    mode: "a+x"
+# - name: Install docker-compose
+#  get_url:
+#    url: https://github.com/docker/compose/releases/download/1.9.0/docker-compose-Linux-x86_64
+#    dest: /usr/local/bin/docker-compose
+#    mode: "a+x"
 
 # - name: Install docker
 #   apt: name='docker.io' state='present'

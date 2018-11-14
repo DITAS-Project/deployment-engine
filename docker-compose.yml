@@ -1,0 +1,18 @@
+version: '3'
+services:
+
+  mongo:
+    image: mvertes/alpine-mongo
+    ports:
+      - 50014:27017
+
+  deployment-engine:
+    image: ditas/deployment-engine:latest
+    ports:
+      - 50012:8080
+    links:
+      - mongo:mongo
+    volumes: 
+      - /home/jose/dep-engine-home:/root
+    depends_on:
+      - mongo

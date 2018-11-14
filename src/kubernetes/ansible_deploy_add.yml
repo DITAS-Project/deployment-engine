@@ -1,39 +1,67 @@
 ---
 
-  - hosts: all
+  - hosts: [master]
+    become: yes
     tasks:
-      - name: Create blueprint directory
-        file:
-          path: /home/cloudsigma/blueprint{{ blueprintNumber }}
+      - name: Create data directory
+        file: 
+          path: /mnt/data/{{ vdcId }}
           state: directory
           mode: "a+rw"
 
-  - hosts: all
-    tasks:
-      - copy:
-          src: /deployment-engine/src/blueprint{{ blueprintNumber }}.json
-          dest: /home/cloudsigma/blueprint{{ blueprintNumber }}/blueprint.json
-
-  - hosts: all
-    tasks:
-      - name: Copy github json repo
-        copy:
-          src: /deployment-engine/src/VDC-Shared-Config
-          dest: /home/cloudsigma/blueprint{{ blueprintNumber }}
+      - name: Copy NFS exports
+        template: 
+          src: scripts/exports.j2 
+          dest: /etc/exports.d/{{ vdcId }}.exports 
+          owner: root
+          group: root
+      
+      - name: restart nfs server
+        service: 
+          name: nfs-kernel-server 
+          state: restarted
 
   - hosts: [master]
-    become: yes
-    become_user: "{{ hostvars[groups['master'][0]]['ansible_ssh_user'] }}"
+    vars_files:
+      - "{{ lookup('env','HOME') }}/config.yml"
     tasks:
+      - name: Create configuration directory
+        file:
+          path: /home/{{ ansible_user }}/{{ vdcId }}
+          state: directory
+          mode: "a+rw"
+
+      - name: Copy blueprint file
+        copy:
+          src: "{{ blueprintId }}/{{ infraId }}/{{ vdcId }}/blueprint.json"
+          dest: /home/{{ ansible_user }}/{{ vdcId }}/blueprint.json
+          
+      - name: Copy VDC configuration files
+        template: src={{ item }} dest=/home/{{ ansible_user }}/{{ vdcId }}/{{ item | basename | regex_replace('\.j2','') }}
+        with_fileglob:
+          - VDC-Shared-Config/vdcs/*
+      
+      - name: Create K8s Config Map
+        shell: kubectl create configmap {{ vdcId }} --from-file=/home/{{ ansible_user }}/{{ vdcId }}
+
+
+  - hosts: [master]
+    tasks:
+      - name: Copy Persistent Volume description
+        template: src=scripts/pv.yaml dest={{ vdcId }}-pv.yaml
+      
+      - name: Create Persistent Volume
+        shell: kubectl create -f {{ vdcId }}-pv.yaml
+
       - name: Copy VDC deployment
-        template: src=scripts/vdc.yaml dest=vdc{{ blueprintNumber }}.yaml
+        template: src=scripts/vdc.yaml dest={{ vdcId }}.yaml
 
       - name: Add VDC
-        shell: scripts/deployvdc.sh {{ blueprintNumber }}
+        shell: kubectl create -f {{ vdcId }}.yaml
 
   - hosts: localhost
     tasks:
       - name: final
         debug:
           msg:
-          - "Additional components added - their name is based on the date in YYYYMMDDhhmmss format"
+          - "Additional components added"

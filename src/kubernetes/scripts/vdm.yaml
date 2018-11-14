@@ -1,0 +1,43 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: "vdm"
+spec:
+  type: NodePort
+  selector:
+    component: "vdm"
+  ports:
+  - name: ds4m
+    port: 8080
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: "ds4m"
+  labels:
+    component: "vdm"
+spec:
+  selector:
+    matchLabels:
+      component: "vdm"
+  serviceName: "vdm"
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        component: "vdm"
+    spec:
+      terminationGracePeriodSeconds: 10
+      containers:
+      - name: ds4m
+        image: ditas/decision-system-for-data-and-computation-movement
+        ports:
+        - containerPort: 8080
+        volumeMounts:
+        - name: blueprint
+          mountPath: /opt/blueprint
+      volumes:
+      - name: blueprint
+        configMap:
+          name: vdm

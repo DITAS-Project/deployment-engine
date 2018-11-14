@@ -1,37 +1,87 @@
-// app.go
+/**
+ * Copyright 2018 Atos
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ *
+ * This is being developed for the DITAS Project: https://www.ditas-project.eu/
+ */
 
 package main
 
 import (
-	"database/sql"
+	"deployment-engine/src/utils"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
+	"net/url"
+
 	//"os"
 	"strconv"
 
-	_ "github.com/go-sql-driver/mysql"
+	blueprint "github.com/DITAS-Project/blueprint-go"
+	"github.com/globalsign/mgo"
 	"github.com/gorilla/mux"
+	homedir "github.com/mitchellh/go-homedir"
+	log "github.com/sirupsen/logrus"
+
+	"github.com/spf13/viper"
 )
 
 type App struct {
-	Router *mux.Router
-	DB     *sql.DB //db handler
+	Router     *mux.Router
+	Controller *DeploymentEngineController
 }
 
-func (a *App) Initialize(user, password, dbname string) {
-	connectionString := fmt.Sprintf("%s:%s@tcp(mysql:3306)/%s", user, password, dbname) //root:root@/k8sql
+func (a *App) ReadConfig(home string) {
+	configFile := fmt.Sprintf("%s/%s", home, utils.ConfigFileName)
 
-	var err error
-	a.DB, err = sql.Open("mysql", connectionString)
-	if err != nil {
-		log.Fatal(err)
-	}
+	viper.SetEnvPrefix(utils.ConfigPrefix)
+	viper.AutomaticEnv()
+	viper.SetDefault(utils.ElasticSearchURLName, utils.ElasticSearchURLDefault)
+	viper.SetDefault(utils.MongoDBURLName, utils.MongoDBURLDefault)
+
+	viper.SetConfigFile(configFile)
+	viper.ReadInConfig()
+
+	log.Infof("Reading configuration from file %s", configFile)
+}
+
+func (a *App) Initialize() {
 
 	a.Router = mux.NewRouter()
 	a.initializeRoutes()
-	a.createDB(a.DB)
+
+	home, err := homedir.Dir()
+	if err == nil {
+		a.ReadConfig(home)
+		mongoConnectionURL := viper.GetString(utils.MongoDBURLName)
+		client, err := mgo.Dial(mongoConnectionURL)
+		if err == nil {
+			db := client.DB("deployment_engine")
+			if db != nil {
+				controller := DeploymentEngineController{
+					collection: db.C("deployments"),
+					homedir:    home,
+				}
+				a.Controller = &controller
+			}
+		} else {
+			log.WithError(err).Errorf("Error connecting to MongoDB server %s", mongoConnectionURL)
+		}
+	} else {
+		log.Errorf("Error getting home dir")
+	}
+
 }
 
 func (a *App) Run(addr string) {
@@ -39,120 +89,82 @@ func (a *App) Run(addr string) {
 }
 
 func (a *App) initializeRoutes() {
-	a.Router.HandleFunc("/deps", a.getDeps).Methods("GET")
-	a.Router.HandleFunc("/dep", a.createDep).Methods("POST")
-	a.Router.HandleFunc("/dep/{id}", a.getDep).Methods("GET")
-	a.Router.HandleFunc("/dep/{id}", a.deleteDep).Methods("DELETE")
+	a.Router.HandleFunc("/deps", a.createDep).Methods("POST")
+	a.Router.HandleFunc("/deps", a.getAllDeps).Methods("GET")
+	a.Router.HandleFunc("/deps/{id}", a.getDep).Methods("GET")
+	a.Router.HandleFunc("/deps/{id}", a.deleteDep).Methods("DELETE")
 }
 
-func (a *App) createDB(db *sql.DB) error {
-	statement := fmt.Sprintf("SELECT 1 FROM deploymentsBlueprint LIMIT 1") //most simple check if exists
-	_, err := db.Query(statement)
-	if err != nil {
-		fmt.Println("Creating deploymentsBlueprint table")
-		statement = fmt.Sprintf("CREATE TABLE deploymentsBlueprint ( id VARCHAR(50) PRIMARY KEY, description VARCHAR(50) NOT NULL, status VARCHAR(50) NOT NULL, type VARCHAR(50), api_endpoint VARCHAR(50), api_type VARCHAR(50), keypair_id VARCHAR(50) )")
-		_, err = db.Exec(statement)
+func getQueryParam(key string, values url.Values) string {
+	val, ok := values[key]
+	if ok && len(val) > 0 {
+		return val[0]
 	}
-
-	statement = fmt.Sprintf("SELECT 1 FROM nodesBlueprint LIMIT 1")
-	_, err = db.Query(statement)
-	if err != nil {
-		fmt.Println("Creating nodesBlueprint table")
-		statement = fmt.Sprintf("CREATE TABLE nodesBlueprint ( id VARCHAR(50) PRIMARY KEY, dep_id VARCHAR(50), region VARCHAR(50), public_ip VARCHAR(50), role VARCHAR(50), ram INT, cpu INT, status VARCHAR(50), type VARCHAR(50), disc VARCHAR(50), generate_ssh_keys VARCHAR(50), ssh_keys_id VARCHAR(50), baseimage VARCHAR(50), arch VARCHAR(50), os VARCHAR(50), INDEX d_id (dep_id), FOREIGN KEY (dep_id)  REFERENCES deploymentsBlueprint(id)  ON DELETE CASCADE )")
-		_, err = db.Exec(statement)
-	}
-	return err
-}
-
-func (a *App) getDeps(w http.ResponseWriter, r *http.Request) {
-	count, _ := strconv.Atoi(r.FormValue("count"))
-	start, _ := strconv.Atoi(r.FormValue("start"))
-
-	if count > 100 || count < 1 {
-		count = 100 //in case of 100+ deployments, just remove it, safety valve
-	}
-	if start < 0 {
-		start = 0
-	}
-
-	products, err := getDeps(a.DB, start, count)
-	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	respondWithJSON(w, http.StatusOK, products)
+	return ""
 }
 
 func (a *App) createDep(w http.ResponseWriter, r *http.Request) {
-	var u dep
+	var bp blueprint.BlueprintType
 	decoder := json.NewDecoder(r.Body)
-	if err := decoder.Decode(&u); err != nil {
+	if err := decoder.Decode(&bp); err != nil {
 		respondWithError(w, http.StatusBadRequest, "Invalid request payload")
 		return
 	}
 	defer r.Body.Close()
 
-	if err := u.createDep(a.DB); err != nil {
+	if err := a.Controller.CreateDep(bp); err != nil {
 		respondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	respondWithJSON(w, http.StatusCreated, u)
+	respondWithJSON(w, http.StatusCreated, bp)
 	//respondWithJSON(w, http.StatusOK, map[string]string{"result": "success"})
+}
+
+func (a *App) getAllDeps(w http.ResponseWriter, r *http.Request) {
+	deps, err := a.Controller.GetAllDeps()
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	respondWithJSON(w, http.StatusOK, deps)
 }
 
 func (a *App) getDep(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id := vars["id"]
+	dep, err := a.Controller.GetDep(id)
+	if err != nil {
+		switch err {
+		case mgo.ErrNotFound:
+			respondWithError(w, http.StatusNotFound, err.Error())
+		default:
+			respondWithError(w, http.StatusInternalServerError, err.Error())
+		}
+		return
+	}
 
-	u := dep{Id: id}
-	if err := u.getDep(a.DB); err != nil {
-		switch err {
-		case sql.ErrNoRows:
-			respondWithError(w, http.StatusNotFound, "Dep not found")
-		default:
-			respondWithError(w, http.StatusInternalServerError, err.Error())
-		}
-		return
-	}
-	if err := u.getNodes(a.DB); err != nil {
-		switch err {
-		case sql.ErrNoRows:
-			respondWithError(w, http.StatusNotFound, "Nodes not found")
-		default:
-			respondWithError(w, http.StatusInternalServerError, err.Error())
-		}
-		return
-	}
-	respondWithJSON(w, http.StatusOK, u)
+	respondWithJSON(w, http.StatusOK, dep)
 }
 
 func (a *App) deleteDep(w http.ResponseWriter, r *http.Request) {
+	values := r.URL.Query()
 	vars := mux.Vars(r)
-	id := vars["id"]
+	id, ok := vars["id"]
 
-	u := dep{Id: id}
-	if err := u.getDep(a.DB); err != nil {
-		switch err {
-		case sql.ErrNoRows:
-			respondWithError(w, http.StatusNotFound, "Dep not found")
-		default:
-			respondWithError(w, http.StatusInternalServerError, err.Error())
-		}
+	if !ok {
+		respondWithError(w, http.StatusBadRequest, "Deployment id is mandatory")
 		return
 	}
-	if err := u.getNodes(a.DB); err != nil {
-		switch err {
-		case sql.ErrNoRows:
-			respondWithError(w, http.StatusNotFound, "Nodes not found")
-		default:
-			respondWithError(w, http.StatusInternalServerError, err.Error())
-		}
-		return
+
+	vdcID := getQueryParam("vdc", values)
+	deleteDeployment, err := strconv.ParseBool(getQueryParam("deleteDeployment", values))
+	if err != nil {
+		fmt.Printf("deleteDeployment parameter not found or invalid. Assuming false")
+		deleteDeployment = false
 	}
-	//
-	if err := u.deleteDep(a.DB); err != nil {
+
+	if err := a.Controller.DeleteVDC(id, vdcID, deleteDeployment); err != nil {
 		respondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}

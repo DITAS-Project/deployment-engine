@@ -1,38 +1,34 @@
-### CURL create/delete deployment - run it in any command line
-ADD A DEPLOYMENT
+# CURL create/delete deployment - run it in any command line
 
-`curl -H "Content-Type: application/json" -d '{"name":"test", "description":"AddedDep", "on-line":"starting", "type":"x", "api_endpoint":"xx", "api_type":"xxx", "keypair_id":"xxxx", "resources": [{"name": "sth1", "role": "none", "ram":4096, "cpus":2000, "type": "none", "disc": "none", "generate_ssh_keys": "none", "ssh_keys_id": "none", "baseimage": "none", "arch": "none", "os": "none"}, {"name": "sth2", "role": "none", "ram":4096, "cpus":2000, "type": "none", "disc": "none", "generate_ssh_keys": "none", "ssh_keys_id": "none", "baseimage": "none", "arch": "none", "os": "none"}]}' 31.171.247.156:50012/dep`
+## ADD A DEPLOYMENT
 
-VIEW SELECTED DEPLOYMENT
+`curl -H "Content-Type: application/json" -d '{"name":"test", "description":"AddedDep", "on-line":"starting", "type":"x", "api_endpoint":"xx", "api_type":"xxx", "keypair_id":"xxxx", "resources": [{"name": "sth1", "role": "none", "ram":4096, "cpus":2000, "type": "none", "disc": "none", "generate_ssh_keys": "none", "ssh_keys_id": "none", "baseimage": "none", "arch": "none", "os": "none"}, {"name": "sth2", "role": "none", "ram":4096, "cpus":2000, "type": "none", "disc": "none", "generate_ssh_keys": "none", "ssh_keys_id": "none", "baseimage": "none", "arch": "none", "os": "none"}]}' 31.171.247.156:50012/deps`
 
-`curl 31.171.247.156:50012/dep/test`
+## VIEW SELECTED DEPLOYMENT
 
-REMOVE SELECTED DEPLOYMENT
+`curl 31.171.247.156:50012/deps/test`
 
-`curl -X DELETE 31.171.247.156:50012/dep/test`
+## REMOVE SELECTED DEPLOYMENT
+
+`curl -X DELETE 31.171.247.156:50012/deps/test?deleteDeployment=true`
+
 ### Log into deployment engine VM
 
 `ssh cloudsigma@31.171.247.156`
 
 ### Download and run docker artifact
-This is done inside of the deployment VM to pull the newest version of the engine.
 
-`docker pull ditas/deployment-engine:latest && docker stop --time 20 deployment-engine && docker rm --force deployment-engine`
+This is done inside of the deployment VM to pull the newest version of the engine. 
 
-Only if non-existent (check with docker ps):
-`docker run --name=mysql -p 50013:3306 -e MYSQL_ROOT_PASSWORD=root -e MYSQL_DATABASE=k8sql -d mysql:5.7.22`
+First stop the running Docker Compose by `ctrl+c` if it's in blocking mode or by `docker-compose down` at the `$HOME` folder. Then execute:
 
-Run the newest version
-
-`docker run -p 50012:8080 -d --name deployment-engine --link mysql:mysql ditas/deployment-engine:latest`
+`docker pull ditas/deployment-engine:latest && docker-compose up`
 
 ### Get into docker container - engine, into master of the network and check kubernetes
 
-`docker exec -it deployment-engine bash`
+`docker exec -it cloudsigma_deployment-engine_1 bash`
 
 `ssh cloudsigma@masterIP` where masterIP is whatever IP belonging to the first machine from the blueprint - it is now the kubernetes master
-
-`export KUBECONFIG=$HOME/admin.conf`
 
 `kubectl get nodes -o wide` optionally to view nodes
 
