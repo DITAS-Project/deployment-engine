@@ -1,4 +1,0 @@
-[master]
-ditas-soraluce-fs-master ansible_host=178.22.71.215 ansible_user=cloudsigma
-[slaves]
-ditas-soraluce-fs-slave ansible_host=178.22.70.116 ansible_user=cloudsigma

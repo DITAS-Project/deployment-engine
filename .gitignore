@@ -1,9 +1,0 @@
-#Hidden files
-.*
-#for changing ansible inventory
-ansible_deploy.retry
-src/debug
-# Binary file
-src/deployment-engine
-src/kubernetes/VDC-Shared-Config
-src/kubernetes/ansible_deploy_add.retry
