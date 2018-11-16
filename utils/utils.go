@@ -22,7 +22,12 @@ import (
 	"os/exec"
 	"time"
 
+	homedir "github.com/mitchellh/go-homedir"
 	log "github.com/sirupsen/logrus"
+)
+
+const (
+	ConfigurationFolderName = "deployment-engine"
 )
 
 func ExecuteCommand(logger *log.Entry, name string, args ...string) error {
@@ -52,4 +57,14 @@ func FindInfra(deployment model.DeploymentInfo, infraID string) (int, *model.Inf
 	}
 
 	return 0, nil, fmt.Errorf("Infrastructure %s not found in deployment %s", infraID, deployment.ID)
+}
+
+func ConfigurationFolder() (string, error) {
+	home, err := homedir.Dir()
+	if err != nil {
+		log.WithError(err).Error("Error getting home folder")
+		return "", err
+	}
+
+	return fmt.Sprintf("%s/%s", home, ConfigurationFolderName), nil
 }

@@ -55,16 +55,16 @@ func (a App) Run(addr string) error {
 }
 
 func (a *App) initializeRoutes() {
-	a.Router.HandleFunc("/deployment", a.createDep).Methods("POST")
-	a.Router.HandleFunc("/deployment/{depId}/{infraId}", a.deleteInfra).Methods("DELETE")
-	a.Router.HandleFunc("/deployment/{depId}/{infraId}/{product}", a.deployProduct).Methods("PUT")
+	a.Router.HandleFunc("/deployment", a.CreateDep).Methods("POST")
+	a.Router.HandleFunc("/deployment/{depId}/{infraId}", a.DeleteInfra).Methods("DELETE")
+	a.Router.HandleFunc("/deployment/{depId}/{infraId}/{product}", a.DeployProduct).Methods("PUT")
 	/*a.Router.HandleFunc("/deployment", a.getAllDeps).Methods("GET")
 	a.Router.HandleFunc("/deployment/{id}", a.getDep).Methods("GET")
 	a.Router.HandleFunc("/deployment/{id}", a.deleteDep).Methods("DELETE")*/
 
 }
 
-func (a *App) getQueryParam(key string, r *http.Request) (string, bool) {
+func (a *App) GetQueryParam(key string, r *http.Request) (string, bool) {
 	values := mux.Vars(r)
 	if values != nil {
 		ok, val := values[key]
@@ -74,12 +74,12 @@ func (a *App) getQueryParam(key string, r *http.Request) (string, bool) {
 	return "", false
 }
 
-func (a *App) createDep(w http.ResponseWriter, r *http.Request) {
+func (a *App) CreateDep(w http.ResponseWriter, r *http.Request) {
 	var deployment model.Deployment
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&deployment); err != nil {
 		log.WithError(err).Error("Error deserializing deployment")
-		respondWithError(w, http.StatusBadRequest, fmt.Sprintf("Invalid payload: %s", err.Error()))
+		RespondWithError(w, http.StatusBadRequest, fmt.Sprintf("Invalid payload: %s", err.Error()))
 		return
 	}
 	defer r.Body.Close()
@@ -87,56 +87,56 @@ func (a *App) createDep(w http.ResponseWriter, r *http.Request) {
 	result, err := a.DeploymentController.CreateDeployment(deployment)
 
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, err.Error())
+		RespondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	respondWithJSON(w, http.StatusCreated, result)
+	RespondWithJSON(w, http.StatusCreated, result)
 
-	//respondWithJSON(w, http.StatusOK, map[string]string{"result": "success"})
+	//RespondWithJSON(w, http.StatusOK, map[string]string{"result": "success"})
 }
 
-func (a *App) deleteInfra(w http.ResponseWriter, r *http.Request) {
-	depId, ok := a.getQueryParam("depId", r)
+func (a *App) DeleteInfra(w http.ResponseWriter, r *http.Request) {
+	depId, ok := a.GetQueryParam("depId", r)
 	if !ok {
-		respondWithError(w, http.StatusBadRequest, "Can't find deployment ID parameter")
+		RespondWithError(w, http.StatusBadRequest, "Can't find deployment ID parameter")
 	}
 
-	infraId, ok := a.getQueryParam("infraId", r)
+	infraId, ok := a.GetQueryParam("infraId", r)
 	if !ok {
-		respondWithError(w, http.StatusBadRequest, "Can't find infrastructure ID parameter")
+		RespondWithError(w, http.StatusBadRequest, "Can't find infrastructure ID parameter")
 	}
 
 	dep, err := a.DeploymentController.DeleteInfrastructure(depId, infraId)
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Error deleting infrastructure: %s", err.Error()))
+		RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Error deleting infrastructure: %s", err.Error()))
 	}
 
-	respondWithJSON(w, http.StatusOK, dep)
+	RespondWithJSON(w, http.StatusOK, dep)
 }
 
-func (a *App) deployProduct(w http.ResponseWriter, r *http.Request) {
-	depId, ok := a.getQueryParam("depId", r)
+func (a *App) DeployProduct(w http.ResponseWriter, r *http.Request) {
+	depId, ok := a.GetQueryParam("depId", r)
 	if !ok {
-		respondWithError(w, http.StatusBadRequest, "Can't find deployment ID parameter")
+		RespondWithError(w, http.StatusBadRequest, "Can't find deployment ID parameter")
 	}
 
-	infraId, ok := a.getQueryParam("infraId", r)
+	infraId, ok := a.GetQueryParam("infraId", r)
 	if !ok {
-		respondWithError(w, http.StatusBadRequest, "Can't find infrastructure ID parameter")
+		RespondWithError(w, http.StatusBadRequest, "Can't find infrastructure ID parameter")
 	}
 
-	product, ok := a.getQueryParam("product", r)
+	product, ok := a.GetQueryParam("product", r)
 	if !ok {
-		respondWithError(w, http.StatusBadRequest, "Can't find product parameter")
+		RespondWithError(w, http.StatusBadRequest, "Can't find product parameter")
 	}
 
 	deployment, err := a.ProvisionerController.Provision(depId, infraId, product)
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Error deploying product: %s", err.Error()))
+		RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Error deploying product: %s", err.Error()))
 	}
 
-	respondWithJSON(w, http.StatusOK, deployment)
+	RespondWithJSON(w, http.StatusOK, deployment)
 }
 
 /*func (a *App) deployKubernetes(w http.ResponseWriter, r *http.Request) {
@@ -146,10 +146,10 @@ func (a *App) deployProduct(w http.ResponseWriter, r *http.Request) {
 func (a *App) getAllDeps(w http.ResponseWriter, r *http.Request) {
 	deps, err := a.Controller.GetAllDeps()
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, err.Error())
+		RespondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	respondWithJSON(w, http.StatusOK, deps)
+	RespondWithJSON(w, http.StatusOK, deps)
 }
 
 func (a *App) getDep(w http.ResponseWriter, r *http.Request) {
@@ -159,14 +159,14 @@ func (a *App) getDep(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch err {
 		case mgo.ErrNotFound:
-			respondWithError(w, http.StatusNotFound, err.Error())
+			RespondWithError(w, http.StatusNotFound, err.Error())
 		default:
-			respondWithError(w, http.StatusInternalServerError, err.Error())
+			RespondWithError(w, http.StatusInternalServerError, err.Error())
 		}
 		return
 	}
 
-	respondWithJSON(w, http.StatusOK, dep)
+	RespondWithJSON(w, http.StatusOK, dep)
 }
 
 func (a *App) deleteDep(w http.ResponseWriter, r *http.Request) {
@@ -175,7 +175,7 @@ func (a *App) deleteDep(w http.ResponseWriter, r *http.Request) {
 	id, ok := vars["id"]
 
 	if !ok {
-		respondWithError(w, http.StatusBadRequest, "Deployment id is mandatory")
+		RespondWithError(w, http.StatusBadRequest, "Deployment id is mandatory")
 		return
 	}
 
@@ -187,18 +187,18 @@ func (a *App) deleteDep(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := a.Controller.DeleteVDC(id, vdcID, deleteDeployment); err != nil {
-		respondWithError(w, http.StatusInternalServerError, err.Error())
+		RespondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	respondWithJSON(w, http.StatusOK, map[string]string{"result": "success"})
+	RespondWithJSON(w, http.StatusOK, map[string]string{"result": "success"})
 }*/
 
-func respondWithError(w http.ResponseWriter, code int, message string) {
-	respondWithJSON(w, code, map[string]string{"error": message})
+func RespondWithError(w http.ResponseWriter, code int, message string) {
+	RespondWithJSON(w, code, map[string]string{"error": message})
 }
 
-func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
+func RespondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
 	response, _ := json.Marshal(payload)
 
 	w.Header().Set("Content-Type", "application/json")

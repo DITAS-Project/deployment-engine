@@ -50,7 +50,7 @@ type InfrastructureType struct {
 }
 
 type Deployment struct {
-	Name           string               `json:"id"`             //Name for this deployment
+	Name           string               `json:"name"`           //Name for this deployment
 	Description    string               `json:"description"`    //Optional description
 	Infrastructure []InfrastructureType `json:"infrastructure"` //List of infrastructures to deploy for this hybrid deployment
 }

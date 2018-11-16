@@ -127,7 +127,7 @@ func (p *Provisioner) writeHost(node model.NodeInfo, file *os.File) (int, error)
 }
 
 func (p *Provisioner) createInventory(logger *log.Entry, deploymentID string, infra model.InfrastructureDeploymentInfo) (string, error) {
-	path := p.InventoryFolder + "/" + deploymentID + "/" + infra.ID
+	path := p.GetInventoryFolder(deploymentID, infra.ID)
 
 	err := os.MkdirAll(path, os.ModePerm)
 	if err != nil {
@@ -135,7 +135,7 @@ func (p *Provisioner) createInventory(logger *log.Entry, deploymentID string, in
 		return path, err
 	}
 
-	filePath := path + "/inventory"
+	filePath := p.GetInventoryPath(deploymentID, infra.ID)
 	logger.Infof("Creating inventory at %s", filePath)
 	inventory, err := os.Create(filePath)
 	defer inventory.Close()
@@ -212,4 +212,12 @@ func (p Provisioner) Provision(deploymentId string, infra model.InfrastructureDe
 	}
 
 	return fmt.Errorf("Product %s not supported by this deployer", product)
+}
+
+func (p *Provisioner) GetInventoryFolder(deploymentID, infraID string) string {
+	return fmt.Sprintf("%s/%s/%s", p.InventoryFolder, deploymentID, infraID)
+}
+
+func (p *Provisioner) GetInventoryPath(deploymentId, infraId string) string {
+	return fmt.Sprintf("%s/%s", p.GetInventoryFolder(deploymentId, infraId), "inventory")
 }
