@@ -5,18 +5,20 @@ echo_time() {
 }
 
 echo_time "Setting GOPATH"
-WORKDIR=$GOPATH/src/deployment-engine
-mkdir $WORKDIR
+MODULE_NAME=deployment-engine
+mkdir $MODULE_NAME
+#WORKDIR=$GOPATH/src/deployment-engine
+#mkdir $WORKDIR
 echo_time "Copying sources"
-cp -a . $WORKDIR
-cd $WORKDIR
+cp -a . $MODULE_NAME
+cd $MODULE_NAME
 # echo_time "Ensure dependencies"
 # dep ensure
-cd src
+#cd src
 echo_time "Building"
 CGO_ENABLED=0 GOOS=linux go build -a -o deployment-engine
 echo_time "Testing"
 go test ./...
 echo_time "Copying result to workspace"
-cp deployment-engine $1/src
+cp deployment-engine $1
 echo_time "Done"

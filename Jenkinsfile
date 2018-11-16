@@ -12,7 +12,8 @@ pipeline {
             }
             steps {
 		        // Build
-		        sh "CGO_ENABLED=0 GOOS=linux go build -a -o deployment-engine"
+		        sh "chmod +x jenkins/build.sh"
+                sh "jenkins/build.sh ${WORKSPACE}"
             }
         }
         stage('Image creation') {
