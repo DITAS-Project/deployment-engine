@@ -5,7 +5,7 @@ echo_time() {
 }
 
 echo_time "Setting GOPATH"
-MODULE_NAME=deployment-engine
+MODULE_NAME=/tmp/deployment-engine
 mkdir $MODULE_NAME
 #WORKDIR=$GOPATH/src/deployment-engine
 #mkdir $WORKDIR
