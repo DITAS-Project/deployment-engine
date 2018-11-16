@@ -5,7 +5,7 @@ echo_time() {
 }
 
 echo_time "Setting GOPATH"
-XDG_CACHE_HOME=/tmp/.cache
+export XDG_CACHE_HOME=/tmp/.cache
 MODULE_NAME=/tmp/deployment-engine
 mkdir $MODULE_NAME
 #WORKDIR=$GOPATH/src/deployment-engine
