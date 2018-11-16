@@ -16,16 +16,17 @@
 package main
 
 import (
+	"deployment-engine/ditas"
 	"deployment-engine/model"
 	"deployment-engine/persistence"
 	"deployment-engine/persistence/mongo"
 	"deployment-engine/provision/ansible"
 	"deployment-engine/restfrontend"
+	"deployment-engine/utils"
 	"fmt"
 
 	"github.com/spf13/viper"
 
-	homedir "github.com/mitchellh/go-homedir"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -47,17 +48,17 @@ func main() {
 	viper.SetDefault(FrontendProperty, FrontendDefault)
 	viper.SetDefault(FrontendPortProperty, FrontendPortDefault)
 
-	home, err := homedir.Dir()
+	configFolder, err := utils.ConfigurationFolder()
 	if err != nil {
-		log.WithError(err).Error("Error getting home folder")
+		log.WithError(err).Error("Error getting configuration folder")
 		return
 	}
 
-	viper.AddConfigPath(home)
-	viper.SetConfigName("deployment-engine")
+	viper.AddConfigPath(configFolder)
+	viper.SetConfigName("config")
 	viper.ReadInConfig()
 
-	repository, err := getRepository(viper.GetString(RepositoryProperty))
+	/*repository, err := getRepository(viper.GetString(RepositoryProperty))
 	if err != nil {
 		log.WithError(err).Error("Error getting repository")
 		return
@@ -67,9 +68,9 @@ func main() {
 	if err != nil {
 		log.WithError(err).Error("Error getting provisioner")
 		return
-	}
+	}*/
 
-	frontend, err := getFrontend(viper.GetString(FrontendProperty), repository, provisioner)
+	frontend, err := ditas.NewDitasFrontend()
 	if err != nil {
 		log.WithError(err).Error("Error getting frontend")
 		return

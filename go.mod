@@ -1,6 +1,8 @@
 module deployment-engine
 
 require (
+	github.com/DITAS-Project/blueprint-go v0.0.0-20181115172423-02359700f0d4
+	github.com/go-openapi/spec v0.17.2 // indirect
 	github.com/google/uuid v1.0.0
 	github.com/gorilla/mux v1.6.2
 	github.com/mitchellh/go-homedir v1.0.0
