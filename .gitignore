@@ -138,3 +138,6 @@ fabric.properties
 
 #Ansible failed runs
 **/**/*.retry
+
+#Build output
+deployment-engine
