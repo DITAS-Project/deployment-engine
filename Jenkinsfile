@@ -12,7 +12,7 @@ pipeline {
             }
             steps {
 		        // Build
-		        //sh "chmod +x jenkins/build.sh"
+		        sh "echo skipping"
                 //sh "jenkins/build.sh ${WORKSPACE}"
             }
         }
