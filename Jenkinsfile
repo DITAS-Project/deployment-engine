@@ -12,8 +12,7 @@ pipeline {
             }
             steps {
 		        // Build
-		        sh "chmod +x jenkins/build.sh"
-                sh "jenkins/build.sh ${WORKSPACE}"
+		        sh "CGO_ENABLED=0 GOOS=linux go build -a -o deployment-engine"
             }
         }
         stage('Image creation') {
@@ -24,8 +23,6 @@ pipeline {
             steps {
                 // The Dockerfile.artifact copies the code into the image and run the jar generation.
                 echo 'Creating the image...'
-		        // Credentials for CloudSigma account
-		        sh "cp /home/cloudsigma/configurations/deployment-engine/.cloudsigma.conf .cloudsigma.conf"
 		    
                 // This will search for a Dockerfile.artifact in the working directory and build the image to the local repository
                 sh "docker build -t \"ditas/deployment-engine\" -f Dockerfile.artifact ."
