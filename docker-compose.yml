@@ -1,0 +1,19 @@
+version: '3'
+services:
+
+  mongo:
+    image: mvertes/alpine-mongo
+    ports:
+      - 50014:27017
+
+  deployment-engine:
+    image: deployment-engine:latest
+    ports:
+      - 8080:8080
+    links:
+      - mongo:mongo
+    volumes: 
+      - /home/jose/.cloudsigma.conf:/root/.cloudsigma.conf
+      - /home/jose/.ssh:/root/.ssh
+    depends_on:
+      - mongo
