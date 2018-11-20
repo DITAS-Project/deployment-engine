@@ -33,7 +33,7 @@ const (
 	ScriptsFolderProperty   = "ansible.scripts.folder"
 
 	InventoryFolderDefaultValue = "/tmp/ansible_inventories"
-	ScriptsFolderDefaultValue   = "provision/ansible/kubernetes"
+	ScriptsFolderDefaultValue   = "provision/ansible"
 )
 
 type Provisioner struct {
