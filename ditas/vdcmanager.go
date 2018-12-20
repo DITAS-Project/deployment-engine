@@ -86,7 +86,8 @@ func NewVDCManager(provisioner *ansible.Provisioner, deployer *infrastructure.De
 	return nil, err
 }
 
-func (m *VDCManager) DeployBlueprint(bp blueprint.BlueprintType) error {
+func (m *VDCManager) DeployBlueprint(request CreateDeploymentRequest) error {
+	bp := request.Blueprint
 	blueprintName := *bp.InternalStructure.Overview.Name
 	var vdcInfo VDCInformation
 	var deploymentInfo model.DeploymentInfo
@@ -98,7 +99,7 @@ func (m *VDCManager) DeployBlueprint(bp blueprint.BlueprintType) error {
 			InfraVDCs: make(map[string]InfraServicesInformation),
 		}
 
-		deployment, err := m.getDeployment(bp)
+		deployment, err := m.getDeployment(&bp, request.Resources)
 		if err != nil {
 			return err
 		}
@@ -159,15 +160,23 @@ func (m *VDCManager) provisionKubernetes(deployment model.DeploymentInfo, vdcInf
 	return result, nil
 }
 
-func (m *VDCManager) getDeployment(bp blueprint.BlueprintType) (*model.Deployment, error) {
-	appendix, err := json.Marshal(bp.CookbookAppendix)
+func (m *VDCManager) getDeployment(bp *blueprint.BlueprintType, infrastructures []blueprint.InfrastructureType) (*model.Deployment, error) {
+
+	appendix := blueprint.CookbookAppendix{
+		Name: *bp.InternalStructure.Overview.Name,
+		Infrastructure: infrastructures,
+	}
+
+	bp.CookbookAppendix = appendix
+
+	appendixStr, err := json.Marshal(appendix)
 	if err != nil {
 		log.WithError(err).Error("Can't marshall Cookbook Appendix")
 		return nil, err
 	}
 
 	var deployment model.Deployment
-	err = json.Unmarshal(appendix, &deployment)
+	err = json.Unmarshal(appendixStr, &deployment)
 	if err != nil {
 		log.WithError(err).Error("Can't unmarshal Cookbook Appendix into Deployment")
 	}

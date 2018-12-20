@@ -26,8 +26,6 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/DITAS-Project/blueprint-go"
-
 	"fmt"
 
 	"github.com/gorilla/mux"
@@ -92,16 +90,16 @@ func (a *DitasFrontend) initializeRoutes() {
 }
 
 func (a *DitasFrontend) createDep(w http.ResponseWriter, r *http.Request) {
-	var blueprint blueprint.BlueprintType
+	var request CreateDeploymentRequest
 	decoder := json.NewDecoder(r.Body)
-	if err := decoder.Decode(&blueprint); err != nil {
+	if err := decoder.Decode(&request); err != nil {
 		log.WithError(err).Error("Error deserializing deployment")
 		restfrontend.RespondWithError(w, http.StatusBadRequest, fmt.Sprintf("Invalid payload: %s", err.Error()))
 		return
 	}
 	defer r.Body.Close()
 
-	err := a.VDCManagerInstance.DeployBlueprint(blueprint)	
+	err := a.VDCManagerInstance.DeployBlueprint(request)	
 
 	if err != nil {
 		log.WithError(err).Error("Error deploying blueprint")

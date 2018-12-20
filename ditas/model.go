@@ -34,6 +34,6 @@ type InfraServicesInformation struct {
 }
 
 type CreateDeploymentRequest struct {
-	Blueprint  blueprint.BlueprintType
-	Deployment []blueprint.InfrastructureType
+	Blueprint blueprint.BlueprintType        `json:"blueprint"`
+	Resources []blueprint.InfrastructureType `json:"resources"`
 }
