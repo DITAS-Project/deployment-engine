@@ -1,11 +1,11 @@
-FROM golang:1.11.2-alpine as builder
+FROM golang:1.11-alpine as builder
 
 RUN apk update
 RUN apk add git
 
-RUN mkdir /root/deployment-engine
-COPY . /root/deployment-engine/
-WORKDIR /root/deployment-engine
+RUN mkdir $GOPATH/src/deployment-engine
+COPY . $GOPATH/src/deployment-engine/
+WORKDIR $GOPATH/src/deployment-engine
 
 RUN CGO_ENABLED=0 GOOS=linux go build -a -o /usr/bin/deployment-engine
 
