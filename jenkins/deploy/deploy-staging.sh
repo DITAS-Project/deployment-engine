@@ -7,9 +7,16 @@
 ssh -i /opt/keypairs/ditas-testbed-keypair.pem cloudsigma@31.171.247.162 << 'ENDSSH'
 # Ensure that a previously running instance is stopped (-f stops and removes in a single step)
 # || true - "docker stop" failt with exit status 1 if image doesn't exists, what makes the Pipeline fail. the "|| true" forces the command to exit with 0.
+
 sudo docker stop --time 20 deployment-engine || true
 sudo docker rm --force deployment-engine || true
 sudo docker pull ditas/deployment-engine:latest
-# SET THE PORT MAPPING, link for mysql container
-sudo docker run -p 50012:8080 -d --name deployment-engine --link mysql:mysql ditas/deployment-engine:latest
+
+sudo docker stop --time 20 mongo || true
+sudo docker rm --force mongo || true
+sudo docker pull mvertes/alpine-mongo:latest
+
+# SET THE PORT MAPPING, link for MongoDB container
+sudo docker run -p 27017:27017 -d --name mongo mvertes/alpine-mongo:latest
+sudo docker run -p 50012:8080 -d --name deployment-engine --link mongo:mongo ditas/deployment-engine:latest
 ENDSSH
