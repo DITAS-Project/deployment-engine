@@ -30,13 +30,19 @@ ENV ANSIBLE_RETRY_FILES_ENABLED false
 ENV ANSIBLE_SSH_RETRIES 10
 ENV ANSIBLE_SSH_PIPELINING True
 
-WORKDIR /deployment-engine/src
-COPY /src/kubernetes /deployment-engine/src/kubernetes
-COPY /src/deployment-engine /deployment-engine/src/deployment-engine
+COPY deployment-engine /usr/bin/deployment-engine
+
+RUN mkdir /root/deployment-engine
+
+WORKDIR /root/deployment-engine
+COPY provision/ansible/kubernetes kubernetes
+COPY provision/ansible/common common
+COPY ditas/scripts ditas
+COPY docker/config.properties .
+
 RUN git clone https://github.com/DITAS-Project/VDC-Shared-Config.git
 
-VOLUME /root
 EXPOSE 8080
 #Trying to run the app when the container starts
-RUN ["chmod", "+x", "/deployment-engine"]
-CMD ["./deployment-engine"]
+RUN ["chmod", "+x", "/usr/bin/deployment-engine"]
+CMD ["deployment-engine"]

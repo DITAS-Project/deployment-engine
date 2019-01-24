@@ -1,0 +1,1587 @@
+{
+  "swagger": "2.0",
+  "paths": {
+    "/deployment": {
+      "post": {
+        "description": "Creates a Kubernetes installation on each infrastructure and then deploys a VDC on the first one\nbased on the blueprint passed as parameter.",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json",
+          "text/plain"
+        ],
+        "tags": [
+          "deployment"
+        ],
+        "summary": "Creates a DITAS deployment with the infrastructures passed as parameter.",
+        "operationId": "createDeployment",
+        "parameters": [
+          {
+            "description": "The request object is composed of an abstract blueprint and a list of resources to use to deploy VDCs",
+            "name": "request",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CreateDeploymentRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "500": {
+            "description": "Internal error"
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "AbstractPropertiesMethodType": {
+      "description": "AbstractPropertiesMethodType defines a goal tree for a method",
+      "type": "object",
+      "required": [
+        "method_id",
+        "goalTrees"
+      ],
+      "properties": {
+        "goalTrees": {
+          "$ref": "#/definitions/GoalTreeType"
+        },
+        "method_id": {
+          "description": "The method identifier this goals apply to",
+          "type": "string",
+          "x-go-name": "MethodId"
+        }
+      },
+      "x-go-package": "deployment-engine/vendor/github.com/DITAS-Project/blueprint-go"
+    },
+    "BlueprintType": {
+      "description": "BlueprintType is the serialization of a DITAS concrete blueprint",
+      "type": "object",
+      "required": [
+        "INTERNAL_STRUCTURE",
+        "DATA_MANAGEMENT",
+        "ABSTRACT_PROPERTIES",
+        "EXPOSED_API",
+        "COOKBOOK_APPENDIX"
+      ],
+      "properties": {
+        "ABSTRACT_PROPERTIES": {
+          "description": "The abstract properties section",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/AbstractPropertiesMethodType"
+          },
+          "x-go-name": "AbstractProperties"
+        },
+        "COOKBOOK_APPENDIX": {
+          "$ref": "#/definitions/CookbookAppendix"
+        },
+        "DATA_MANAGEMENT": {
+          "description": "The data management section",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/DataManagementMethodType"
+          },
+          "x-go-name": "DataManagement"
+        },
+        "EXPOSED_API": {
+          "$ref": "#/definitions/Swagger"
+        },
+        "INTERNAL_STRUCTURE": {
+          "$ref": "#/definitions/InternalStructureType"
+        }
+      },
+      "x-go-package": "deployment-engine/vendor/github.com/DITAS-Project/blueprint-go"
+    },
+    "CloudProviderInfo": {
+      "description": "CloudProviderInfo contains information about a cloud or edge provider",
+      "type": "object",
+      "properties": {
+        "api_endpoint": {
+          "description": "Endpoint to use for this infrastructure",
+          "type": "string",
+          "x-go-name": "APIEndpoint"
+        },
+        "api_type": {
+          "description": "Type of the infrastructure. i.e AWS, Cloudsigma, GCP or Edge",
+          "type": "string",
+          "x-go-name": "APIType",
+          "example": "AWS"
+        },
+        "keypair_id": {
+          "description": "Keypair to use to log in to the infrastructure manager",
+          "type": "string",
+          "x-go-name": "KeypairID"
+        }
+      },
+      "x-go-package": "deployment-engine/vendor/github.com/DITAS-Project/blueprint-go"
+    },
+    "ConstraintType": {
+      "description": "ConstraintType is the definition of a QoS constraint",
+      "type": "object",
+      "required": [
+        "id",
+        "type",
+        "properties"
+      ],
+      "properties": {
+        "description": {
+          "description": "An optional description for the constraint",
+          "type": "string",
+          "x-go-name": "Description"
+        },
+        "id": {
+          "description": "A unique identifier for the constraint",
+          "type": "string",
+          "x-go-name": "ID"
+        },
+        "properties": {
+          "description": "The set of properties thresholds associated to this constraints",
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/MetricPropertyType"
+          },
+          "x-go-name": "Properties",
+          "example": "\"accuracy\": { \"minimum\": 0.9, \"unit\": \"none\" }"
+        },
+        "type": {
+          "description": "The type of the constraint",
+          "type": "string",
+          "x-go-name": "Type",
+          "example": "Accuracy"
+        }
+      },
+      "x-go-package": "deployment-engine/vendor/github.com/DITAS-Project/blueprint-go"
+    },
+    "ContactInfo": {
+      "description": "For more information: http://goo.gl/8us55a#contactObject",
+      "type": "object",
+      "title": "ContactInfo contact information for the exposed API.",
+      "properties": {
+        "email": {
+          "type": "string",
+          "x-go-name": "Email"
+        },
+        "name": {
+          "type": "string",
+          "x-go-name": "Name"
+        },
+        "url": {
+          "type": "string",
+          "x-go-name": "URL"
+        }
+      },
+      "x-go-package": "deployment-engine/vendor/github.com/go-openapi/spec"
+    },
+    "CookbookAppendix": {
+      "description": "CookbookAppendix is the definition of the Cookbook Appendix section in the blueprint",
+      "type": "object",
+      "required": [
+        "name",
+        "infrastructure"
+      ],
+      "properties": {
+        "description": {
+          "description": "An optional description for the deployment",
+          "type": "string",
+          "x-go-name": "Description"
+        },
+        "infrastructure": {
+          "description": "A list of infrastructures that should be initialized to deploy VDCs of this blueprint",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/InfrastructureType"
+          },
+          "x-go-name": "Infrastructure"
+        },
+        "name": {
+          "description": "Unique name of the deployment",
+          "type": "string",
+          "uniqueItems": true,
+          "x-go-name": "Name"
+        }
+      },
+      "x-go-package": "deployment-engine/vendor/github.com/DITAS-Project/blueprint-go"
+    },
+    "CreateDeploymentRequest": {
+      "description": "CreateDeploymentRequest is a request to create a deployment of a VDC of a given blueprint in a series of resources",
+      "type": "object",
+      "required": [
+        "blueprint",
+        "resources"
+      ],
+      "properties": {
+        "blueprint": {
+          "$ref": "#/definitions/BlueprintType"
+        },
+        "resources": {
+          "description": "The list of infrastructures to use to deploy the VDC",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/InfrastructureType"
+          },
+          "x-go-name": "Resources"
+        }
+      },
+      "x-go-package": "deployment-engine/ditas"
+    },
+    "DataManagementAttributesType": {
+      "description": "DataManagementAttributesType contains the data managements values associated to a method",
+      "type": "object",
+      "properties": {
+        "dataUtility": {
+          "description": "The constraints associated to data utility",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ConstraintType"
+          },
+          "x-go-name": "DataUtility"
+        },
+        "privacy": {
+          "description": "The constraints associated to privacy\nrequiered: false",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ConstraintType"
+          },
+          "x-go-name": "Privacy"
+        },
+        "security": {
+          "description": "The constraints associated to security",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ConstraintType"
+          },
+          "x-go-name": "Security"
+        }
+      },
+      "x-go-package": "deployment-engine/vendor/github.com/DITAS-Project/blueprint-go"
+    },
+    "DataManagementMethodType": {
+      "description": "DataManagementMethodType contains the data management attributes associated to a method",
+      "type": "object",
+      "required": [
+        "method_id",
+        "attributes"
+      ],
+      "properties": {
+        "attributes": {
+          "$ref": "#/definitions/DataManagementAttributesType"
+        },
+        "method_id": {
+          "description": "The unique method id this attributes apply to",
+          "type": "string",
+          "x-go-name": "MethodId"
+        }
+      },
+      "x-go-package": "deployment-engine/vendor/github.com/DITAS-Project/blueprint-go"
+    },
+    "DataSourceType": {
+      "description": "DataSourceType is a datasource definition",
+      "type": "object",
+      "required": [
+        "id",
+        "type"
+      ],
+      "properties": {
+        "id": {
+          "description": "The unique identifier of the datasource",
+          "type": "string",
+          "x-go-name": "ID"
+        },
+        "parameters": {
+          "description": "A map of parameters relevant for the datasource",
+          "type": "object",
+          "additionalProperties": {
+            "type": "object"
+          },
+          "x-go-name": "Parameters"
+        },
+        "type": {
+          "description": "The type of the datasource",
+          "type": "string",
+          "x-go-name": "Type"
+        }
+      },
+      "x-go-package": "deployment-engine/vendor/github.com/DITAS-Project/blueprint-go"
+    },
+    "Definitions": {
+      "description": "For more information: http://goo.gl/8us55a#definitionsObject",
+      "type": "object",
+      "title": "Definitions contains the models explicitly defined in this spec\nAn object to hold data types that can be consumed and produced by operations.\nThese data types can be primitives, arrays or models.",
+      "additionalProperties": {
+        "$ref": "#/definitions/Schema"
+      },
+      "x-go-package": "deployment-engine/vendor/github.com/go-openapi/spec"
+    },
+    "Dependencies": {
+      "description": "Dependencies represent a dependencies property",
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/definitions/SchemaOrStringArray"
+      },
+      "x-go-package": "deployment-engine/vendor/github.com/go-openapi/spec"
+    },
+    "Drive": {
+      "description": "Drive contains the information of a data drive",
+      "type": "object",
+      "required": [
+        "name",
+        "type",
+        "size"
+      ],
+      "properties": {
+        "name": {
+          "description": "Name of the image to use. Most of the times, it will be available as /dev/disk/by-id/${name} value in the VM",
+          "type": "string",
+          "x-go-name": "Name"
+        },
+        "size": {
+          "description": "Size of the disk in MB",
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "Size"
+        },
+        "type": {
+          "description": "Type of the drive. It can be \"SSD\" or \"HDD\"",
+          "type": "string",
+          "pattern": "SSD|HDD",
+          "x-go-name": "Type",
+          "example": "SSD"
+        }
+      },
+      "x-go-package": "deployment-engine/vendor/github.com/DITAS-Project/blueprint-go"
+    },
+    "Extensions": {
+      "description": "Extensions vendor specific extensions",
+      "type": "object",
+      "additionalProperties": {
+        "type": "object"
+      },
+      "x-go-package": "deployment-engine/vendor/github.com/go-openapi/spec"
+    },
+    "ExternalDocumentation": {
+      "description": "For more information: http://goo.gl/8us55a#externalDocumentationObject",
+      "type": "object",
+      "title": "ExternalDocumentation allows referencing an external resource for\nextended documentation.",
+      "properties": {
+        "description": {
+          "type": "string",
+          "x-go-name": "Description"
+        },
+        "url": {
+          "type": "string",
+          "x-go-name": "URL"
+        }
+      },
+      "x-go-package": "deployment-engine/vendor/github.com/go-openapi/spec"
+    },
+    "GoalTreeType": {
+      "description": "GoalTreeType defines a goal tree",
+      "type": "object",
+      "properties": {
+        "DataUtility": {
+          "$ref": "#/definitions/TreeStructureType"
+        },
+        "Privacy": {
+          "$ref": "#/definitions/TreeStructureType"
+        },
+        "Security": {
+          "$ref": "#/definitions/TreeStructureType"
+        }
+      },
+      "x-go-package": "deployment-engine/vendor/github.com/DITAS-Project/blueprint-go"
+    },
+    "Header": {
+      "description": "For more information: http://goo.gl/8us55a#headerObject",
+      "type": "object",
+      "title": "Header describes a header for a response of the API",
+      "properties": {
+        "Extensions": {
+          "$ref": "#/definitions/Extensions"
+        },
+        "collectionFormat": {
+          "type": "string",
+          "x-go-name": "CollectionFormat"
+        },
+        "default": {
+          "type": "object",
+          "x-go-name": "Default"
+        },
+        "description": {
+          "type": "string",
+          "x-go-name": "Description"
+        },
+        "enum": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          },
+          "x-go-name": "Enum"
+        },
+        "example": {
+          "type": "object",
+          "x-go-name": "Example"
+        },
+        "exclusiveMaximum": {
+          "type": "boolean",
+          "x-go-name": "ExclusiveMaximum"
+        },
+        "exclusiveMinimum": {
+          "type": "boolean",
+          "x-go-name": "ExclusiveMinimum"
+        },
+        "format": {
+          "type": "string",
+          "x-go-name": "Format"
+        },
+        "items": {
+          "$ref": "#/definitions/Items"
+        },
+        "maxItems": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "MaxItems"
+        },
+        "maxLength": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "MaxLength"
+        },
+        "maximum": {
+          "type": "number",
+          "format": "double",
+          "x-go-name": "Maximum"
+        },
+        "minItems": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "MinItems"
+        },
+        "minLength": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "MinLength"
+        },
+        "minimum": {
+          "type": "number",
+          "format": "double",
+          "x-go-name": "Minimum"
+        },
+        "multipleOf": {
+          "type": "number",
+          "format": "double",
+          "x-go-name": "MultipleOf"
+        },
+        "pattern": {
+          "type": "string",
+          "x-go-name": "Pattern"
+        },
+        "type": {
+          "type": "string",
+          "x-go-name": "Type"
+        },
+        "uniqueItems": {
+          "type": "boolean",
+          "x-go-name": "UniqueItems"
+        }
+      },
+      "x-go-package": "deployment-engine/vendor/github.com/go-openapi/spec"
+    },
+    "Info": {
+      "description": "For more information: http://goo.gl/8us55a#infoObject",
+      "type": "object",
+      "title": "Info object provides metadata about the API.\nThe metadata can be used by the clients if needed, and can be presented in the Swagger-UI for convenience.",
+      "properties": {
+        "Extensions": {
+          "$ref": "#/definitions/Extensions"
+        },
+        "contact": {
+          "$ref": "#/definitions/ContactInfo"
+        },
+        "description": {
+          "type": "string",
+          "x-go-name": "Description"
+        },
+        "license": {
+          "$ref": "#/definitions/License"
+        },
+        "termsOfService": {
+          "type": "string",
+          "x-go-name": "TermsOfService"
+        },
+        "title": {
+          "type": "string",
+          "x-go-name": "Title"
+        },
+        "version": {
+          "type": "string",
+          "x-go-name": "Version"
+        }
+      },
+      "x-go-package": "deployment-engine/vendor/github.com/go-openapi/spec"
+    },
+    "InfraServicesInformation": {
+      "type": "object",
+      "properties": {
+        "Initialized": {
+          "type": "boolean"
+        },
+        "LastPort": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "VdcNumber": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "VdcPorts": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "x-go-package": "deployment-engine/ditas"
+    },
+    "InfrastructureType": {
+      "description": "InfrastructureType represents a cloud or edge site that's able to create resources such as virtual machines or volumes",
+      "type": "object",
+      "required": [
+        "name",
+        "type",
+        "provider",
+        "resources"
+      ],
+      "properties": {
+        "description": {
+          "description": "Optional description for the infrastructure",
+          "type": "string",
+          "x-go-name": "Description"
+        },
+        "name": {
+          "description": "Unique name for the infrastructure",
+          "type": "string",
+          "uniqueItems": true,
+          "x-go-name": "Name"
+        },
+        "provider": {
+          "$ref": "#/definitions/CloudProviderInfo"
+        },
+        "resources": {
+          "description": "List of resources to deploy",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ResourceType"
+          },
+          "x-go-name": "Resources"
+        },
+        "type": {
+          "description": "Type of the infrastructure",
+          "type": "string",
+          "pattern": "Cloud|Edge",
+          "x-go-name": "Type",
+          "example": "Cloud"
+        }
+      },
+      "x-go-package": "deployment-engine/vendor/github.com/DITAS-Project/blueprint-go"
+    },
+    "InternalStructureType": {
+      "description": "InternalStructureType is the serialization of a DITAS concrete blueprint",
+      "type": "object",
+      "required": [
+        "Overview",
+        "Data_Sources"
+      ],
+      "properties": {
+        "Data_Sources": {
+          "description": "The datasources description",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/DataSourceType"
+          },
+          "x-go-name": "DataSources"
+        },
+        "Overview": {
+          "$ref": "#/definitions/OverviewType"
+        }
+      },
+      "x-go-package": "deployment-engine/vendor/github.com/DITAS-Project/blueprint-go"
+    },
+    "Items": {
+      "description": "For more information: http://goo.gl/8us55a#items-object",
+      "type": "object",
+      "title": "Items a limited subset of JSON-Schema's items object.\nIt is used by parameter definitions that are not located in \"body\".",
+      "properties": {
+        "Extensions": {
+          "$ref": "#/definitions/Extensions"
+        },
+        "Ref": {
+          "$ref": "#/definitions/Ref"
+        },
+        "collectionFormat": {
+          "type": "string",
+          "x-go-name": "CollectionFormat"
+        },
+        "default": {
+          "type": "object",
+          "x-go-name": "Default"
+        },
+        "enum": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          },
+          "x-go-name": "Enum"
+        },
+        "example": {
+          "type": "object",
+          "x-go-name": "Example"
+        },
+        "exclusiveMaximum": {
+          "type": "boolean",
+          "x-go-name": "ExclusiveMaximum"
+        },
+        "exclusiveMinimum": {
+          "type": "boolean",
+          "x-go-name": "ExclusiveMinimum"
+        },
+        "format": {
+          "type": "string",
+          "x-go-name": "Format"
+        },
+        "items": {
+          "$ref": "#/definitions/Items"
+        },
+        "maxItems": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "MaxItems"
+        },
+        "maxLength": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "MaxLength"
+        },
+        "maximum": {
+          "type": "number",
+          "format": "double",
+          "x-go-name": "Maximum"
+        },
+        "minItems": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "MinItems"
+        },
+        "minLength": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "MinLength"
+        },
+        "minimum": {
+          "type": "number",
+          "format": "double",
+          "x-go-name": "Minimum"
+        },
+        "multipleOf": {
+          "type": "number",
+          "format": "double",
+          "x-go-name": "MultipleOf"
+        },
+        "pattern": {
+          "type": "string",
+          "x-go-name": "Pattern"
+        },
+        "type": {
+          "type": "string",
+          "x-go-name": "Type"
+        },
+        "uniqueItems": {
+          "type": "boolean",
+          "x-go-name": "UniqueItems"
+        }
+      },
+      "x-go-package": "deployment-engine/vendor/github.com/go-openapi/spec"
+    },
+    "LeafType": {
+      "description": "LeafType is a leaf in a tree data structure",
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "attributes": {
+          "description": "The list of attributes defined in the data management section to match. All of them must comply.\nrequiered: true",
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "x-go-name": "Attributes"
+        },
+        "description": {
+          "description": "An optional description for the leaf",
+          "type": "string",
+          "x-go-name": "Description"
+        },
+        "id": {
+          "description": "Unique identifier for the leaf",
+          "type": "string",
+          "uniqueItems": true,
+          "x-go-name": "Id"
+        },
+        "weight": {
+          "description": "The weight in the resolution of the constraint\nrequiered: true",
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "Weight"
+        }
+      },
+      "x-go-package": "deployment-engine/vendor/github.com/DITAS-Project/blueprint-go"
+    },
+    "License": {
+      "description": "For more information: http://goo.gl/8us55a#licenseObject",
+      "type": "object",
+      "title": "License information for the exposed API.",
+      "properties": {
+        "name": {
+          "type": "string",
+          "x-go-name": "Name"
+        },
+        "url": {
+          "type": "string",
+          "x-go-name": "URL"
+        }
+      },
+      "x-go-package": "deployment-engine/vendor/github.com/go-openapi/spec"
+    },
+    "MethodTagType": {
+      "description": "MethodTagType is a structure to define tags per methos",
+      "type": "object",
+      "required": [
+        "method_id"
+      ],
+      "properties": {
+        "method_id": {
+          "description": "The method identifier",
+          "type": "string",
+          "x-go-name": "ID"
+        },
+        "tags": {
+          "description": "The list of tags to apply to the method",
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "x-go-name": "Tags"
+        }
+      },
+      "x-go-package": "deployment-engine/vendor/github.com/DITAS-Project/blueprint-go"
+    },
+    "MetricPropertyType": {
+      "description": "Either maximum, minimum or value is required.",
+      "type": "object",
+      "title": "ConstraintType is the definition of a constraint threshold.",
+      "required": [
+        "unit"
+      ],
+      "properties": {
+        "maximum": {
+          "description": "The maximum value for the threshold",
+          "type": "number",
+          "format": "double",
+          "x-go-name": "Maximum"
+        },
+        "minimum": {
+          "description": "The minimum value for the threshold",
+          "type": "number",
+          "format": "double",
+          "x-go-name": "Minimum"
+        },
+        "unit": {
+          "description": "The units in which this property is measured",
+          "type": "string",
+          "x-go-name": "Unit",
+          "example": "MB/s"
+        },
+        "value": {
+          "description": "The value this property must maintain",
+          "type": "object",
+          "x-go-name": "Value"
+        }
+      },
+      "x-go-package": "deployment-engine/vendor/github.com/DITAS-Project/blueprint-go"
+    },
+    "OverviewType": {
+      "description": "OverviewType are general descriptive properties of the blueprint",
+      "type": "object",
+      "required": [
+        "Name"
+      ],
+      "properties": {
+        "Name": {
+          "description": "A unique name for the blueprint. It will be identified by this property.",
+          "type": "string"
+        },
+        "tags": {
+          "description": "A list of tags to apply to this blueprint",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/MethodTagType"
+          },
+          "x-go-name": "Tags"
+        }
+      },
+      "x-go-package": "deployment-engine/vendor/github.com/DITAS-Project/blueprint-go"
+    },
+    "Parameter": {
+      "description": "There are five possible parameter types.\nPath - Used together with [Path Templating](#pathTemplating), where the parameter value is actually part of the operation's URL. This does not include the host or base path of the API. For example, in `/items/{itemId}`, the path parameter is `itemId`.\nQuery - Parameters that are appended to the URL. For example, in `/items?id=###`, the query parameter is `id`.\nHeader - Custom headers that are expected as part of the request.\nBody - The payload that's appended to the HTTP request. Since there can only be one payload, there can only be *one* body parameter. The name of the body parameter has no effect on the parameter itself and is used for documentation purposes only. Since Form parameters are also in the payload, body and form parameters cannot exist together for the same operation.\nForm - Used to describe the payload of an HTTP request when either `application/x-www-form-urlencoded` or `multipart/form-data` are used as the content type of the request (in Swagger's definition, the [`consumes`](#operationConsumes) property of an operation). This is the only parameter type that can be used to send files, thus supporting the `file` type. Since form parameters are sent in the payload, they cannot be declared together with a body parameter for the same operation. Form parameters have a different format based on the content-type used (for further details, consult http://www.w3.org/TR/html401/interact/forms.html#h-17.13.4):\n`application/x-www-form-urlencoded` - Similar to the format of Query parameters but as a payload. For example, `foo=1\u0026bar=swagger` - both `foo` and `bar` are form parameters. This is normally used for simple parameters that are being transferred.\n`multipart/form-data` - each parameter takes a section in the payload with an internal header. For example, for the header `Content-Disposition: form-data; name=\"submit-name\"` the name of the parameter is `submit-name`. This type of form parameters is more commonly used for file transfers.\n\nFor more information: http://goo.gl/8us55a#parameterObject",
+      "type": "object",
+      "title": "Parameter a unique parameter is defined by a combination of a [name](#parameterName) and [location](#parameterIn).",
+      "properties": {
+        "Extensions": {
+          "$ref": "#/definitions/Extensions"
+        },
+        "Ref": {
+          "$ref": "#/definitions/Ref"
+        },
+        "allowEmptyValue": {
+          "type": "boolean",
+          "x-go-name": "AllowEmptyValue"
+        },
+        "collectionFormat": {
+          "type": "string",
+          "x-go-name": "CollectionFormat"
+        },
+        "default": {
+          "type": "object",
+          "x-go-name": "Default"
+        },
+        "description": {
+          "type": "string",
+          "x-go-name": "Description"
+        },
+        "enum": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          },
+          "x-go-name": "Enum"
+        },
+        "example": {
+          "type": "object",
+          "x-go-name": "Example"
+        },
+        "exclusiveMaximum": {
+          "type": "boolean",
+          "x-go-name": "ExclusiveMaximum"
+        },
+        "exclusiveMinimum": {
+          "type": "boolean",
+          "x-go-name": "ExclusiveMinimum"
+        },
+        "format": {
+          "type": "string",
+          "x-go-name": "Format"
+        },
+        "in": {
+          "type": "string",
+          "x-go-name": "In"
+        },
+        "items": {
+          "$ref": "#/definitions/Items"
+        },
+        "maxItems": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "MaxItems"
+        },
+        "maxLength": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "MaxLength"
+        },
+        "maximum": {
+          "type": "number",
+          "format": "double",
+          "x-go-name": "Maximum"
+        },
+        "minItems": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "MinItems"
+        },
+        "minLength": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "MinLength"
+        },
+        "minimum": {
+          "type": "number",
+          "format": "double",
+          "x-go-name": "Minimum"
+        },
+        "multipleOf": {
+          "type": "number",
+          "format": "double",
+          "x-go-name": "MultipleOf"
+        },
+        "name": {
+          "type": "string",
+          "x-go-name": "Name"
+        },
+        "pattern": {
+          "type": "string",
+          "x-go-name": "Pattern"
+        },
+        "required": {
+          "type": "boolean",
+          "x-go-name": "Required"
+        },
+        "schema": {
+          "$ref": "#/definitions/Schema"
+        },
+        "type": {
+          "type": "string",
+          "x-go-name": "Type"
+        },
+        "uniqueItems": {
+          "type": "boolean",
+          "x-go-name": "UniqueItems"
+        }
+      },
+      "x-go-package": "deployment-engine/vendor/github.com/go-openapi/spec"
+    },
+    "Paths": {
+      "description": "For more information: http://goo.gl/8us55a#pathsObject",
+      "type": "object",
+      "title": "Paths holds the relative paths to the individual endpoints.\nThe path is appended to the [`basePath`](http://goo.gl/8us55a#swaggerBasePath) in order\nto construct the full URL.\nThe Paths may be empty, due to [ACL constraints](http://goo.gl/8us55a#securityFiltering).",
+      "properties": {
+        "Extensions": {
+          "$ref": "#/definitions/Extensions"
+        }
+      },
+      "x-go-package": "deployment-engine/vendor/github.com/go-openapi/spec"
+    },
+    "Ref": {
+      "description": "Ref represents a json reference that is potentially resolved",
+      "type": "object",
+      "properties": {
+        "HasFileScheme": {
+          "type": "boolean"
+        },
+        "HasFragmentOnly": {
+          "type": "boolean"
+        },
+        "HasFullFilePath": {
+          "type": "boolean"
+        },
+        "HasFullURL": {
+          "type": "boolean"
+        },
+        "HasURLPathOnly": {
+          "type": "boolean"
+        }
+      },
+      "x-go-package": "deployment-engine/vendor/github.com/go-openapi/spec"
+    },
+    "ResourceType": {
+      "description": "ResourceType represents a resource such as a virtual machine",
+      "type": "object",
+      "required": [
+        "role",
+        "image_id"
+      ],
+      "properties": {
+        "cores": {
+          "description": "Number of cores. Ignored if type is provided",
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "Cores"
+        },
+        "cpu": {
+          "description": "CPU speed in MHz. Ignored if type is provided",
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "CPU"
+        },
+        "disk": {
+          "description": "Boot disk size in MB",
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "Disk"
+        },
+        "drives": {
+          "description": "List of data drives to attach to this VM",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Drive"
+          },
+          "x-go-name": "Drives"
+        },
+        "image_id": {
+          "description": "Boot image ID to use",
+          "type": "string",
+          "x-go-name": "ImageId"
+        },
+        "ip": {
+          "description": "IP to assign this VM. In case it's not specified, the first available one will be used.",
+          "type": "string",
+          "x-go-name": "IP"
+        },
+        "name": {
+          "description": "Suffix for the hostname. The real hostname will be formed of the infrastructure name + resource name",
+          "type": "string",
+          "x-go-name": "Name"
+        },
+        "ram": {
+          "description": "RAM quantity in MB. Ignored if type is provided",
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "RAM"
+        },
+        "role": {
+          "description": "Role that this VM plays. In case of a Kubernetes deployment at least one \"master\" is needed.",
+          "type": "string",
+          "pattern": "master|slave",
+          "x-go-name": "Role",
+          "example": "master"
+        },
+        "type": {
+          "description": "Type of the VM to create",
+          "type": "string",
+          "x-go-name": "Type",
+          "example": "n1-small"
+        }
+      },
+      "x-go-package": "deployment-engine/vendor/github.com/DITAS-Project/blueprint-go"
+    },
+    "Response": {
+      "description": "For more information: http://goo.gl/8us55a#responseObject",
+      "type": "object",
+      "title": "Response describes a single response from an API Operation.",
+      "properties": {
+        "Extensions": {
+          "$ref": "#/definitions/Extensions"
+        },
+        "Ref": {
+          "$ref": "#/definitions/Ref"
+        },
+        "description": {
+          "type": "string",
+          "x-go-name": "Description"
+        },
+        "examples": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object"
+          },
+          "x-go-name": "Examples"
+        },
+        "headers": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/Header"
+          },
+          "x-go-name": "Headers"
+        },
+        "schema": {
+          "$ref": "#/definitions/Schema"
+        }
+      },
+      "x-go-package": "deployment-engine/vendor/github.com/go-openapi/spec"
+    },
+    "Schema": {
+      "description": "For more information: http://goo.gl/8us55a#schemaObject",
+      "type": "object",
+      "title": "Schema the schema object allows the definition of input and output data types.\nThese types can be objects, but also primitives and arrays.\nThis object is based on the [JSON Schema Specification Draft 4](http://json-schema.org/)\nand uses a predefined subset of it.\nOn top of this subset, there are extensions provided by this specification to allow for more complete documentation.",
+      "properties": {
+        "Extensions": {
+          "$ref": "#/definitions/Extensions"
+        },
+        "additionalItems": {
+          "$ref": "#/definitions/SchemaOrBool"
+        },
+        "additionalProperties": {
+          "$ref": "#/definitions/SchemaOrBool"
+        },
+        "allOf": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Schema"
+          },
+          "x-go-name": "AllOf"
+        },
+        "anyOf": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Schema"
+          },
+          "x-go-name": "AnyOf"
+        },
+        "default": {
+          "type": "object",
+          "x-go-name": "Default"
+        },
+        "definitions": {
+          "$ref": "#/definitions/Definitions"
+        },
+        "dependencies": {
+          "$ref": "#/definitions/Dependencies"
+        },
+        "description": {
+          "type": "string",
+          "x-go-name": "Description"
+        },
+        "discriminator": {
+          "type": "string",
+          "x-go-name": "Discriminator"
+        },
+        "enum": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          },
+          "x-go-name": "Enum"
+        },
+        "example": {
+          "type": "object",
+          "x-go-name": "Example"
+        },
+        "exclusiveMaximum": {
+          "type": "boolean",
+          "x-go-name": "ExclusiveMaximum"
+        },
+        "exclusiveMinimum": {
+          "type": "boolean",
+          "x-go-name": "ExclusiveMinimum"
+        },
+        "externalDocs": {
+          "$ref": "#/definitions/ExternalDocumentation"
+        },
+        "format": {
+          "type": "string",
+          "x-go-name": "Format"
+        },
+        "id": {
+          "type": "string",
+          "x-go-name": "ID"
+        },
+        "items": {
+          "$ref": "#/definitions/SchemaOrArray"
+        },
+        "maxItems": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "MaxItems"
+        },
+        "maxLength": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "MaxLength"
+        },
+        "maxProperties": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "MaxProperties"
+        },
+        "maximum": {
+          "type": "number",
+          "format": "double",
+          "x-go-name": "Maximum"
+        },
+        "minItems": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "MinItems"
+        },
+        "minLength": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "MinLength"
+        },
+        "minProperties": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "MinProperties"
+        },
+        "minimum": {
+          "type": "number",
+          "format": "double",
+          "x-go-name": "Minimum"
+        },
+        "multipleOf": {
+          "type": "number",
+          "format": "double",
+          "x-go-name": "MultipleOf"
+        },
+        "not": {
+          "$ref": "#/definitions/Schema"
+        },
+        "oneOf": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Schema"
+          },
+          "x-go-name": "OneOf"
+        },
+        "pattern": {
+          "type": "string",
+          "x-go-name": "Pattern"
+        },
+        "patternProperties": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/Schema"
+          },
+          "x-go-name": "PatternProperties"
+        },
+        "properties": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/Schema"
+          },
+          "x-go-name": "Properties"
+        },
+        "readOnly": {
+          "type": "boolean",
+          "x-go-name": "ReadOnly"
+        },
+        "required": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "x-go-name": "Required"
+        },
+        "title": {
+          "type": "string",
+          "x-go-name": "Title"
+        },
+        "type": {
+          "$ref": "#/definitions/StringOrArray"
+        },
+        "uniqueItems": {
+          "type": "boolean",
+          "x-go-name": "UniqueItems"
+        },
+        "xml": {
+          "$ref": "#/definitions/XMLObject"
+        }
+      },
+      "x-go-package": "deployment-engine/vendor/github.com/go-openapi/spec"
+    },
+    "SchemaOrArray": {
+      "description": "SchemaOrArray represents a value that can either be a Schema\nor an array of Schema. Mainly here for serialization purposes",
+      "type": "object",
+      "properties": {
+        "Schema": {
+          "$ref": "#/definitions/Schema"
+        },
+        "Schemas": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Schema"
+          }
+        }
+      },
+      "x-go-package": "deployment-engine/vendor/github.com/go-openapi/spec"
+    },
+    "SchemaOrBool": {
+      "description": "SchemaOrBool represents a schema or boolean value, is biased towards true for the boolean property",
+      "type": "object",
+      "properties": {
+        "Allows": {
+          "type": "boolean"
+        },
+        "Schema": {
+          "$ref": "#/definitions/Schema"
+        }
+      },
+      "x-go-package": "deployment-engine/vendor/github.com/go-openapi/spec"
+    },
+    "SchemaOrStringArray": {
+      "description": "SchemaOrStringArray represents a schema or a string array",
+      "type": "object",
+      "properties": {
+        "Property": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "Schema": {
+          "$ref": "#/definitions/Schema"
+        }
+      },
+      "x-go-package": "deployment-engine/vendor/github.com/go-openapi/spec"
+    },
+    "SecurityDefinitions": {
+      "description": "For more information: http://goo.gl/8us55a#securityDefinitionsObject",
+      "type": "object",
+      "title": "SecurityDefinitions a declaration of the security schemes available to be used in the specification.\nThis does not enforce the security schemes on the operations and only serves to provide\nthe relevant details for each scheme.",
+      "additionalProperties": {
+        "$ref": "#/definitions/SecurityScheme"
+      },
+      "x-go-package": "deployment-engine/vendor/github.com/go-openapi/spec"
+    },
+    "SecurityScheme": {
+      "description": "For more information: http://goo.gl/8us55a#securitySchemeObject",
+      "type": "object",
+      "title": "SecurityScheme allows the definition of a security scheme that can be used by the operations.\nSupported schemes are basic authentication, an API key (either as a header or as a query parameter)\nand OAuth2's common flows (implicit, password, application and access code).",
+      "properties": {
+        "Extensions": {
+          "$ref": "#/definitions/Extensions"
+        },
+        "authorizationUrl": {
+          "type": "string",
+          "x-go-name": "AuthorizationURL"
+        },
+        "description": {
+          "type": "string",
+          "x-go-name": "Description"
+        },
+        "flow": {
+          "type": "string",
+          "x-go-name": "Flow"
+        },
+        "in": {
+          "type": "string",
+          "x-go-name": "In"
+        },
+        "name": {
+          "type": "string",
+          "x-go-name": "Name"
+        },
+        "scopes": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "x-go-name": "Scopes"
+        },
+        "tokenUrl": {
+          "type": "string",
+          "x-go-name": "TokenURL"
+        },
+        "type": {
+          "type": "string",
+          "x-go-name": "Type"
+        }
+      },
+      "x-go-package": "deployment-engine/vendor/github.com/go-openapi/spec"
+    },
+    "StringOrArray": {
+      "description": "StringOrArray represents a value that can either be a string\nor an array of strings. Mainly here for serialization purposes",
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "x-go-package": "deployment-engine/vendor/github.com/go-openapi/spec"
+    },
+    "Swagger": {
+      "description": "For more information: http://goo.gl/8us55a#swagger-object-",
+      "type": "object",
+      "title": "Swagger this is the root document object for the API specification.\nIt combines what previously was the Resource Listing and API Declaration (version 1.2 and earlier) together into one document.",
+      "properties": {
+        "Extensions": {
+          "$ref": "#/definitions/Extensions"
+        },
+        "basePath": {
+          "type": "string",
+          "x-go-name": "BasePath"
+        },
+        "consumes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "x-go-name": "Consumes"
+        },
+        "definitions": {
+          "$ref": "#/definitions/Definitions"
+        },
+        "externalDocs": {
+          "$ref": "#/definitions/ExternalDocumentation"
+        },
+        "host": {
+          "type": "string",
+          "x-go-name": "Host"
+        },
+        "id": {
+          "type": "string",
+          "x-go-name": "ID"
+        },
+        "info": {
+          "$ref": "#/definitions/Info"
+        },
+        "parameters": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/Parameter"
+          },
+          "x-go-name": "Parameters"
+        },
+        "paths": {
+          "$ref": "#/definitions/Paths"
+        },
+        "produces": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "x-go-name": "Produces"
+        },
+        "responses": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/Response"
+          },
+          "x-go-name": "Responses"
+        },
+        "schemes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "x-go-name": "Schemes"
+        },
+        "security": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "x-go-name": "Security"
+        },
+        "securityDefinitions": {
+          "$ref": "#/definitions/SecurityDefinitions"
+        },
+        "swagger": {
+          "type": "string",
+          "x-go-name": "Swagger"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Tag"
+          },
+          "x-go-name": "Tags"
+        }
+      },
+      "x-go-package": "deployment-engine/vendor/github.com/go-openapi/spec"
+    },
+    "Tag": {
+      "description": "For more information: http://goo.gl/8us55a#tagObject",
+      "type": "object",
+      "title": "Tag allows adding meta data to a single tag that is used by the [Operation Object](http://goo.gl/8us55a#operationObject).\nIt is not mandatory to have a Tag Object per tag used there.",
+      "properties": {
+        "Extensions": {
+          "$ref": "#/definitions/Extensions"
+        },
+        "description": {
+          "type": "string",
+          "x-go-name": "Description"
+        },
+        "externalDocs": {
+          "$ref": "#/definitions/ExternalDocumentation"
+        },
+        "name": {
+          "type": "string",
+          "x-go-name": "Name"
+        }
+      },
+      "x-go-package": "deployment-engine/vendor/github.com/go-openapi/spec"
+    },
+    "TreeStructureType": {
+      "description": "TreeStructureType is a tree structure with a root and subtrees or leaves",
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "children": {
+          "description": "The subtrees pending from this node",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/TreeStructureType"
+          },
+          "x-go-name": "Children"
+        },
+        "leaves": {
+          "description": "The leaves pending from this node",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/LeafType"
+          },
+          "x-go-name": "Leaves"
+        },
+        "type": {
+          "description": "The operation to apply to the subtree or leaves",
+          "type": "string",
+          "pattern": "AND|OR",
+          "x-go-name": "Type",
+          "example": "AND"
+        }
+      },
+      "x-go-package": "deployment-engine/vendor/github.com/DITAS-Project/blueprint-go"
+    },
+    "VDCInformation": {
+      "type": "object",
+      "properties": {
+        "DeploymentID": {
+          "type": "string"
+        },
+        "ID": {
+          "type": "string"
+        },
+        "InfraVDCs": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/InfraServicesInformation"
+          }
+        }
+      },
+      "x-go-package": "deployment-engine/ditas"
+    },
+    "XMLObject": {
+      "description": "For more information: http://goo.gl/8us55a#xmlObject",
+      "type": "object",
+      "title": "XMLObject a metadata object that allows for more fine-tuned XML model definitions.",
+      "properties": {
+        "attribute": {
+          "type": "boolean",
+          "x-go-name": "Attribute"
+        },
+        "name": {
+          "type": "string",
+          "x-go-name": "Name"
+        },
+        "namespace": {
+          "type": "string",
+          "x-go-name": "Namespace"
+        },
+        "prefix": {
+          "type": "string",
+          "x-go-name": "Prefix"
+        },
+        "wrapped": {
+          "type": "boolean",
+          "x-go-name": "Wrapped"
+        }
+      },
+      "x-go-package": "deployment-engine/vendor/github.com/go-openapi/spec"
+    }
+  }
+}

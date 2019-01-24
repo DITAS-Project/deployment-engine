@@ -1,0 +1,67 @@
+---
+
+  - hosts: [master]
+    become: yes
+    tasks:
+      - name: Create data directory
+        file: 
+          path: /mnt/data/{{ vdcId }}
+          state: directory
+          mode: "a+rw"
+
+      - name: Copy NFS exports
+        template: 
+          src: configs/exports.j2 
+          dest: /etc/exports.d/{{ vdcId }}.exports 
+          owner: root
+          group: root
+      
+      - name: restart nfs server
+        service: 
+          name: nfs-kernel-server 
+          state: restarted
+
+  - hosts: [master]
+    vars_files:
+      - "{{ vars_file }}"
+    tasks:
+      - name: Create configuration directory
+        file:
+          path: /home/{{ ansible_user }}/{{ vdcId }}
+          state: directory
+          mode: "a+rw"
+
+      - name: Copy blueprint file
+        copy:
+          src: "{{ blueprint_path }}"
+          dest: /home/{{ ansible_user }}/{{ vdcId }}/blueprint.json
+          
+      - name: Copy VDC configuration files
+        template: src={{ item }} dest=/home/{{ ansible_user }}/{{ vdcId }}/{{ item | basename | regex_replace('\.j2','') }}
+        with_fileglob:
+          - "{{ config_folder }}/vdc/*"
+      
+      - name: Create K8s Config Map
+        shell: kubectl create configmap {{ vdcId }} --from-file=/home/{{ ansible_user }}/{{ vdcId }}
+
+
+  - hosts: [master]
+    tasks:
+      - name: Copy Persistent Volume description
+        template: src=kubernetes/pv.yaml dest={{ vdcId }}-pv.yaml
+      
+      - name: Create Persistent Volume
+        shell: kubectl create -f {{ vdcId }}-pv.yaml
+
+      - name: Copy VDC deployment
+        template: src=kubernetes/vdc.yaml dest={{ vdcId }}.yaml
+
+      - name: Add VDC
+        shell: kubectl create -f {{ vdcId }}.yaml
+
+  - hosts: localhost
+    tasks:
+      - name: final
+        debug:
+          msg:
+          - "Additional components added"

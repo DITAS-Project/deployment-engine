@@ -1,7 +1,6 @@
 # Dockerfile for Python, Go and Ansible with the deployment engine, MySQL in a parallel container.
 # WIP = work in progress
-FROM golang:alpine
+FROM golang:1.11.2-alpine
 
-RUN apk add --no-cache git curl
-
-RUN curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
+RUN apk update
+RUN apk add git

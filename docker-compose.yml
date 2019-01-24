@@ -13,6 +13,8 @@ services:
     links:
       - mongo:mongo
     volumes: 
-      - /home/jose/dep-engine-home:/root
+      - /home/jose/.cloudsigma.conf:/root/.cloudsigma.conf
+      - /home/jose/.ssh:/root/.ssh
+      - /home/jose/deployment-engine/vars.yml:/root/deployment-engine/vars.yml
     depends_on:
       - mongo
