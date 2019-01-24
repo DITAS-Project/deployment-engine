@@ -15,7 +15,7 @@
  *
  * This is being developed for the DITAS Project: https://www.ditas-project.eu/
  */
- package ditas
+package ditas
 
 import (
 	"deployment-engine/infrastructure"
@@ -89,6 +89,36 @@ func (a *DitasFrontend) initializeRoutes() {
 	//a.Router.HandleFunc("/deployment/{depId}/{infraId}", a.DefaultFrontend.deleteInfra).Methods("DELETE")
 }
 
+// swagger:operation POST /deployment deployment createDeployment
+//
+// Creates a DITAS deployment with the infrastructures passed as parameter.
+//
+// Creates a Kubernetes installation on each infrastructure and then deploys a VDC on the first one
+// based on the blueprint passed as parameter.
+//
+// ---
+// consumes:
+// - application/json
+//
+// produces:
+// - application/json
+// - text/plain
+//
+// parameters:
+// - name: request
+//   in: body
+//   description: The request object is composed of an abstract blueprint and a list of resources to use to deploy VDCs
+//   required: true
+//   schema:
+//     $ref: "#/definitions/CreateDeploymentRequest"
+//
+// responses:
+//   200:
+//     description: OK
+//   400:
+//     description: Bad request
+//   500:
+//     description: Internal error
 func (a *DitasFrontend) createDep(w http.ResponseWriter, r *http.Request) {
 	var request CreateDeploymentRequest
 	decoder := json.NewDecoder(r.Body)
@@ -99,7 +129,7 @@ func (a *DitasFrontend) createDep(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
-	err := a.VDCManagerInstance.DeployBlueprint(request)	
+	err := a.VDCManagerInstance.DeployBlueprint(request)
 
 	if err != nil {
 		log.WithError(err).Error("Error deploying blueprint")

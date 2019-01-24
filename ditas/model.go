@@ -33,7 +33,14 @@ type InfraServicesInformation struct {
 	VdcPorts    map[string]int
 }
 
+// CreateDeploymentRequest is a request to create a deployment of a VDC of a given blueprint in a series of resources
+// swagger:model
 type CreateDeploymentRequest struct {
-	Blueprint blueprint.BlueprintType        `json:"blueprint"`
+	// The abstract blueprint to use to create the VDC
+	// required: true
+	Blueprint blueprint.BlueprintType `json:"blueprint"`
+
+	// The list of infrastructures to use to deploy the VDC
+	// required: true
 	Resources []blueprint.InfrastructureType `json:"resources"`
 }
