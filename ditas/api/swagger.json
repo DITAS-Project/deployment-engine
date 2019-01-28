@@ -1,5 +1,13 @@
 {
   "swagger": "2.0",
+  "info": {
+    "description": "Deploys and configures K8s installations able to host VDCs",
+    "title": "Deployment Engine API",
+    "license": {
+      "name": "Apache 2.0"
+    },
+    "version": "1.0"
+  },
   "paths": {
     "/deployment": {
       "post": {
