@@ -87,8 +87,8 @@ type CloudProviderInfo struct {
 	// example: AWS
 	APIType string `json:"api_type"`
 
-	// Keypair to use to log in to the infrastructure manager
-	KeypairID string `json:"keypair_id"`
+	// Authentication information to use on the provider.
+	Authentication interface{} `json:"authentication"`
 }
 
 // InfrastructureType represents a cloud or edge site that's able to create resources such as virtual machines or volumes
@@ -98,6 +98,10 @@ type InfrastructureType struct {
 	// required: true
 	// unique: true
 	Name string `json:"name"`
+
+	// Owner of the infrastructure
+	// pattern: DataOwner|DataConsumer|
+	Owner string `json:"owner"`
 
 	// Optional description for the infrastructure
 	Description string `json:"description"`
@@ -180,15 +184,15 @@ type GoalTreeType struct {
 
 	// Goal tree for data utility properties
 	// required: false
-	DataUtility TreeStructureType `json:"dataUtility`
+	DataUtility TreeStructureType `json:"dataUtility"`
 
 	// Goal tree for security properties
 	// required: false
-	Security TreeStructureType `json:"security`
+	Security TreeStructureType `json:"security"`
 
 	// Goal tree for privacy properties
 	// required: false
-	Privacy TreeStructureType `json:"privacy`
+	Privacy TreeStructureType `json:"privacy"`
 }
 
 // AbstractPropertiesMethodType defines a goal tree for a method
@@ -204,7 +208,7 @@ type AbstractPropertiesMethodType struct {
 	GoalTrees GoalTreeType `json:"goalTrees"`
 }
 
-// ConstraintType is the definition of a constraint threshold.
+// MetricPropertyType is the definition of a constraint threshold.
 // Either maximum, minimum or value is required.
 // swagger:model
 type MetricPropertyType struct {
@@ -337,6 +341,10 @@ type DataSourceType struct {
 	Parameters map[string]interface{} `json:"parameters"`
 }
 
+// ImageSet represents a set of docker images whose key is an identifier and value is a docker image name in the standard format [group]/<image_name>:[release]
+// swagger:model
+type ImageSet map[string]string
+
 // InternalStructureType is the serialization of a DITAS concrete blueprint
 // swagger:model
 type InternalStructureType struct {
@@ -344,6 +352,12 @@ type InternalStructureType struct {
 	// The overview section
 	// required: true
 	Overview OverviewType `json:"Overview"`
+
+	// Docker images that must be deployed in the DAL
+	DALImages ImageSet `json:"DAL_Images"`
+
+	// Docker images that must be deployed in the VDC
+	VDCImages ImageSet `json:"VDC_Images"`
 
 	// The datasources description
 	// required: true

@@ -18,6 +18,7 @@ type ExtendedOps struct {
 	Method string
 }
 
+// GetMethodMap returns a map with information about each operation of the blueprint indexed by operation id.
 func (b BlueprintType) GetMethodMap() map[string]ExtendedMethods {
 	//get all Swagger Operations form Blueprint
 	ops := AssembleOperationsMap(b)

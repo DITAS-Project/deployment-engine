@@ -32,12 +32,12 @@ func ReadBlueprint(path string) (*BlueprintType, error) {
 		fmt.Println(err.Error())
 		log.Errorf("Error reading blueprint from %s: %s", path, err.Error())
 		return nil, err
-	} else {
-		err = json.Unmarshal(raw, &blueprint)
-		if err != nil {
-			log.Errorf("Error reading blueprint: %s", err.Error())
-			return nil, err
-		}
+	}
+
+	err = json.Unmarshal(raw, &blueprint)
+	if err != nil {
+		log.Errorf("Error reading blueprint: %s", err.Error())
+		return nil, err
 	}
 
 	return &blueprint, nil
