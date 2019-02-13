@@ -36,3 +36,20 @@ type DeploymentRepository interface {
 	//Delete a deployment given its ID
 	Delete(deploymentID string) error
 }
+
+type ProductRepository interface {
+	//Save a new product information and return the created product from the underlying database
+	Save(product model.Product) (model.Product, error)
+
+	//Get the product information given its ID
+	Get(productId string) (model.Product, error)
+
+	//List all available products
+	List() ([]model.Product, error)
+
+	//Update a product replacing its old contents
+	Update(deployment model.Product) (model.Product, error)
+
+	//Delete a product given its ID
+	Delete(productId string) error
+}
