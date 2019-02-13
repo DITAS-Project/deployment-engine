@@ -22,34 +22,41 @@ import "deployment-engine/model"
 type DeploymentRepository interface {
 
 	//Save a new deployment information and return the updated deployment from the underlying database
-	Save(deployment model.DeploymentInfo) (model.DeploymentInfo, error)
+	SaveDeployment(deployment model.DeploymentInfo) (model.DeploymentInfo, error)
 
 	//Get the deployment information given its ID
-	Get(deploymentID string) (model.DeploymentInfo, error)
+	GetDeployment(deploymentID string) (model.DeploymentInfo, error)
 
 	//List all available deployments
-	List() ([]model.DeploymentInfo, error)
+	ListDeployment() ([]model.DeploymentInfo, error)
 
 	//Update a deployment replacing its old contents
-	Update(deployment model.DeploymentInfo) (model.DeploymentInfo, error)
+	UpdateDeployment(deployment model.DeploymentInfo) (model.DeploymentInfo, error)
 
 	//Delete a deployment given its ID
-	Delete(deploymentID string) error
+	DeleteDeployment(deploymentID string) error
+
+	// UpdateDeploymentStatus updates the status of a deployment
+	UpdateDeploymentStatus(deploymentID, status string) error
+
+	// UpdateInfrastructureStatus updates the status of a infrastructure in a deployment
+	UpdateInfrastructureStatus(deploymentID, infrastructureID, status string) error
 }
 
+// ProductRepository is the interface that repositories dealing with products must comply with
 type ProductRepository interface {
 	//Save a new product information and return the created product from the underlying database
-	Save(product model.Product) (model.Product, error)
+	SaveProduct(product model.Product) (model.Product, error)
 
 	//Get the product information given its ID
-	Get(productId string) (model.Product, error)
+	GetProduct(productID string) (model.Product, error)
 
 	//List all available products
-	List() ([]model.Product, error)
+	ListProducts() ([]model.Product, error)
 
 	//Update a product replacing its old contents
-	Update(deployment model.Product) (model.Product, error)
+	UpdateProducts(deployment model.Product) (model.Product, error)
 
 	//Delete a product given its ID
-	Delete(productId string) error
+	DeleteProducts(productID string) error
 }

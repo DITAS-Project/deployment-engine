@@ -18,7 +18,7 @@ package main
 import (
 	"deployment-engine/model"
 	"deployment-engine/persistence"
-	"deployment-engine/persistence/mongo"
+	"deployment-engine/persistence/mongorepo"
 	"deployment-engine/provision/ansible"
 	"deployment-engine/restfrontend"
 	"deployment-engine/utils"
@@ -81,7 +81,7 @@ func main() {
 func getRepository(repoType string) (persistence.DeploymentRepository, error) {
 	switch repoType {
 	case "mongo":
-		return mongo.CreateRepository()
+		return mongorepo.CreateRepositoryNative()
 	}
 	return nil, fmt.Errorf("Unrecognized repository type %s", repoType)
 }

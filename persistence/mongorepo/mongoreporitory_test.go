@@ -24,7 +24,7 @@ func TestRepository(t *testing.T) {
 }
 
 func testDeployment(t *testing.T) {
-	res, err := repo.Save(model.DeploymentInfo{})
+	res, err := repo.SaveDeployment(model.DeploymentInfo{})
 
 	if err != nil {
 		t.Errorf("Error saving deployment: %s", err.Error())
@@ -36,13 +36,13 @@ func testDeployment(t *testing.T) {
 
 	res.Status = "running"
 
-	res, err = repo.Update(res)
+	res, err = repo.UpdateDeployment(res)
 
 	if err != nil {
 		t.Errorf("Error updating deployment: %s", err.Error())
 	}
 
-	resGet, errGet := repo.Get(res.ID)
+	resGet, errGet := repo.GetDeployment(res.ID)
 
 	if errGet != nil {
 		t.Errorf("Error getting deployment: %s", errGet.Error())
@@ -56,12 +56,22 @@ func testDeployment(t *testing.T) {
 		t.Errorf("Unexpected status: %s", resGet.Status)
 	}
 
-	total, err := repo.List()
+	total, err := repo.ListDeployment()
 	if err != nil {
 		t.Errorf("Error listing deployments: %s", err.Error())
 	}
 
 	if len(total) == 0 {
 		t.Errorf("Got empty list of deployments")
+	}
+
+	err = repo.DeleteDeployment(res.ID)
+	if err != nil {
+		t.Errorf("Error deleting deployment %s: %s", res.ID, err.Error())
+	}
+
+	resGet, errGet = repo.GetDeployment(res.ID)
+	if errGet == nil {
+		t.Errorf("Got previously deleted deplyment %s", res.ID)
 	}
 }
