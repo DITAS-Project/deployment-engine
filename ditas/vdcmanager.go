@@ -21,8 +21,8 @@ import (
 	"deployment-engine/infrastructure"
 	"deployment-engine/model"
 	"deployment-engine/persistence/mongo"
-	"deployment-engine/provision/ansible"
 	"deployment-engine/provision"
+	"deployment-engine/provision/ansible"
 	"deployment-engine/utils"
 	"encoding/json"
 	"fmt"
@@ -33,7 +33,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	"gopkg.in/mgo.v2"
+	mgo "gopkg.in/mgo.v2"
 )
 
 const (
@@ -45,13 +45,13 @@ const (
 )
 
 type VDCManager struct {
-	Collection           *mgo.Collection
-	ScriptsFolder        string
-	ConfigFolder         string
-	ConfigVariablesPath  string
-	DeploymentController *infrastructure.Deployer
+	Collection            *mgo.Collection
+	ScriptsFolder         string
+	ConfigFolder          string
+	ConfigVariablesPath   string
+	DeploymentController  *infrastructure.Deployer
 	ProvisionerController *provision.ProvisionerController
-	Provisioner          *ansible.Provisioner
+	Provisioner           *ansible.Provisioner
 }
 
 func NewVDCManager(provisioner *ansible.Provisioner, deployer *infrastructure.Deployer, provisionerController *provision.ProvisionerController) (*VDCManager, error) {
@@ -71,12 +71,12 @@ func NewVDCManager(provisioner *ansible.Provisioner, deployer *infrastructure.De
 		db := client.DB("deployment_engine")
 		if db != nil {
 			return &VDCManager{
-				Collection:           db.C("vdcs"),
-				ScriptsFolder:        viper.GetString(DitasScriptsFolderProperty),
-				ConfigFolder:         viper.GetString(DitasConfigFolderProperty),
-				ConfigVariablesPath:  configFolder + "/vars.yml",
-				Provisioner:          provisioner,
-				DeploymentController: deployer,
+				Collection:            db.C("vdcs"),
+				ScriptsFolder:         viper.GetString(DitasScriptsFolderProperty),
+				ConfigFolder:          viper.GetString(DitasConfigFolderProperty),
+				ConfigVariablesPath:   configFolder + "/vars.yml",
+				Provisioner:           provisioner,
+				DeploymentController:  deployer,
 				ProvisionerController: provisionerController,
 			}, nil
 		}
@@ -115,7 +115,7 @@ func (m *VDCManager) DeployBlueprint(request CreateDeploymentRequest) error {
 		if err != nil {
 			log.WithError(err).Error("Error deploying kubernetes. Trying to clean deployment")
 
-			for _,infra := range deploymentInfo.Infrastructures {
+			for _, infra := range deploymentInfo.Infrastructures {
 				_, err := m.DeploymentController.DeleteInfrastructure(deploymentInfo.ID, infra.ID)
 				if err != nil {
 					log.WithError(err).Errorf("Error deleting insfrastructure %s", infra.ID)
@@ -135,7 +135,7 @@ func (m *VDCManager) DeployBlueprint(request CreateDeploymentRequest) error {
 		deploymentInfo, err = m.DeploymentController.Repository.Get(vdcInfo.DeploymentID)
 		if err != nil {
 			log.WithError(err).Errorf("Error finding deployment %s for blueprint %s", vdcInfo.DeploymentID, vdcInfo.ID)
-			return err;
+			return err
 		}
 	}
 
@@ -152,9 +152,9 @@ func (m *VDCManager) provisionKubernetes(deployment model.DeploymentInfo, vdcInf
 		}
 		vdcInfo.InfraVDCs[infra.ID] = InfraServicesInformation{
 			Initialized: false,
-			LastPort: 30000,
-			VdcNumber:0,
-			VdcPorts: make(map[string]int),
+			LastPort:    30000,
+			VdcNumber:   0,
+			VdcPorts:    make(map[string]int),
 		}
 	}
 	return result, nil
@@ -163,8 +163,8 @@ func (m *VDCManager) provisionKubernetes(deployment model.DeploymentInfo, vdcInf
 func (m *VDCManager) getDeployment(bp *blueprint.BlueprintType, infrastructures []blueprint.InfrastructureType) (*model.Deployment, error) {
 
 	appendix := blueprint.CookbookAppendix{
-		Name: *bp.InternalStructure.Overview.Name,
-		Infrastructure: infrastructures,
+		Name:            *bp.InternalStructure.Overview.Name,
+		Infrastructures: infrastructures,
 	}
 
 	bp.CookbookAppendix = appendix
@@ -206,7 +206,7 @@ func (m *VDCManager) DeployVDC(vdcInfo VDCInformation, blueprint blueprint.Bluep
 		}
 		infraVdcs.Initialized = true
 		vdcInfo.InfraVDCs[infra.ID] = infraVdcs
-		
+
 		err = m.Collection.UpdateId(vdcInfo.ID, vdcInfo)
 		if err != nil {
 			log.WithError(err).Errorf("Error updating infrastructure initialization")

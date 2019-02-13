@@ -3,11 +3,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:d41c83314d2d42c7eea17d2d183232850d3c0b1758f9f0810cdf6425e123ce7f"
+  digest = "1:eaa9e1018be990232bf2273f6844c6770ea229ebed729754d8bf76f66bb4aa01"
   name = "github.com/DITAS-Project/blueprint-go"
   packages = ["."]
   pruneopts = "UT"
-  revision = "3656552cf0493caf3551e06f8d8a5d24a6e45a95"
+  revision = "cd81fa117ac91d72966b51a1129eca9302deccfa"
 
 [[projects]]
   digest = "1:d1665c44bd5db19aaee18d1b6233c99b0b9a986e8bccb24ef54747547a48027f"
@@ -217,7 +217,7 @@
   name = "golang.org/x/crypto"
   packages = ["ssh/terminal"]
   pruneopts = "UT"
-  revision = "b01c7a72566457eb1420261cdafef86638fc3861"
+  revision = "74369b46fc6756741c016591724fd1cb8e26845f"
 
 [[projects]]
   branch = "master"
@@ -228,18 +228,18 @@
     "publicsuffix"
   ]
   pruneopts = "UT"
-  revision = "d26f9f9a57f3fab6a695bec0d84433c2c50f8bbf"
+  revision = "3a22650c66bd7f4fb6d1e8072ffd7b75c8a27898"
 
 [[projects]]
   branch = "master"
-  digest = "1:7941e2f16c0833b438cbef7fccfe4f8346f9f7876b42b29717a75d7e8c4800cb"
+  digest = "1:0d703f14f9bbbe1070ff0ce86d749dcbc9d68fb0ae554252c09bd4bb37a072e7"
   name = "golang.org/x/sys"
   packages = [
     "unix",
     "windows"
   ]
   pruneopts = "UT"
-  revision = "aca44879d5644da7c5b8ec6a1115e9b6ea6c40d9"
+  revision = "983097b1a8a340cd1cc7df17d735154d89e10b1a"
 
 [[projects]]
   digest = "1:0c56024909189aee3364b7f21a95a27459f718aa7c199a5c111c36cfffd9eaef"

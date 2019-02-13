@@ -44,6 +44,9 @@ type ResourceType struct {
 	// Suffix for the hostname. The real hostname will be formed of the infrastructure name + resource name
 	Name string `json:"name"`
 
+	// Assigned hostname after deployment. It's only resolvable from nodes inside the same infrastructure.
+	Hostname string `json:"hostname"`
+
 	// Type of the VM to create
 	// example: n1-small
 	Type string `json:"type"`
@@ -119,6 +122,9 @@ type InfrastructureType struct {
 	// List of resources to deploy
 	// required: true
 	Resources []ResourceType `json:"resources"`
+
+	// List of tags to apply to this infrastructure
+	Tags []string `json:"tags"`
 }
 
 // CookbookAppendix is the definition of the Cookbook Appendix section in the blueprint
@@ -135,7 +141,7 @@ type CookbookAppendix struct {
 
 	// A list of infrastructures that should be initialized to deploy VDCs of this blueprint
 	// required: true
-	Infrastructure []InfrastructureType `json:"infrastructure"`
+	Infrastructures []InfrastructureType `json:"infrastructures"`
 }
 
 // LeafType is a leaf in a tree data structure
@@ -341,9 +347,23 @@ type DataSourceType struct {
 	Parameters map[string]interface{} `json:"parameters"`
 }
 
+// ImageInfo is the information about an image that will be deployed by the deployment engine
+// swagger:model
+type ImageInfo struct {
+	// Port in which the docker image is listening internally. Two images inside the same ImageSet can't have the same internal port.
+	InternalPort int `json:"internal_port"`
+
+	// Port in which this image must be exposed. It must be unique across all images in all the ImageSets defined in this blueprint. Due to limitations in k8s, the port range must be bewteen 30000 and 32767
+	ExternalPort int `json:"external_port"`
+
+	// Image is the image name in the standard format [group]/<image_name>:[release]
+	// required: true
+	Image string `json:"image"`
+}
+
 // ImageSet represents a set of docker images whose key is an identifier and value is a docker image name in the standard format [group]/<image_name>:[release]
 // swagger:model
-type ImageSet map[string]string
+type ImageSet map[string]ImageInfo
 
 // InternalStructureType is the serialization of a DITAS concrete blueprint
 // swagger:model
@@ -353,8 +373,8 @@ type InternalStructureType struct {
 	// required: true
 	Overview OverviewType `json:"Overview"`
 
-	// Docker images that must be deployed in the DAL
-	DALImages ImageSet `json:"DAL_Images"`
+	// Docker images that must be deployed in the DAL indexed by DAL name. It will be used to compose the service name and the DNS entry that other images in the cluster can access to.
+	DALImages map[string]ImageSet `json:"DAL_Images"`
 
 	// Docker images that must be deployed in the VDC
 	VDCImages ImageSet `json:"VDC_Images"`

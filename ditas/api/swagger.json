@@ -193,7 +193,7 @@
       "type": "object",
       "required": [
         "name",
-        "infrastructure"
+        "infrastructures"
       ],
       "properties": {
         "description": {
@@ -201,13 +201,13 @@
           "type": "string",
           "x-go-name": "Description"
         },
-        "infrastructure": {
+        "infrastructures": {
           "description": "A list of infrastructures that should be initialized to deploy VDCs of this blueprint",
           "type": "array",
           "items": {
             "$ref": "#/definitions/InfrastructureType"
           },
-          "x-go-name": "Infrastructure"
+          "x-go-name": "Infrastructures"
         },
         "name": {
           "description": "Unique name of the deployment",
@@ -502,11 +502,38 @@
       },
       "x-go-package": "deployment-engine/vendor/github.com/go-openapi/spec"
     },
+    "ImageInfo": {
+      "description": "ImageInfo is the information about an image that will be deployed by the deployment engine",
+      "type": "object",
+      "required": [
+        "image"
+      ],
+      "properties": {
+        "external_port": {
+          "description": "Port in which this image must be exposed. It must be unique across all images in all the ImageSets defined in this blueprint. Due to limitations in k8s, the port range must be bewteen 30000 and 32767",
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "ExternalPort"
+        },
+        "image": {
+          "description": "Image is the image name in the standard format [group]/\u003cimage_name\u003e:[release]",
+          "type": "string",
+          "x-go-name": "Image"
+        },
+        "internal_port": {
+          "description": "Port in which the docker image is listening internally. Two images inside the same ImageSet can't have the same internal port.",
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "InternalPort"
+        }
+      },
+      "x-go-package": "deployment-engine/vendor/github.com/DITAS-Project/blueprint-go"
+    },
     "ImageSet": {
       "description": "ImageSet represents a set of docker images whose key is an identifier and value is a docker image name in the standard format [group]/\u003cimage_name\u003e:[release]",
       "type": "object",
       "additionalProperties": {
-        "type": "string"
+        "$ref": "#/definitions/ImageInfo"
       },
       "x-go-package": "deployment-engine/vendor/github.com/DITAS-Project/blueprint-go"
     },
@@ -605,6 +632,14 @@
           },
           "x-go-name": "Resources"
         },
+        "tags": {
+          "description": "List of tags to apply to this infrastructure",
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "x-go-name": "Tags"
+        },
         "type": {
           "description": "Type of the infrastructure",
           "type": "string",
@@ -624,7 +659,12 @@
       ],
       "properties": {
         "DAL_Images": {
-          "$ref": "#/definitions/ImageSet"
+          "description": "Docker images that must be deployed in the DAL indexed by DAL name. It will be used to compose the service name and the DNS entry that other images in the cluster can access to.",
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/ImageSet"
+          },
+          "x-go-name": "DALImages"
         },
         "Data_Sources": {
           "description": "The datasources description",
@@ -1052,6 +1092,11 @@
             "$ref": "#/definitions/Drive"
           },
           "x-go-name": "Drives"
+        },
+        "hostname": {
+          "description": "Assigned hostname after deployment. It's only resolvable from nodes inside the same infrastructure.",
+          "type": "string",
+          "x-go-name": "Hostname"
         },
         "image_id": {
           "description": "Boot image ID to use",
