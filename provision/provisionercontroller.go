@@ -31,7 +31,7 @@ type ProvisionerController struct {
 }
 
 func (p *ProvisionerController) Provision(deploymentID, infraID, product string) (model.DeploymentInfo, error) {
-	deployment, err := p.Repository.Get(deploymentID)
+	deployment, err := p.Repository.GetDeployment(deploymentID)
 	if err != nil {
 		log.WithError(err).Errorf("Error getting deployment %s", deploymentID)
 		return deployment, err
@@ -56,7 +56,7 @@ func (p *ProvisionerController) Provision(deploymentID, infraID, product string)
 	}
 
 	deployment.Infrastructures[i].Products = append(deployment.Infrastructures[i].Products, product)
-	deployment, err = p.Repository.Update(deployment)
+	deployment, err = p.Repository.UpdateDeployment(deployment)
 	if err != nil {
 		log.WithError(err).Errorf("Error updating deployment information")
 		return deployment, err

@@ -86,6 +86,13 @@ type DeploymentInfo struct {
 	Status          string                         `json:"status"`          //Global status of the deployment
 }
 
+// Product is a series of scripts that allow to install software in a deployment
+type Product struct {
+	ID     string `json:"id" bson:"_id"` // Unique ID for the product
+	Name   string `json:name`            // Unique name of the product
+	Folder string `json:folder`          // Folder containing the scripts to deploy the product
+}
+
 type Deployer interface {
 	DeployInfrastructure(infra InfrastructureType) (InfrastructureDeploymentInfo, error)
 	DeleteInfrastructure(infra InfrastructureDeploymentInfo) map[string]error

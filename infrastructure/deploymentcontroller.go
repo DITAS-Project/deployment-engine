@@ -53,7 +53,7 @@ func (c *Deployer) CreateDeployment(deployment model.Deployment) (model.Deployme
 		Infrastructures: make([]model.InfrastructureDeploymentInfo, 0),
 	}
 
-	result, err := c.Repository.Save(result)
+	result, err := c.Repository.SaveDeployment(result)
 
 	if err != nil {
 		log.WithError(err).Error("Error inserting deployment in the database")
@@ -81,7 +81,7 @@ func (c *Deployer) CreateDeployment(deployment model.Deployment) (model.Deployme
 		if infraDeployment.ID != "" {
 			infraDeployment.Provider = infra.Provider
 			result.Infrastructures = append(result.Infrastructures, infraDeployment)
-			result, infraErr = c.Repository.Update(result)
+			result, infraErr = c.Repository.UpdateDeployment(result)
 			if infraErr != nil {
 				logger.WithError(infraErr).Error("Error updating deployment status")
 			}
@@ -93,7 +93,7 @@ func (c *Deployer) CreateDeployment(deployment model.Deployment) (model.Deployme
 
 //DeleteInfrastructure will delete an infrastructure from a deployment. It will delete the deployment itself when there aren't infrastructures left.
 func (c *Deployer) DeleteInfrastructure(deploymentID, infraID string) (model.DeploymentInfo, error) {
-	deployment, err := c.Repository.Get(deploymentID)
+	deployment, err := c.Repository.GetDeployment(deploymentID)
 	if err != nil {
 		log.WithError(err).Errorf("Deployment ID %s not found", deploymentID)
 		return model.DeploymentInfo{}, err
@@ -121,7 +121,7 @@ func (c *Deployer) DeleteInfrastructure(deploymentID, infraID string) (model.Dep
 
 	deployment.Infrastructures = c.remove(deployment.Infrastructures, index)
 	if len(deployment.Infrastructures) == 0 {
-		err = c.Repository.Delete(deployment.ID)
+		err = c.Repository.DeleteDeployment(deployment.ID)
 		if err != nil {
 			log.WithError(err).Errorf("Error deleting deployment ID %s", deployment.ID)
 			return deployment, err
@@ -129,7 +129,7 @@ func (c *Deployer) DeleteInfrastructure(deploymentID, infraID string) (model.Dep
 		return model.DeploymentInfo{}, nil
 	}
 
-	deployment, err = c.Repository.Update(deployment)
+	deployment, err = c.Repository.UpdateDeployment(deployment)
 	if err != nil {
 		log.WithError(err).Errorf("Error updating deployment ID %s", deployment.ID)
 		return deployment, err
