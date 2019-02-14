@@ -55,8 +55,8 @@ type ProductRepository interface {
 	ListProducts() ([]model.Product, error)
 
 	//Update a product replacing its old contents
-	UpdateProducts(deployment model.Product) (model.Product, error)
+	UpdateProduct(product model.Product) (model.Product, error)
 
 	//Delete a product given its ID
-	DeleteProducts(productID string) error
+	DeleteProduct(productID string) error
 }
