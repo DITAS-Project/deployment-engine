@@ -94,7 +94,7 @@ func getProvisioner(provisionerType string) (model.Provisioner, error) {
 	return nil, fmt.Errorf("Unrecognized provisioner type %s", provisionerType)
 }
 
-func getFrontend(frontendType string, repo persistence.DeploymentRepository, provisioner model.Provisioner) (model.Frontent, error) {
+func getFrontend(frontendType string, repo persistence.DeploymentRepository, provisioner model.Provisioner) (model.Frontend, error) {
 	switch frontendType {
 	case "default":
 		return restfrontend.New(repo, provisioner), nil

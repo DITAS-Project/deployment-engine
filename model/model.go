@@ -89,8 +89,8 @@ type DeploymentInfo struct {
 // Product is a series of scripts that allow to install software in a deployment
 type Product struct {
 	ID     string `json:"id" bson:"_id"` // Unique ID for the product
-	Name   string `json:name`            // Unique name of the product
-	Folder string `json:folder`          // Folder containing the scripts to deploy the product
+	Name   string `json:"name"`          // Unique name of the product
+	Folder string `json:"folder"`        // Folder containing the scripts to deploy the product
 }
 
 type Deployer interface {
@@ -103,6 +103,15 @@ type Provisioner interface {
 	Provision(deployment string, infra InfrastructureDeploymentInfo, product string) error
 }
 
-type Frontent interface {
+// Frontend is the interface that must be implemented for any frontend that will serve an API around the functionality of the deployment engine
+type Frontend interface {
 	Run(addr string) error
+}
+
+// Vault will be implemented by components that store authentication information. They can do so locally or they can be remote vaults like Hashicorp Vault.
+type Vault interface {
+	AddSecret(secret map[string]string) (string, error)
+	UpdateSecret(secretID string, secret map[string]string) error
+	GetSecret(secretID string) (map[string]string, error)
+	DeleteSecret(secretID string) error
 }

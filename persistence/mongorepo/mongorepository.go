@@ -18,6 +18,9 @@ package mongorepo
 
 import (
 	"context"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/sha256"
 	"deployment-engine/model"
 	"fmt"
 
@@ -32,28 +35,53 @@ const (
 	MongoDBURLName    = "mongodb.url"
 	MongoDBURLDefault = "mongodb://localhost:27017"
 
+	VaultPassphraseName = "vault.passphrase"
+
 	deploymentCollection = "deployments"
 	productCollection    = "products"
 )
 
 type MongoRepositoryNative struct {
 	database *mongo.Database
+	cipher   cipher.AEAD
+}
+
+func initializeCipher(passphrase string) (cipher.AEAD, error) {
+	h := sha256.New()
+	h.Write([]byte(passphrase))
+
+	hash := h.Sum(nil)
+
+	block, _ := aes.NewCipher(hash)
+
+	return cipher.NewGCM(block)
 }
 
 func CreateRepositoryNative() (*MongoRepositoryNative, error) {
 	viper.SetDefault(MongoDBURLName, MongoDBURLDefault)
 	mongoConnectionURL := viper.GetString(MongoDBURLName)
 	client, err := mongo.Connect(context.Background(), mongoConnectionURL, nil)
-	if err == nil {
-		db := client.Database("deployment_engine")
-		return &MongoRepositoryNative{
-			database: db,
-		}, nil
+	if err != nil {
+		log.WithError(err).Errorf("Error connecting to MongoDB server %s", mongoConnectionURL)
+		return nil, err
 	}
 
-	log.WithError(err).Errorf("Error connecting to MongoDB server %s", mongoConnectionURL)
+	db := client.Database("deployment_engine")
+	repo := MongoRepositoryNative{
+		database: db,
+	}
 
-	return nil, err
+	vaultPassphrase := viper.GetString(VaultPassphraseName)
+	if vaultPassphrase != "" {
+		cipher, err := initializeCipher(vaultPassphrase)
+		if err != nil {
+			log.WithError(err).Error("Passphrase defined for vault but an error was found initializing the cipher")
+			return nil, err
+		}
+		repo.cipher = cipher
+	}
+
+	return &repo, err
 }
 
 func (m *MongoRepositoryNative) insert(collection string, object interface{}) error {
