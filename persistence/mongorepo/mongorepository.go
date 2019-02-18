@@ -112,7 +112,9 @@ func (m *MongoRepositoryNative) delete(collection, ID string) error {
 
 //SaveDeployment a new deployment information and return the updated deployment from the underlying database
 func (m *MongoRepositoryNative) SaveDeployment(deployment model.DeploymentInfo) (model.DeploymentInfo, error) {
-	deployment.ID = uuid.New().String()
+	if deployment.ID == "" {
+		deployment.ID = uuid.New().String()
+	}
 	err := m.insert(deploymentCollection, deployment)
 	return deployment, err
 }

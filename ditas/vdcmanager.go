@@ -18,9 +18,10 @@
 package ditas
 
 import (
+	"context"
 	"deployment-engine/infrastructure"
 	"deployment-engine/model"
-	"deployment-engine/persistence/mongo"
+	"deployment-engine/persistence/mongorepo"
 	"deployment-engine/provision"
 	"deployment-engine/provision/ansible"
 	"deployment-engine/utils"
@@ -30,10 +31,11 @@ import (
 	"strconv"
 
 	blueprint "github.com/DITAS-Project/blueprint-go"
+	"github.com/mongodb/mongo-go-driver/mongo"
+	"gopkg.in/mgo.v2/bson"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	mgo "gopkg.in/mgo.v2"
 )
 
 const (
@@ -45,7 +47,7 @@ const (
 )
 
 type VDCManager struct {
-	Collection            *mgo.Collection
+	Collection            *mongo.Collection
 	ScriptsFolder         string
 	ConfigFolder          string
 	ConfigVariablesPath   string
@@ -55,7 +57,7 @@ type VDCManager struct {
 }
 
 func NewVDCManager(provisioner *ansible.Provisioner, deployer *infrastructure.Deployer, provisionerController *provision.ProvisionerController) (*VDCManager, error) {
-	viper.SetDefault(mongo.MongoDBURLName, mongo.MongoDBURLDefault)
+	viper.SetDefault(mongorepo.MongoDBURLName, mongorepo.MongoDBURLDefault)
 	viper.SetDefault(DitasScriptsFolderProperty, DitasScriptsFolderDefaultValue)
 	viper.SetDefault(DitasConfigFolderProperty, DitasConfigFolderDefaultValue)
 
@@ -65,13 +67,13 @@ func NewVDCManager(provisioner *ansible.Provisioner, deployer *infrastructure.De
 		return nil, err
 	}
 
-	mongoConnectionURL := viper.GetString(mongo.MongoDBURLName)
-	client, err := mgo.Dial(mongoConnectionURL)
+	mongoConnectionURL := viper.GetString(mongorepo.MongoDBURLName)
+	client, err := mongo.Connect(context.Background(), mongoConnectionURL)
 	if err == nil {
-		db := client.DB("deployment_engine")
+		db := client.Database("deployment_engine")
 		if db != nil {
 			return &VDCManager{
-				Collection:            db.C("vdcs"),
+				Collection:            db.Collection("vdcs"),
 				ScriptsFolder:         viper.GetString(DitasScriptsFolderProperty),
 				ConfigFolder:          viper.GetString(DitasConfigFolderProperty),
 				ConfigVariablesPath:   configFolder + "/vars.yml",
@@ -91,7 +93,7 @@ func (m *VDCManager) DeployBlueprint(request CreateDeploymentRequest) error {
 	blueprintName := *bp.InternalStructure.Overview.Name
 	var vdcInfo VDCInformation
 	var deploymentInfo model.DeploymentInfo
-	err := m.Collection.FindId(blueprintName).One(&vdcInfo)
+	err := m.Collection.FindOne(context.Background(), bson.M{"_id": blueprintName}).Decode(&vdcInfo)
 	if err != nil {
 
 		vdcInfo = VDCInformation{
@@ -124,7 +126,7 @@ func (m *VDCManager) DeployBlueprint(request CreateDeploymentRequest) error {
 			return err
 		}
 
-		err = m.Collection.Insert(vdcInfo)
+		_, err = m.Collection.InsertOne(context.Background(), vdcInfo)
 		if err != nil {
 			log.WithError(err).Error("Error saving blueprint VDC information")
 			return err
@@ -132,7 +134,7 @@ func (m *VDCManager) DeployBlueprint(request CreateDeploymentRequest) error {
 	}
 
 	if deploymentInfo.ID == "" {
-		deploymentInfo, err = m.DeploymentController.Repository.Get(vdcInfo.DeploymentID)
+		deploymentInfo, err = m.DeploymentController.Repository.GetDeployment(vdcInfo.DeploymentID)
 		if err != nil {
 			log.WithError(err).Errorf("Error finding deployment %s for blueprint %s", vdcInfo.DeploymentID, vdcInfo.ID)
 			return err
@@ -207,7 +209,7 @@ func (m *VDCManager) DeployVDC(vdcInfo VDCInformation, blueprint blueprint.Bluep
 		infraVdcs.Initialized = true
 		vdcInfo.InfraVDCs[infra.ID] = infraVdcs
 
-		err = m.Collection.UpdateId(vdcInfo.ID, vdcInfo)
+		err = m.Collection.FindOneAndReplace(context.Background(), bson.M{"_id": vdcInfo.ID}, vdcInfo).Decode(&vdcInfo)
 		if err != nil {
 			log.WithError(err).Errorf("Error updating infrastructure initialization")
 			return err
@@ -227,7 +229,7 @@ func (m *VDCManager) DeployVDC(vdcInfo VDCInformation, blueprint blueprint.Bluep
 	infraVdcs.LastPort++
 	vdcInfo.InfraVDCs[infra.ID] = infraVdcs
 
-	err = m.Collection.UpdateId(vdcInfo.ID, vdcInfo)
+	err = m.Collection.FindOneAndReplace(context.Background(), bson.M{"_id": vdcInfo.ID}, vdcInfo).Decode(&vdcInfo)
 	if err != nil {
 		log.WithError(err).Errorf("Error saving updated VDC information of deployment %s", vdcInfo.DeploymentID)
 		return err

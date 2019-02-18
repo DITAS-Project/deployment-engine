@@ -1,0 +1,10 @@
+---
+  - hosts: [master]
+    tasks:
+      - name: Copy deployment files
+        copy:
+          src: storageos
+          dest: /home/{{ ansible_user }}
+      - name: Deploy StorageOS control panel
+        shell: ./storageos/deploy-operator.yml
+        

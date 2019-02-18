@@ -19,7 +19,7 @@ package ditas
 
 import (
 	"deployment-engine/infrastructure"
-	"deployment-engine/persistence/mongo"
+	"deployment-engine/persistence/mongorepo"
 	"deployment-engine/provision"
 	"deployment-engine/provision/ansible"
 	"deployment-engine/restfrontend"
@@ -41,7 +41,7 @@ type DitasFrontend struct {
 }
 
 func NewDitasFrontend() (*DitasFrontend, error) {
-	repository, err := mongo.CreateRepository()
+	repository, err := mongorepo.CreateRepositoryNative()
 	if err != nil {
 		return nil, err
 	}
