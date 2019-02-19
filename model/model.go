@@ -38,7 +38,7 @@ type ResourceType struct {
 type CloudProviderInfo struct {
 	APIEndpoint string `json:"api_endpoint"` //Endpoint to use for this infrastructure
 	APIType     string `json:"api_type"`     //Type of the infrastructure. i.e AWS, Cloudsigma, GCP or Edge
-	KeypairID   string `json:"keypair_id"`   //Keypair to use to log in to the infrastructure manager
+	SecretID    string `json:"secret_id"`    //Secret identifier to use to log in to the infrastructure manager
 }
 
 type InfrastructureType struct {
@@ -106,12 +106,4 @@ type Provisioner interface {
 // Frontend is the interface that must be implemented for any frontend that will serve an API around the functionality of the deployment engine
 type Frontend interface {
 	Run(addr string) error
-}
-
-// Vault will be implemented by components that store authentication information. They can do so locally or they can be remote vaults like Hashicorp Vault.
-type Vault interface {
-	AddSecret(secret map[string]string) (string, error)
-	UpdateSecret(secretID string, secret map[string]string) error
-	GetSecret(secretID string) (map[string]string, error)
-	DeleteSecret(secretID string) error
 }

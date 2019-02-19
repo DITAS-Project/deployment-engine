@@ -41,7 +41,7 @@ const (
 	productCollection    = "products"
 )
 
-type MongoRepositoryNative struct {
+type MongoRepository struct {
 	database *mongo.Database
 	cipher   cipher.AEAD
 }
@@ -57,7 +57,7 @@ func initializeCipher(passphrase string) (cipher.AEAD, error) {
 	return cipher.NewGCM(block)
 }
 
-func CreateRepositoryNative() (*MongoRepositoryNative, error) {
+func CreateRepositoryNative() (*MongoRepository, error) {
 	viper.SetDefault(MongoDBURLName, MongoDBURLDefault)
 	mongoConnectionURL := viper.GetString(MongoDBURLName)
 	client, err := mongo.Connect(context.Background(), mongoConnectionURL, nil)
@@ -67,7 +67,7 @@ func CreateRepositoryNative() (*MongoRepositoryNative, error) {
 	}
 
 	db := client.Database("deployment_engine")
-	repo := MongoRepositoryNative{
+	repo := MongoRepository{
 		database: db,
 	}
 
@@ -84,25 +84,25 @@ func CreateRepositoryNative() (*MongoRepositoryNative, error) {
 	return &repo, err
 }
 
-func (m *MongoRepositoryNative) insert(collection string, object interface{}) error {
+func (m *MongoRepository) insert(collection string, object interface{}) error {
 	_, err := m.database.Collection(collection).InsertOne(context.Background(), object)
 	return err
 }
 
-func (m *MongoRepositoryNative) replace(collection string, id string, object interface{}, result interface{}) error {
+func (m *MongoRepository) replace(collection string, id string, object interface{}, result interface{}) error {
 	return m.database.Collection(collection).FindOneAndReplace(context.Background(), bson.M{"_id": id}, object).Decode(result)
 }
 
-func (m *MongoRepositoryNative) update(collection string, id string, update bson.M, updated interface{}) error {
+func (m *MongoRepository) update(collection string, id string, update bson.M, updated interface{}) error {
 	result := m.database.Collection(collection).FindOneAndUpdate(context.Background(), bson.M{"_id": id}, update)
 	return result.Decode(updated)
 }
 
-func (m *MongoRepositoryNative) get(collection string, id string, result interface{}) error {
+func (m *MongoRepository) get(collection string, id string, result interface{}) error {
 	return m.database.Collection(collection).FindOne(context.Background(), bson.M{"_id": id}).Decode(result)
 }
 
-func (m *MongoRepositoryNative) list(collection string, appender func(interface{}), current interface{}) error {
+func (m *MongoRepository) list(collection string, appender func(interface{}), current interface{}) error {
 	cursor, err := m.database.Collection(collection).Find(context.Background(), bson.M{})
 
 	defer cursor.Close(context.Background())
@@ -125,7 +125,7 @@ func (m *MongoRepositoryNative) list(collection string, appender func(interface{
 	return nil
 }
 
-func (m *MongoRepositoryNative) delete(collection, ID string) error {
+func (m *MongoRepository) delete(collection, ID string) error {
 	result, err := m.database.Collection(collection).DeleteOne(context.Background(), bson.M{"_id": ID})
 	if err != nil {
 		return err
@@ -139,14 +139,14 @@ func (m *MongoRepositoryNative) delete(collection, ID string) error {
 }
 
 //SaveDeployment a new deployment information and return the updated deployment from the underlying database
-func (m *MongoRepositoryNative) SaveDeployment(deployment model.DeploymentInfo) (model.DeploymentInfo, error) {
+func (m *MongoRepository) SaveDeployment(deployment model.DeploymentInfo) (model.DeploymentInfo, error) {
 	deployment.ID = uuid.New().String()
 	err := m.insert(deploymentCollection, deployment)
 	return deployment, err
 }
 
 //UpdateDeployment a deployment replacing its old contents
-func (m *MongoRepositoryNative) UpdateDeployment(deployment model.DeploymentInfo) (model.DeploymentInfo, error) {
+func (m *MongoRepository) UpdateDeployment(deployment model.DeploymentInfo) (model.DeploymentInfo, error) {
 	var dep model.DeploymentInfo
 	dep.ID = deployment.ID
 	err := m.replace(deploymentCollection, deployment.ID, deployment, &dep)
@@ -154,14 +154,14 @@ func (m *MongoRepositoryNative) UpdateDeployment(deployment model.DeploymentInfo
 }
 
 //GetDeployment the deployment information given its ID
-func (m *MongoRepositoryNative) GetDeployment(deploymentID string) (model.DeploymentInfo, error) {
+func (m *MongoRepository) GetDeployment(deploymentID string) (model.DeploymentInfo, error) {
 	var deployment model.DeploymentInfo
 	err := m.get(deploymentCollection, deploymentID, &deployment)
 	return deployment, err
 }
 
 //ListDeployment all available deployments
-func (m *MongoRepositoryNative) ListDeployment() ([]model.DeploymentInfo, error) {
+func (m *MongoRepository) ListDeployment() ([]model.DeploymentInfo, error) {
 	result := make([]model.DeploymentInfo, 0)
 	var current model.DeploymentInfo
 
@@ -173,12 +173,12 @@ func (m *MongoRepositoryNative) ListDeployment() ([]model.DeploymentInfo, error)
 }
 
 //DeleteDeployment a deployment given its ID
-func (m *MongoRepositoryNative) DeleteDeployment(deploymentID string) error {
+func (m *MongoRepository) DeleteDeployment(deploymentID string) error {
 	return m.delete(deploymentCollection, deploymentID)
 }
 
 // UpdateDeploymentStatus updates the status of a deployment
-func (m *MongoRepositoryNative) UpdateDeploymentStatus(deploymentID, status string) error {
+func (m *MongoRepository) UpdateDeploymentStatus(deploymentID, status string) error {
 	var updated model.DeploymentInfo
 	return m.update(deploymentCollection, deploymentID, bson.M{
 		"$set": bson.M{
@@ -188,7 +188,7 @@ func (m *MongoRepositoryNative) UpdateDeploymentStatus(deploymentID, status stri
 }
 
 // UpdateInfrastructureStatus updates the status of a infrastructure in a deployment
-func (m *MongoRepositoryNative) UpdateInfrastructureStatus(deploymentID, infrastructureID, status string) error {
+func (m *MongoRepository) UpdateInfrastructureStatus(deploymentID, infrastructureID, status string) error {
 	var updated model.DeploymentInfo
 	return m.database.Collection(deploymentCollection).FindOneAndUpdate(
 		context.Background(),
@@ -204,20 +204,20 @@ func (m *MongoRepositoryNative) UpdateInfrastructureStatus(deploymentID, infrast
 }
 
 //SaveProduct a new product information and return the created product from the underlying database
-func (m *MongoRepositoryNative) SaveProduct(product model.Product) (model.Product, error) {
+func (m *MongoRepository) SaveProduct(product model.Product) (model.Product, error) {
 	product.ID = uuid.New().String()
 	return product, m.insert(productCollection, product)
 }
 
 //GetProduct the product information given its ID
-func (m *MongoRepositoryNative) GetProduct(productID string) (model.Product, error) {
+func (m *MongoRepository) GetProduct(productID string) (model.Product, error) {
 	var result model.Product
 	err := m.get(productCollection, productID, &result)
 	return result, err
 }
 
 //ListProducts all available products
-func (m *MongoRepositoryNative) ListProducts() ([]model.Product, error) {
+func (m *MongoRepository) ListProducts() ([]model.Product, error) {
 	products := make([]model.Product, 0)
 	var product model.Product
 	err := m.list(productCollection, func(prod interface{}) {
@@ -227,13 +227,13 @@ func (m *MongoRepositoryNative) ListProducts() ([]model.Product, error) {
 }
 
 //UpdateProduct a product replacing its old contents
-func (m *MongoRepositoryNative) UpdateProduct(product model.Product) (model.Product, error) {
+func (m *MongoRepository) UpdateProduct(product model.Product) (model.Product, error) {
 	var result model.Product
 	err := m.replace(productCollection, product.ID, product, &result)
 	return result, err
 }
 
 //DeleteProduct a product given its ID
-func (m *MongoRepositoryNative) DeleteProduct(productID string) error {
+func (m *MongoRepository) DeleteProduct(productID string) error {
 	return m.delete(productCollection, productID)
 }

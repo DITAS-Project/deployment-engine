@@ -18,6 +18,7 @@ package main
 import (
 	"deployment-engine/model"
 	"deployment-engine/persistence"
+	"deployment-engine/persistence/memoryrepo"
 	"deployment-engine/persistence/mongorepo"
 	"deployment-engine/provision/ansible"
 	"deployment-engine/restfrontend"
@@ -31,11 +32,13 @@ import (
 
 const (
 	RepositoryProperty   = "repository.type"
+	VaultProperty        = "vault.type"
 	ProvisionerProperty  = "provisioner.type"
 	FrontendProperty     = "frontent.type"
 	FrontendPortProperty = "frontend.port"
 
 	RepositoryDefault   = "mongo"
+	VaultDefault        = "mongo"
 	ProvisionerDefault  = "ansible"
 	FrontendDefault     = "default"
 	FrontendPortDefault = "8080"
@@ -63,13 +66,18 @@ func main() {
 		return
 	}
 
+	vault, err := getVault(viper.GetString(VaultProperty), viper.GetString(RepositoryProperty), repository)
+	if err != nil {
+		log.WithError(err).Error("Error getting vault")
+	}
+
 	provisioner, err := getProvisioner(viper.GetString(ProvisionerProperty))
 	if err != nil {
 		log.WithError(err).Error("Error getting provisioner")
 		return
 	}
 
-	frontend, err := getFrontend(viper.GetString(FrontendProperty), repository, provisioner)
+	frontend, err := getFrontend(viper.GetString(FrontendProperty), repository, vault, provisioner)
 	if err != nil {
 		log.WithError(err).Error("Error getting frontend")
 		return
@@ -86,6 +94,22 @@ func getRepository(repoType string) (persistence.DeploymentRepository, error) {
 	return nil, fmt.Errorf("Unrecognized repository type %s", repoType)
 }
 
+func getVault(vaultType, repoType string, repo persistence.DeploymentRepository) (persistence.Vault, error) {
+	switch vaultType {
+	case "mongo":
+		if repoType == "mongo" {
+			return repo.(*mongorepo.MongoRepository), nil
+		}
+		return mongorepo.CreateRepositoryNative()
+	case "memory":
+		if repoType == "memory" {
+			return repo.(*memoryrepo.MemoryRepository), nil
+		}
+		return memoryrepo.CreateMemoryRepository(), nil
+	}
+	return nil, fmt.Errorf("Unrecognized vault type %s", repoType)
+}
+
 func getProvisioner(provisionerType string) (model.Provisioner, error) {
 	switch provisionerType {
 	case "ansible":
@@ -94,10 +118,10 @@ func getProvisioner(provisionerType string) (model.Provisioner, error) {
 	return nil, fmt.Errorf("Unrecognized provisioner type %s", provisionerType)
 }
 
-func getFrontend(frontendType string, repo persistence.DeploymentRepository, provisioner model.Provisioner) (model.Frontend, error) {
+func getFrontend(frontendType string, repo persistence.DeploymentRepository, vault persistence.Vault, provisioner model.Provisioner) (model.Frontend, error) {
 	switch frontendType {
 	case "default":
-		return restfrontend.New(repo, provisioner), nil
+		return restfrontend.New(repo, vault, provisioner), nil
 	}
 	return nil, fmt.Errorf("Unrecognized frontend type %s", frontendType)
 }

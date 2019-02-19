@@ -18,6 +18,7 @@ package cloudsigma
 
 import (
 	"deployment-engine/model"
+	"deployment-engine/persistence"
 	"deployment-engine/utils"
 	"errors"
 	"fmt"
@@ -55,23 +56,21 @@ type HostDisks struct {
 	Data  []ResourceType
 }
 
-func NewDeployer() (*CloudsigmaDeployer, error) {
+func NewDeployer(apiURL string, credentials persistence.BasicAuthSecret) (*CloudsigmaDeployer, error) {
 	home, err := homedir.Dir()
 	if err != nil {
 		log.Infof("Error getting home folder: %s\n", err.Error())
 		return nil, err
 	}
 	viper.SetDefault("debug_cs_client", false)
-	viper.SetConfigType("properties")
-	viper.SetConfigFile(home + "/.cloudsigma.conf")
 	err = viper.ReadInConfig()
 	if err == nil {
 
 		pubKeyRaw, err := ioutil.ReadFile(home + "/.ssh/id_rsa.pub")
 		if err == nil {
 			pubKey := string(pubKeyRaw)
-			client := NewClient(viper.GetString("api_endpoint"),
-				viper.GetString("username"), viper.GetString("password"), viper.GetBool("debug_cs_client"))
+			client := NewClient(apiURL,
+				credentials.Username, credentials.Password, viper.GetBool("debug_cs_client"))
 			return &CloudsigmaDeployer{
 				client:    client,
 				publicKey: pubKey,

@@ -34,11 +34,12 @@ type App struct {
 	ProvisionerController *provision.ProvisionerController
 }
 
-func New(repository persistence.DeploymentRepository, provisioner model.Provisioner) *App {
+func New(repository persistence.DeploymentRepository, vault persistence.Vault, provisioner model.Provisioner) *App {
 	result := App{
 		Router: mux.NewRouter(),
 		DeploymentController: &infrastructure.Deployer{
 			Repository: repository,
+			Vault:      vault,
 		},
 		ProvisionerController: &provision.ProvisionerController{
 			Repository:  repository,

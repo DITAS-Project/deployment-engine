@@ -33,11 +33,24 @@ import (
 //Deployer is the main hybrid infrastructure deployer object
 type Deployer struct {
 	Repository persistence.DeploymentRepository
+	Vault      persistence.Vault
 }
 
 func (c *Deployer) findProvider(provider model.CloudProviderInfo) (model.Deployer, error) {
+
+	if provider.SecretID == "" {
+		return nil, fmt.Errorf("Secret identifier is empty for Cloud Provider %v", provider)
+	}
+
 	if strings.ToLower(provider.APIType) == "cloudsigma" {
-		dep, err := cloudsigma.NewDeployer()
+
+		var credentials persistence.BasicAuthSecret
+		err := c.Vault.GetSecret(provider.SecretID, &credentials)
+		if err != nil {
+			return nil, err
+		}
+
+		dep, err := cloudsigma.NewDeployer(provider.APIEndpoint, credentials)
 		return *dep, err
 	}
 
