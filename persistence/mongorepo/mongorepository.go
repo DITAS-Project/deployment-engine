@@ -35,7 +35,7 @@ const (
 	MongoDBURLName    = "mongodb.url"
 	MongoDBURLDefault = "mongodb://localhost:27017"
 
-	VaultPassphraseName = "vault.passphrase"
+	VaultPassphraseName = "mongodb.vault.passphrase"
 
 	deploymentCollection = "deployments"
 	productCollection    = "products"

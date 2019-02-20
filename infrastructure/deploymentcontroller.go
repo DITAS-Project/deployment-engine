@@ -22,6 +22,7 @@ import (
 	"deployment-engine/model"
 	"deployment-engine/persistence"
 	"deployment-engine/utils"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -29,6 +30,11 @@ import (
 
 	log "github.com/sirupsen/logrus"
 )
+
+type InfrastructureCreationResult struct {
+	Info  model.InfrastructureDeploymentInfo
+	Error error
+}
 
 //Deployer is the main hybrid infrastructure deployer object
 type Deployer struct {
@@ -44,10 +50,14 @@ func (c *Deployer) findProvider(provider model.CloudProviderInfo) (model.Deploye
 
 	if strings.ToLower(provider.APIType) == "cloudsigma" {
 
-		var credentials persistence.BasicAuthSecret
-		err := c.Vault.GetSecret(provider.SecretID, &credentials)
+		secret, err := c.Vault.GetSecret(provider.SecretID)
 		if err != nil {
 			return nil, err
+		}
+
+		credentials, ok := secret.Content.(model.BasicAuthSecret)
+		if !ok {
+			return nil, fmt.Errorf("Invalid credentials found in vault for provider %v", provider)
 		}
 
 		dep, err := cloudsigma.NewDeployer(provider.APIEndpoint, credentials)
@@ -55,6 +65,15 @@ func (c *Deployer) findProvider(provider model.CloudProviderInfo) (model.Deploye
 	}
 
 	return nil, fmt.Errorf("Can't find a suitable deployer for API type %s", provider.APIType)
+}
+
+func (c *Deployer) DeployInfrastructure(infra model.InfrastructureType, deployer model.Deployer, channel chan InfrastructureCreationResult) {
+	depInfo, err := deployer.DeployInfrastructure(infra)
+	depInfo.Provider = infra.Provider
+	channel <- InfrastructureCreationResult{
+		Info:  depInfo,
+		Error: err,
+	}
 }
 
 //CreateDeployment will create an hybrid deployment with the configuration passed as argument
@@ -77,7 +96,9 @@ func (c *Deployer) CreateDeployment(deployment model.Deployment) (model.Deployme
 
 	logger.Tracef("Starting new deployment")
 
-	for _, infra := range deployment.Infrastructure {
+	channel := make(chan InfrastructureCreationResult, len(deployment.Infrastructures))
+
+	for _, infra := range deployment.Infrastructures {
 		logger = logger.WithField("infrastructure", infra.Name)
 		deployer, infraErr := c.findProvider(infra.Provider)
 
@@ -86,19 +107,32 @@ func (c *Deployer) CreateDeployment(deployment model.Deployment) (model.Deployme
 			break
 		}
 
-		infraDeployment, infraErr := deployer.DeployInfrastructure(infra)
-		if infraErr != nil {
-			logger.WithError(infraErr).Error("Error deploying infrastructure")
-		}
+		go c.DeployInfrastructure(infra, deployer, channel)
+	}
 
-		if infraDeployment.ID != "" {
-			infraDeployment.Provider = infra.Provider
-			result.Infrastructures = append(result.Infrastructures, infraDeployment)
-			result, infraErr = c.Repository.UpdateDeployment(result)
-			if infraErr != nil {
-				logger.WithError(infraErr).Error("Error updating deployment status")
+	var depError error
+	for remaining := len(deployment.Infrastructures); remaining > 0; remaining-- {
+		infraInfo := <-channel
+		if infraInfo.Error != nil {
+			logger.WithError(err).Error("Error creating infrastructure")
+			depError = infraInfo.Error
+		} else {
+			infraDeployment := infraInfo.Info
+			if infraDeployment.ID != "" {
+				result.Infrastructures = append(result.Infrastructures, infraDeployment)
+				result, err = c.Repository.UpdateDeployment(result)
+				if err != nil {
+					logger.WithError(err).Error("Error updating deployment status")
+				}
+			} else {
+				depError = errors.New("Infrastructure created without an identifier")
+				logger.WithError(err).Error("Error creating infrastructure")
 			}
 		}
+	}
+
+	if depError != nil {
+		// TODO: Remove partial infrastructures if autoclean is on
 	}
 
 	return result, err

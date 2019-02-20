@@ -29,8 +29,8 @@ import (
 )
 
 const (
-	InventoryFolderProperty = "ansible.inventory.folder"
-	ScriptsFolderProperty   = "ansible.scripts.folder"
+	InventoryFolderProperty = "ansible.folders.inventory"
+	ScriptsFolderProperty   = "ansible.folders.scripts"
 
 	InventoryFolderDefaultValue = "/tmp/ansible_inventories"
 	ScriptsFolderDefaultValue   = "provision/ansible"

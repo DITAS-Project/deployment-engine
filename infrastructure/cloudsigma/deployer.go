@@ -18,7 +18,6 @@ package cloudsigma
 
 import (
 	"deployment-engine/model"
-	"deployment-engine/persistence"
 	"deployment-engine/utils"
 	"errors"
 	"fmt"
@@ -56,7 +55,7 @@ type HostDisks struct {
 	Data  []ResourceType
 }
 
-func NewDeployer(apiURL string, credentials persistence.BasicAuthSecret) (*CloudsigmaDeployer, error) {
+func NewDeployer(apiURL string, credentials model.BasicAuthSecret) (*CloudsigmaDeployer, error) {
 	home, err := homedir.Dir()
 	if err != nil {
 		log.Infof("Error getting home folder: %s\n", err.Error())

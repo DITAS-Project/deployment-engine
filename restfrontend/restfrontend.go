@@ -32,6 +32,7 @@ type App struct {
 	Router                *mux.Router
 	DeploymentController  *infrastructure.Deployer
 	ProvisionerController *provision.ProvisionerController
+	Vault                 persistence.Vault
 }
 
 func New(repository persistence.DeploymentRepository, vault persistence.Vault, provisioner model.Provisioner) *App {
@@ -45,6 +46,7 @@ func New(repository persistence.DeploymentRepository, vault persistence.Vault, p
 			Repository:  repository,
 			Provisioner: provisioner,
 		},
+		Vault: vault,
 	}
 	result.initializeRoutes()
 	return &result
@@ -58,31 +60,36 @@ func (a *App) initializeRoutes() {
 	a.Router.HandleFunc("/deployment", a.CreateDep).Methods("POST")
 	a.Router.HandleFunc("/deployment/{depId}/{infraId}", a.DeleteInfra).Methods("DELETE")
 	a.Router.HandleFunc("/deployment/{depId}/{infraId}/{product}", a.DeployProduct).Methods("PUT")
-	/*a.Router.HandleFunc("/deployment", a.getAllDeps).Methods("GET")
-	a.Router.HandleFunc("/deployment/{id}", a.getDep).Methods("GET")
-	a.Router.HandleFunc("/deployment/{id}", a.deleteDep).Methods("DELETE")*/
-
+	a.Router.HandleFunc("/secrets", a.CreateSecret).Methods("POST")
 }
 
 func (a *App) GetQueryParam(key string, r *http.Request) (string, bool) {
 	values := mux.Vars(r)
 	if values != nil {
-		ok, val := values[key]
-		return ok, val
+		value, ok := values[key]
+		return value, ok
 	}
 
 	return "", false
 }
 
-func (a *App) CreateDep(w http.ResponseWriter, r *http.Request) {
-	var deployment model.Deployment
+func (a *App) ReadBody(r *http.Request, result interface{}) error {
 	decoder := json.NewDecoder(r.Body)
-	if err := decoder.Decode(&deployment); err != nil {
+	if err := decoder.Decode(result); err != nil {
 		log.WithError(err).Error("Error deserializing deployment")
-		RespondWithError(w, http.StatusBadRequest, fmt.Sprintf("Invalid payload: %s", err.Error()))
+		return fmt.Errorf("Invalid payload: %s", err.Error())
+	}
+	return nil
+}
+
+func (a *App) CreateDep(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+
+	var deployment model.Deployment
+	if err := a.ReadBody(r, &deployment); err != nil {
+		RespondWithError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	defer r.Body.Close()
 
 	result, err := a.DeploymentController.CreateDeployment(deployment)
 
@@ -139,69 +146,36 @@ func (a *App) DeployProduct(w http.ResponseWriter, r *http.Request) {
 	RespondWithJSON(w, http.StatusOK, deployment)
 }
 
-/*func (a *App) deployKubernetes(w http.ResponseWriter, r *http.Request) {
+func (a *App) CreateSecret(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
 
-}
+	var secret model.Secret
+	if err := a.ReadBody(r, &secret); err != nil {
+		RespondWithError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 
-func (a *App) getAllDeps(w http.ResponseWriter, r *http.Request) {
-	deps, err := a.Controller.GetAllDeps()
-	if err != nil {
+	if secretID, err := a.Vault.AddSecret(secret); err != nil {
 		RespondWithError(w, http.StatusInternalServerError, err.Error())
-		return
+	} else {
+		Respond(w, http.StatusCreated, []byte(secretID), "plain/text")
 	}
-	RespondWithJSON(w, http.StatusOK, deps)
+
+	return
+
 }
-
-func (a *App) getDep(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	id := vars["id"]
-	dep, err := a.Controller.GetDep(id)
-	if err != nil {
-		switch err {
-		case mgo.ErrNotFound:
-			RespondWithError(w, http.StatusNotFound, err.Error())
-		default:
-			RespondWithError(w, http.StatusInternalServerError, err.Error())
-		}
-		return
-	}
-
-	RespondWithJSON(w, http.StatusOK, dep)
-}
-
-func (a *App) deleteDep(w http.ResponseWriter, r *http.Request) {
-	values := r.URL.Query()
-	vars := mux.Vars(r)
-	id, ok := vars["id"]
-
-	if !ok {
-		RespondWithError(w, http.StatusBadRequest, "Deployment id is mandatory")
-		return
-	}
-
-	vdcID := getQueryParam("vdc", values)
-	deleteDeployment, err := strconv.ParseBool(getQueryParam("deleteDeployment", values))
-	if err != nil {
-		fmt.Printf("deleteDeployment parameter not found or invalid. Assuming false")
-		deleteDeployment = false
-	}
-
-	if err := a.Controller.DeleteVDC(id, vdcID, deleteDeployment); err != nil {
-		RespondWithError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	RespondWithJSON(w, http.StatusOK, map[string]string{"result": "success"})
-}*/
 
 func RespondWithError(w http.ResponseWriter, code int, message string) {
 	RespondWithJSON(w, code, map[string]string{"error": message})
 }
 
+func Respond(w http.ResponseWriter, code int, payload []byte, contentType string) {
+	w.Header().Set("Content-Type", contentType)
+	w.WriteHeader(code)
+	w.Write(payload)
+}
+
 func RespondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
 	response, _ := json.Marshal(payload)
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(code)
-	w.Write(response)
+	Respond(w, code, response, "application/json")
 }

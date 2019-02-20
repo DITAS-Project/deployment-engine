@@ -6,6 +6,7 @@ import (
 	"deployment-engine/persistence/mongorepo"
 	"flag"
 	"os"
+	"reflect"
 	"testing"
 
 	log "github.com/sirupsen/logrus"
@@ -144,27 +145,15 @@ func testDeployment(t *testing.T) {
 	}
 }
 
-func testSecrets(t *testing.T, source, target map[string]string) {
-	if len(source) != len(target) {
-		t.Fatalf("Wrong length of retrieved secret, expected %d but got %d", len(target), len(source))
-	}
-
-	for k, v := range target {
-		sourceValue, ok := source[k]
-		if !ok {
-			t.Fatalf("Found unexpected key %s when comparing secrets", k)
-		}
-		if sourceValue != v {
-			t.Fatalf("Values differ for key %s: Expected %s but got %s", k, v, sourceValue)
-		}
-	}
-}
-
 func testVault(t *testing.T) {
 	for _, repo := range vaults {
-		testSecret := map[string]string{
-			"username": "myuser",
-			"password": "mysecretpassword",
+		testSecret := model.Secret{
+			Description: "Test secret",
+			Format:      model.BasicAuthType,
+			Content: model.BasicAuthSecret{
+				Username: "someuser",
+				Password: "somepassword",
+			},
 		}
 
 		secretId, err := repo.AddSecret(testSecret)
@@ -176,17 +165,22 @@ func testVault(t *testing.T) {
 			t.Fatalf("Created secret id is empty")
 		}
 
-		var secret map[string]string
-		err = repo.GetSecret(secretId, &secret)
+		secret, err := repo.GetSecret(secretId)
 		if err != nil {
 			t.Fatalf("Error getting secret %s", err.Error())
 		}
 
-		testSecrets(t, testSecret, secret)
+		if !reflect.DeepEqual(testSecret, secret) {
+			t.Fatalf("Retrieved secret %s is different than the original one %s", secret, testSecret)
+		}
 
-		newSecret := map[string]string{
-			"username": "myuser",
-			"password": "mynewpassword",
+		newSecret := model.Secret{
+			Description: "OAuth test secret",
+			Format:      model.OAuth2Type,
+			Content: model.OAuth2Secret{
+				ClientID:     "myclientId",
+				ClientSecret: "MySecret",
+			},
 		}
 
 		err = repo.UpdateSecret(secretId, newSecret)
@@ -194,19 +188,21 @@ func testVault(t *testing.T) {
 			t.Fatalf("Error updating secret: %s", err.Error())
 		}
 
-		err = repo.GetSecret(secretId, &secret)
+		secret, err = repo.GetSecret(secretId)
 		if err != nil {
 			t.Fatalf("Error getting secret %s", err.Error())
 		}
 
-		testSecrets(t, newSecret, secret)
+		if !reflect.DeepEqual(newSecret, secret) {
+			t.Fatalf("Retrieved secret %v is different than the updated one %s", secret, newSecret)
+		}
 
 		err = repo.DeleteSecret(secretId)
 		if err != nil {
 			t.Fatalf("Error deleting secret: %s", err.Error())
 		}
 
-		err = repo.GetSecret(secretId, &secret)
+		secret, err = repo.GetSecret(secretId)
 		if err == nil {
 			t.Fatalf("Secret %s was deleted but could be retrieved", secretId)
 		}

@@ -18,7 +18,6 @@ package memoryrepo
 
 import (
 	"deployment-engine/model"
-	"encoding/json"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -35,14 +34,14 @@ const (
 type MemoryRepository struct {
 	deployments map[string]model.DeploymentInfo
 	products    map[string]model.Product
-	vault       map[string][]byte
+	vault       map[string]model.Secret
 }
 
 func CreateMemoryRepository() *MemoryRepository {
 	return &MemoryRepository{
 		deployments: make(map[string]model.DeploymentInfo),
 		products:    make(map[string]model.Product),
-		vault:       make(map[string][]byte),
+		vault:       make(map[string]model.Secret),
 	}
 }
 
@@ -54,10 +53,7 @@ func (v *MemoryRepository) get(ID, objectType string, result interface{}) error 
 	case productType:
 		*result.(*model.Product), ok = v.products[ID]
 	case secretType:
-		serialized, ok := v.vault[ID]
-		if ok {
-			return json.Unmarshal(serialized, result)
-		}
+		*result.(*model.Secret), ok = v.vault[ID]
 	default:
 		return fmt.Errorf("Unrecognized object type %s", objectType)
 	}
@@ -178,34 +174,31 @@ func (m *MemoryRepository) DeleteProduct(productID string) error {
 	return nil
 }
 
-func (v *MemoryRepository) replaceSecret(ID string, secret interface{}) error {
-	serialized, err := json.Marshal(secret)
-	if err == nil {
-		v.vault[ID] = serialized
-	}
-	return err
-}
-
 // AddSecret adds a new secret to the vault, returning its identifier
-func (v *MemoryRepository) AddSecret(secret interface{}) (string, error) {
+func (v *MemoryRepository) AddSecret(secret model.Secret) (string, error) {
 	id := uuid.New().String()
-	return id, v.replaceSecret(id, secret)
+	v.vault[id] = secret
+	return id, nil
 }
 
 // UpdateSecret updates a secret replacing its content if it exists or returning an error if not
-func (v *MemoryRepository) UpdateSecret(secretID string, secret interface{}) error {
+func (v *MemoryRepository) UpdateSecret(secretID string, secret model.Secret) error {
 	_, ok := v.vault[secretID]
 
 	if !ok {
 		return fmt.Errorf("Secret with identifier %s not found", secretID)
 	}
 
-	return v.replaceSecret(secretID, secret)
+	v.vault[secretID] = secret
+
+	return nil
 }
 
 // GetSecret gets a secret information given its identifier
-func (v *MemoryRepository) GetSecret(secretID string, secretOut interface{}) error {
-	return v.get(secretID, secretType, secretOut)
+func (v *MemoryRepository) GetSecret(secretID string) (model.Secret, error) {
+	var secret model.Secret
+	err := v.get(secretID, secretType, &secret)
+	return secret, err
 }
 
 // DeleteSecret deletes a secret from the vault given its identifier

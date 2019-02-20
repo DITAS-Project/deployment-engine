@@ -46,6 +46,7 @@ const (
 
 func main() {
 	viper.SetDefault(RepositoryProperty, RepositoryDefault)
+	viper.SetDefault(VaultProperty, VaultDefault)
 	viper.SetDefault(ProvisionerProperty, ProvisionerDefault)
 	viper.SetDefault(FrontendProperty, FrontendDefault)
 	viper.SetDefault(FrontendPortProperty, FrontendPortDefault)
@@ -83,7 +84,7 @@ func main() {
 		return
 	}
 
-	frontend.Run(":" + viper.GetString(FrontendPortProperty))
+	log.Fatal(frontend.Run(":" + viper.GetString(FrontendPortProperty)))
 }
 
 func getRepository(repoType string) (persistence.DeploymentRepository, error) {
@@ -107,7 +108,7 @@ func getVault(vaultType, repoType string, repo persistence.DeploymentRepository)
 		}
 		return memoryrepo.CreateMemoryRepository(), nil
 	}
-	return nil, fmt.Errorf("Unrecognized vault type %s", repoType)
+	return nil, fmt.Errorf("Unrecognized vault type %s", vaultType)
 }
 
 func getProvisioner(provisionerType string) (model.Provisioner, error) {

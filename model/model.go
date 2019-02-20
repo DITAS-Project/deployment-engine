@@ -16,6 +16,12 @@
 
 package model
 
+const (
+	BasicAuthType = "basic"
+	OAuth2Type    = "oauth"
+	PKIType       = "PKI"
+)
+
 type Drive struct {
 	Name string `json:"name"` //Name of the image to use. Most of the times, it will be available as /dev/disk/by-id/${name} value in the VM
 	Type string `json:"type"` //Type of the drive. It can be "SSD" or "HDD"
@@ -50,9 +56,9 @@ type InfrastructureType struct {
 }
 
 type Deployment struct {
-	Name           string               `json:"name"`           //Name for this deployment
-	Description    string               `json:"description"`    //Optional description
-	Infrastructure []InfrastructureType `json:"infrastructure"` //List of infrastructures to deploy for this hybrid deployment
+	Name            string               `json:"name"`            //Name for this deployment
+	Description     string               `json:"description"`     //Optional description
+	Infrastructures []InfrastructureType `json:"infrastructures"` //List of infrastructures to deploy for this hybrid deployment
 }
 
 type DriveInfo struct {
@@ -91,6 +97,29 @@ type Product struct {
 	ID     string `json:"id" bson:"_id"` // Unique ID for the product
 	Name   string `json:"name"`          // Unique name of the product
 	Folder string `json:"folder"`        // Folder containing the scripts to deploy the product
+}
+
+type Secret struct {
+	Description string            `json:"description"`
+	Format      string            `json:"format"`
+	Metadata    map[string]string `json:"metadata"`
+	Content     interface{}
+}
+
+type BasicAuthSecret struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+type OAuth2Secret struct {
+	ClientID     string   `json:"client_id"`
+	ClientSecret string   `json:"client_secret"`
+	Scopes       []string `json:"scopes"`
+}
+
+type PKISecret struct {
+	PrivateKey string `json:"private_key"`
+	PublicKey  string `json:"public_key"`
 }
 
 type Deployer interface {

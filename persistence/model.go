@@ -63,24 +63,8 @@ type ProductRepository interface {
 
 // Vault will be implemented by components that store authentication information. They can do so locally or they can be remote vaults like Hashicorp Vault.
 type Vault interface {
-	AddSecret(secret interface{}) (string, error)
-	UpdateSecret(secretID string, secret interface{}) error
-	GetSecret(secretID string, secretOut interface{}) error
+	AddSecret(secret model.Secret) (string, error)
+	UpdateSecret(secretID string, secret model.Secret) error
+	GetSecret(secretID string) (model.Secret, error)
 	DeleteSecret(secretID string) error
-}
-
-type BasicAuthSecret struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-}
-
-type OAuth2Secret struct {
-	ClientID     string   `json:"client_id"`
-	ClientSecret string   `json:"client_secret"`
-	Scopes       []string `json:"scopes"`
-}
-
-type PKISecret struct {
-	PrivateKey string `json:"private_key"`
-	PublicKey  string `json:"public_key"`
 }
