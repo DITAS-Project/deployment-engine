@@ -16,7 +16,9 @@
 
 package persistence
 
-import "deployment-engine/model"
+import (
+	"deployment-engine/model"
+)
 
 //DeploymentRepository is the interface that must be implemented by persistence providers for deployments.
 type DeploymentRepository interface {
@@ -36,11 +38,23 @@ type DeploymentRepository interface {
 	//Delete a deployment given its ID
 	DeleteDeployment(deploymentID string) error
 
+	//AddInfrastructure adds a new infrastructure to an existing deployment
+	AddInfrastructure(deploymentID string, infra model.InfrastructureDeploymentInfo) (model.DeploymentInfo, error)
+
+	//FindInfrastructure finds an infrastructure in a deployment given their identifiers
+	FindInfrastructure(depoloymentID, infraID string) (model.InfrastructureDeploymentInfo, error)
+
+	//DeleteInfrastructure will delete an infrastructure from a deployment given their identifiers
+	DeleteInfrastructure(deploymentID, infraID string) (model.DeploymentInfo, error)
+
 	// UpdateDeploymentStatus updates the status of a deployment
-	UpdateDeploymentStatus(deploymentID, status string) error
+	UpdateDeploymentStatus(deploymentID, status string) (model.DeploymentInfo, error)
 
 	// UpdateInfrastructureStatus updates the status of a infrastructure in a deployment
-	UpdateInfrastructureStatus(deploymentID, infrastructureID, status string) error
+	UpdateInfrastructureStatus(deploymentID, infrastructureID, status string) (model.DeploymentInfo, error)
+
+	// AddProductToInfrastructure adds a new product to an existing infrastructure
+	AddProductToInfrastructure(deploymentID, infrastructureID, product string) (model.DeploymentInfo, error)
 }
 
 // ProductRepository is the interface that repositories dealing with products must comply with

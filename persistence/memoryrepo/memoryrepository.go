@@ -106,18 +106,18 @@ func (m *MemoryRepository) DeleteDeployment(deploymentID string) error {
 }
 
 // UpdateDeploymentStatus updates the status of a deployment
-func (m *MemoryRepository) UpdateDeploymentStatus(deploymentID, status string) error {
+func (m *MemoryRepository) UpdateDeploymentStatus(deploymentID, status string) (model.DeploymentInfo, error) {
 	var updated model.DeploymentInfo
 	err := m.get(deploymentID, deploymentType, &updated)
 	if err == nil {
 		updated.Status = status
 		m.deployments[deploymentID] = updated
 	}
-	return err
+	return updated, err
 }
 
 // UpdateInfrastructureStatus updates the status of a infrastructure in a deployment
-func (m *MemoryRepository) UpdateInfrastructureStatus(deploymentID, infrastructureID, status string) error {
+func (m *MemoryRepository) UpdateInfrastructureStatus(deploymentID, infrastructureID, status string) (model.DeploymentInfo, error) {
 	var updated model.DeploymentInfo
 	err := m.get(deploymentID, deploymentType, &updated)
 	if err == nil {
@@ -130,7 +130,100 @@ func (m *MemoryRepository) UpdateInfrastructureStatus(deploymentID, infrastructu
 		}
 		m.deployments[deploymentID] = updated
 	}
-	return err
+	return updated, err
+}
+
+//AddInfrastructure adds a new infrastructure to an existing deployment
+func (m *MemoryRepository) AddInfrastructure(deploymentID string, infra model.InfrastructureDeploymentInfo) (model.DeploymentInfo, error) {
+	dep, err := m.GetDeployment(deploymentID)
+	if err != nil {
+		return dep, err
+	}
+
+	if dep.Infrastructures == nil {
+		dep.Infrastructures = []model.InfrastructureDeploymentInfo{infra}
+	} else {
+		dep.Infrastructures = append(dep.Infrastructures, infra)
+	}
+
+	return m.UpdateDeployment(dep)
+}
+
+//FindInfrastructure finds an infrastructure in a deployment given their identifiers
+func (m *MemoryRepository) FindInfrastructure(depoloymentID, infraID string) (model.InfrastructureDeploymentInfo, error) {
+
+	dep, err := m.GetDeployment(depoloymentID)
+	if err != nil {
+		return model.InfrastructureDeploymentInfo{}, err
+	}
+
+	if dep.Infrastructures != nil && len(dep.Infrastructures) > 0 {
+		for _, infra := range dep.Infrastructures {
+			if infra.ID == infraID {
+				return infra, nil
+			}
+		}
+	}
+
+	return model.InfrastructureDeploymentInfo{}, fmt.Errorf("Can't find infrastructure %s in deployment %s", infraID, depoloymentID)
+
+}
+
+//DeleteInfrastructure will delete an infrastructure from a deployment given their identifiers
+func (m *MemoryRepository) DeleteInfrastructure(deploymentID, infraID string) (model.DeploymentInfo, error) {
+	dep, err := m.GetDeployment(deploymentID)
+	if err != nil {
+		return dep, err
+	}
+
+	if dep.Infrastructures == nil || len(dep.Infrastructures) == 0 {
+		return dep, fmt.Errorf("No infrastructures found on deployment %s", deploymentID)
+	}
+
+	i := 0
+	var infra model.InfrastructureDeploymentInfo
+	for i, infra = range dep.Infrastructures {
+		if infra.ID == infraID {
+			break
+		}
+	}
+
+	if i < len(dep.Infrastructures) && dep.Infrastructures[i].ID == infraID {
+		dep.Infrastructures[i] = dep.Infrastructures[len(dep.Infrastructures)-1]
+		dep.Infrastructures = dep.Infrastructures[:len(dep.Infrastructures)-1]
+		dep, err = m.UpdateDeployment(dep)
+		return dep, err
+	}
+
+	return dep, fmt.Errorf("Can't find infrastructure %s in deployment %s", infraID, deploymentID)
+}
+
+// AddProductToInfrastructure adds a new product to an existing infrastructure
+func (m *MemoryRepository) AddProductToInfrastructure(deploymentID, infrastructureID, product string) (model.DeploymentInfo, error) {
+	dep, err := m.GetDeployment(deploymentID)
+
+	if err != nil {
+		return dep, err
+	}
+
+	if dep.Infrastructures == nil {
+		return dep, fmt.Errorf("Deployment %s does not have infrastructures", deploymentID)
+	}
+
+	for i, infra := range dep.Infrastructures {
+		if infra.ID == infrastructureID {
+			if infra.Products == nil {
+				infra.Products = []string{product}
+			} else {
+				infra.Products = append(infra.Products, product)
+			}
+			dep.Infrastructures[i] = infra
+			m.deployments[dep.ID] = dep
+			return dep, nil
+		}
+	}
+
+	return dep, fmt.Errorf("Infrastructure %s not found in deployment %s", infrastructureID, deploymentID)
 }
 
 //SaveProduct a new product information and return the created product from the underlying database

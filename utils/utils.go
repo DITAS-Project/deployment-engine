@@ -17,7 +17,6 @@
 package utils
 
 import (
-	"deployment-engine/model"
 	"fmt"
 	"os/exec"
 	"time"
@@ -47,16 +46,6 @@ func WaitForStatusChange(status string, timeout time.Duration, getter func() (st
 		//fmt.Print(".")
 	}
 	return currentStatus, waited >= timeout, err
-}
-
-func FindInfra(deployment model.DeploymentInfo, infraID string) (int, *model.InfrastructureDeploymentInfo, error) {
-	for i, infra := range deployment.Infrastructures {
-		if infra.ID == infraID {
-			return i, &infra, nil
-		}
-	}
-
-	return 0, nil, fmt.Errorf("Infrastructure %s not found in deployment %s", infraID, deployment.ID)
 }
 
 func ConfigurationFolder() (string, error) {

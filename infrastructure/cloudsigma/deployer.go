@@ -22,8 +22,11 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"regexp"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/sethvargo/go-password/password"
@@ -324,9 +327,20 @@ func (d *CloudsigmaDeployer) startServer(logger *log.Entry, uuid string) (Resour
 }
 
 func (d *CloudsigmaDeployer) CreateServer(resource model.ResourceType, ip IPReferenceType, pfx string, c chan NodeCreationResult) error {
-	nodeName := strings.ToLower(pfx + "-" + resource.Name)
-	logger := log.WithField("server", nodeName)
-	result := NodeCreationResult{
+	result := NodeCreationResult{}
+
+	logger := log.WithField("resource", resource.Name)
+
+	if resource.Name == "" {
+		return d.returnError(logger, "", result, fmt.Errorf("Resource with empty name found in infrastructure "+pfx), c)
+	}
+
+	nodeName, err := d.clearHostName(pfx + "-" + resource.Name)
+	if err != nil {
+		return d.returnError(logger, fmt.Sprintf("Invalid combination of hostname for infrastructure %s and resource %s", pfx, resource.Name), result, err, c)
+	}
+
+	result = NodeCreationResult{
 		Info: model.NodeInfo{
 			Role:     strings.ToLower(resource.Role),
 			Hostname: nodeName,
@@ -419,14 +433,37 @@ func (d *CloudsigmaDeployer) findFreeIps(log *log.Entry, numNodes int) ([]IPRefe
 	return result, err
 }
 
-func (d CloudsigmaDeployer) DeployInfrastructure(infra model.InfrastructureType) (model.InfrastructureDeploymentInfo, error) {
+func (d CloudsigmaDeployer) clearHostName(hostname string) (string, error) {
+	toReplace := strings.ToLower(hostname)
+	reg, err := regexp.Compile("[^a-zA-Z0-9-]+")
+	if err != nil {
+		return "", err
+	}
+
+	replaced := reg.ReplaceAllString(toReplace, "")
+	if len(replaced) > 255 || len(replaced) == 0 {
+		return "", fmt.Errorf("Infrastructure or host name of resource is too long or too short. Infrastructure name + resource name should be between 0 and 255 alphanumeric characters")
+	}
+
+	return replaced, nil
+}
+
+func (d CloudsigmaDeployer) DeployInfrastructure(deploymentID string, infra model.InfrastructureType) (model.InfrastructureDeploymentInfo, error) {
+
+	deployment := model.InfrastructureDeploymentInfo{
+		ID:       uuid.New().String(),
+		Products: make([]string, 0),
+	}
+
+	if infra.Name == "" {
+		return deployment, errors.New("Name is mandatory for each cloudsigma infrastructure")
+	}
 
 	numNodes := len(infra.Resources)
-	deployment := model.InfrastructureDeploymentInfo{
-		ID:     infra.Name,
-		Type:   DeploymentType,
-		Slaves: make([]model.NodeInfo, 0, numNodes-1),
-	}
+	deployment.Name = infra.Name
+	deployment.Type = DeploymentType
+	deployment.Slaves = make([]model.NodeInfo, 0, numNodes-1)
+	deployment.Status = "creating"
 
 	var logger = log.WithField("deployment", infra.Name)
 
@@ -465,9 +502,11 @@ func (d CloudsigmaDeployer) DeployInfrastructure(infra model.InfrastructureType)
 
 	if failed {
 		logger.Errorf("Deployment failed")
+		deployment.Status = "failed"
 		return deployment, errors.New("Deployment failed")
 	}
 	logger.Infof("Nodes successfully created")
+	deployment.Status = "running"
 
 	return deployment, nil
 }
@@ -570,7 +609,7 @@ func (d *CloudsigmaDeployer) deleteHost(logInput *log.Entry, host model.NodeInfo
 
 }
 
-func (d CloudsigmaDeployer) DeleteInfrastructure(infra model.InfrastructureDeploymentInfo) map[string]error {
+func (d CloudsigmaDeployer) DeleteInfrastructure(deploymentID string, infra model.InfrastructureDeploymentInfo) map[string]error {
 	logger := log.WithField("infrastructure", infra.ID)
 
 	logger.Info("Deleting infrastructure")

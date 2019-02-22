@@ -1,0 +1,15 @@
+- hosts: all
+  become: yes
+  tasks:
+  - include_tasks: prepare-RedHat.yml
+    when: ansible_os_family == 'RedHat'
+
+- hosts: all
+  become: yes
+
+  vars:
+    kubernetes_allow_pods_on_master: True
+
+  roles:
+    - geerlingguy.docker
+    - geerlingguy.kubernetes

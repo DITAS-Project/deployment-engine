@@ -112,12 +112,12 @@ func testDeployment(t *testing.T) {
 
 		testStatus(repo, res.ID, "running", "creating", t)
 
-		err = repo.UpdateDeploymentStatus(res.ID, "failed")
+		res, err = repo.UpdateDeploymentStatus(res.ID, "failed")
 		if err != nil {
 			t.Fatalf("Error updating deployment status: %s", err.Error())
 		}
 
-		err = repo.UpdateInfrastructureStatus(res.ID, res.Infrastructures[0].ID, "created")
+		res, err = repo.UpdateInfrastructureStatus(res.ID, res.Infrastructures[0].ID, "created")
 		if err != nil {
 			t.Fatalf("Error updating infrastructure status: %s", err.Error())
 		}
@@ -131,6 +131,58 @@ func testDeployment(t *testing.T) {
 
 		if len(total) == 0 {
 			t.Fatalf("Got empty list of deployments")
+		}
+
+		res, err = repo.AddInfrastructure(res.ID, model.InfrastructureDeploymentInfo{
+			ID:     "infra2",
+			Status: "creating",
+		})
+
+		if err != nil {
+			t.Fatalf("Error adding new infrastructure: %s", err.Error())
+		}
+
+		if len(res.Infrastructures) != 2 {
+			t.Fatalf("After adding new infrastructure found %d infrastructures but expected 2", len(resGet.Infrastructures))
+		}
+
+		infra, err := repo.FindInfrastructure(res.ID, "infra2")
+
+		if err != nil {
+			t.Fatalf("Error finding infrastructure: %s", err.Error())
+		}
+
+		if infra.ID != "infra2" {
+			t.Fatalf("Found wrong infrastructure. Expected %s but found %s", "infra2", infra.ID)
+		}
+
+		res, err = repo.AddProductToInfrastructure(res.ID, "infra2", "kubernetes")
+		if err != nil {
+			t.Fatalf("Error adding product to infrastructure: %s", err.Error())
+		}
+
+		found := false
+		for _, infra = range res.Infrastructures {
+			for _, product := range infra.Products {
+				if product == "kubernetes" {
+					found = true
+				}
+			}
+		}
+
+		if !found {
+			t.Fatal("Product not found in response")
+		}
+
+		res, err = repo.DeleteInfrastructure(res.ID, "infra2")
+		if err != nil {
+			t.Fatalf("Error deleting infrastructure: %s", err.Error())
+		}
+
+		for _, infra := range res.Infrastructures {
+			if infra.ID == "infra2" {
+				t.Fatalf("Deleted infrastructure but then found in deployment")
+			}
 		}
 
 		err = repo.DeleteDeployment(res.ID)

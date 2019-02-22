@@ -58,6 +58,7 @@ func (a App) Run(addr string) error {
 
 func (a *App) initializeRoutes() {
 	a.Router.HandleFunc("/deployment", a.CreateDep).Methods("POST")
+	a.Router.HandleFunc("/deployment/{depId}", a.DeleteDeployment).Methods("DELETE")
 	a.Router.HandleFunc("/deployment/{depId}/{infraId}", a.DeleteInfra).Methods("DELETE")
 	a.Router.HandleFunc("/deployment/{depId}/{infraId}/{product}", a.DeployProduct).Methods("PUT")
 	a.Router.HandleFunc("/secrets", a.CreateSecret).Methods("POST")
@@ -103,47 +104,73 @@ func (a *App) CreateDep(w http.ResponseWriter, r *http.Request) {
 	//RespondWithJSON(w, http.StatusOK, map[string]string{"result": "success"})
 }
 
+func (a *App) DeleteDeployment(w http.ResponseWriter, r *http.Request) {
+	depId, ok := a.GetQueryParam("depId", r)
+	if !ok {
+		RespondWithError(w, http.StatusBadRequest, "Can't find deployment ID parameter")
+		return
+	}
+
+	err := a.DeploymentController.DeleteDeployment(depId)
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Error deleting deployment: %s", err.Error()))
+		return
+	}
+
+	Respond(w, http.StatusNoContent, []byte{}, "plain/text")
+	return
+}
+
 func (a *App) DeleteInfra(w http.ResponseWriter, r *http.Request) {
 	depId, ok := a.GetQueryParam("depId", r)
 	if !ok {
 		RespondWithError(w, http.StatusBadRequest, "Can't find deployment ID parameter")
+		return
 	}
 
 	infraId, ok := a.GetQueryParam("infraId", r)
 	if !ok {
 		RespondWithError(w, http.StatusBadRequest, "Can't find infrastructure ID parameter")
+		return
 	}
 
 	dep, err := a.DeploymentController.DeleteInfrastructure(depId, infraId)
 	if err != nil {
 		RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Error deleting infrastructure: %s", err.Error()))
+		return
 	}
 
 	RespondWithJSON(w, http.StatusOK, dep)
+	return
 }
 
 func (a *App) DeployProduct(w http.ResponseWriter, r *http.Request) {
 	depId, ok := a.GetQueryParam("depId", r)
 	if !ok {
 		RespondWithError(w, http.StatusBadRequest, "Can't find deployment ID parameter")
+		return
 	}
 
 	infraId, ok := a.GetQueryParam("infraId", r)
 	if !ok {
 		RespondWithError(w, http.StatusBadRequest, "Can't find infrastructure ID parameter")
+		return
 	}
 
 	product, ok := a.GetQueryParam("product", r)
 	if !ok {
 		RespondWithError(w, http.StatusBadRequest, "Can't find product parameter")
+		return
 	}
 
 	deployment, err := a.ProvisionerController.Provision(depId, infraId, product)
 	if err != nil {
 		RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Error deploying product: %s", err.Error()))
+		return
 	}
 
 	RespondWithJSON(w, http.StatusOK, deployment)
+	return
 }
 
 func (a *App) CreateSecret(w http.ResponseWriter, r *http.Request) {
@@ -155,12 +182,13 @@ func (a *App) CreateSecret(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if secretID, err := a.Vault.AddSecret(secret); err != nil {
+	secretID, err := a.Vault.AddSecret(secret)
+	if err != nil {
 		RespondWithError(w, http.StatusInternalServerError, err.Error())
-	} else {
-		Respond(w, http.StatusCreated, []byte(secretID), "plain/text")
+		return
 	}
 
+	Respond(w, http.StatusCreated, []byte(secretID), "plain/text")
 	return
 
 }

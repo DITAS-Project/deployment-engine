@@ -24,6 +24,8 @@ import (
 	"deployment-engine/model"
 	"fmt"
 
+	"github.com/mongodb/mongo-go-driver/mongo/options"
+
 	"github.com/google/uuid"
 	"github.com/mongodb/mongo-go-driver/bson"
 	"github.com/mongodb/mongo-go-driver/mongo"
@@ -177,20 +179,72 @@ func (m *MongoRepository) DeleteDeployment(deploymentID string) error {
 	return m.delete(deploymentCollection, deploymentID)
 }
 
-// UpdateDeploymentStatus updates the status of a deployment
-func (m *MongoRepository) UpdateDeploymentStatus(deploymentID, status string) error {
+//AddInfrastructure adds a new infrastructure to an existing deployment
+func (m *MongoRepository) AddInfrastructure(deploymentID string, infra model.InfrastructureDeploymentInfo) (model.DeploymentInfo, error) {
 	var updated model.DeploymentInfo
-	return m.update(deploymentCollection, deploymentID, bson.M{
+	err := m.update(deploymentCollection, deploymentID, bson.M{
+		"$push": bson.M{
+			"infrastructures": infra,
+		},
+	}, &updated)
+	return updated, err
+}
+
+//FindInfrastructure finds an infrastructure in a deployment given their identifiers
+func (m *MongoRepository) FindInfrastructure(depoloymentID, infraID string) (model.InfrastructureDeploymentInfo, error) {
+	var dep model.DeploymentInfo
+	err := m.database.Collection(deploymentCollection).FindOne(
+		context.Background(), bson.M{
+			"_id": depoloymentID,
+			"infrastructures.id": bson.M{
+				"$eq": infraID,
+			},
+		}, &options.FindOneOptions{
+			Projection: bson.M{
+				"infrastructures.$": 1,
+			},
+		}).Decode(&dep)
+
+	if err != nil {
+		return model.InfrastructureDeploymentInfo{}, err
+	}
+
+	if len(dep.Infrastructures) < 1 || dep.Infrastructures[0].ID != infraID {
+		return model.InfrastructureDeploymentInfo{}, fmt.Errorf("Can't find infrastructure %s in deployment %s", depoloymentID, infraID)
+	}
+
+	return dep.Infrastructures[0], nil
+}
+
+//DeleteInfrastructure will delete an infrastructure from a deployment given their identifiers
+func (m *MongoRepository) DeleteInfrastructure(deploymentID, infraID string) (model.DeploymentInfo, error) {
+	var dep model.DeploymentInfo
+	err := m.update(deploymentCollection, deploymentID, bson.M{
+		"$pull": bson.M{
+			"infrastructures": bson.M{
+				"id": infraID,
+			},
+		},
+	}, &dep)
+
+	return dep, err
+}
+
+// UpdateDeploymentStatus updates the status of a deployment
+func (m *MongoRepository) UpdateDeploymentStatus(deploymentID, status string) (model.DeploymentInfo, error) {
+	var updated model.DeploymentInfo
+	err := m.update(deploymentCollection, deploymentID, bson.M{
 		"$set": bson.M{
 			"status": status,
 		},
 	}, &updated)
+	return updated, err
 }
 
 // UpdateInfrastructureStatus updates the status of a infrastructure in a deployment
-func (m *MongoRepository) UpdateInfrastructureStatus(deploymentID, infrastructureID, status string) error {
+func (m *MongoRepository) UpdateInfrastructureStatus(deploymentID, infrastructureID, status string) (model.DeploymentInfo, error) {
 	var updated model.DeploymentInfo
-	return m.database.Collection(deploymentCollection).FindOneAndUpdate(
+	err := m.database.Collection(deploymentCollection).FindOneAndUpdate(
 		context.Background(),
 		bson.M{
 			"_id":                deploymentID,
@@ -201,6 +255,24 @@ func (m *MongoRepository) UpdateInfrastructureStatus(deploymentID, infrastructur
 				"infrastructures.$.status": status,
 			},
 		}).Decode(&updated)
+	return updated, err
+}
+
+// AddProductToInfrastructure adds a new product to an existing infrastructure
+func (m *MongoRepository) AddProductToInfrastructure(deploymentID, infrastructureID, product string) (model.DeploymentInfo, error) {
+	var updated model.DeploymentInfo
+	err := m.database.Collection(deploymentCollection).FindOneAndUpdate(
+		context.Background(),
+		bson.M{
+			"_id":                deploymentID,
+			"infrastructures.id": infrastructureID,
+		},
+		bson.M{
+			"$push": bson.M{
+				"infrastructures.$.products": product,
+			},
+		}).Decode(&updated)
+	return updated, err
 }
 
 //SaveProduct a new product information and return the created product from the underlying database

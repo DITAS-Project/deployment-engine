@@ -78,6 +78,7 @@ type NodeInfo struct {
 
 type InfrastructureDeploymentInfo struct {
 	ID       string            `json:"id"`       //Unique infrastructure ID on the deployment
+	Name     string            `json:"name"`     //Name of the infrastructure
 	Type     string            `json:"type"`     //Type of the infrastructure: cloud or edge
 	Provider CloudProviderInfo `json:"provider"` //Provider information
 	Slaves   []NodeInfo        `json:"slaves"`   //List of slaves nodes information
@@ -88,6 +89,7 @@ type InfrastructureDeploymentInfo struct {
 
 type DeploymentInfo struct {
 	ID              string                         `json:"id" bson:"_id"`   //Unique ID for the deployment
+	Name            string                         `json:"name"`            //Name of the deployment
 	Infrastructures []InfrastructureDeploymentInfo `json:"infrastructures"` //Lisf of infrastructures.
 	Status          string                         `json:"status"`          //Global status of the deployment
 }
@@ -123,8 +125,8 @@ type PKISecret struct {
 }
 
 type Deployer interface {
-	DeployInfrastructure(infra InfrastructureType) (InfrastructureDeploymentInfo, error)
-	DeleteInfrastructure(infra InfrastructureDeploymentInfo) map[string]error
+	DeployInfrastructure(deploymentID string, infra InfrastructureType) (InfrastructureDeploymentInfo, error)
+	DeleteInfrastructure(deploymentID string, infra InfrastructureDeploymentInfo) map[string]error
 }
 
 //Provisioner is the interface that must implement custom provisioners such as ansible, etc
