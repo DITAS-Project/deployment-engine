@@ -29,8 +29,8 @@ import (
 )
 
 const (
-	InventoryFolderProperty = "ansible.inventory.folder"
-	ScriptsFolderProperty   = "ansible.scripts.folder"
+	InventoryFolderProperty = "ansible.folders.inventory"
+	ScriptsFolderProperty   = "ansible.folders.scripts"
 
 	InventoryFolderDefaultValue = "/tmp/ansible_inventories"
 	ScriptsFolderDefaultValue   = "provision/ansible"
@@ -122,71 +122,92 @@ func (p *Provisioner) addToHostFile(logger *log.Entry, infra model.Infrastructur
 }
 
 func (p *Provisioner) writeHost(node model.NodeInfo, file *os.File) (int, error) {
-	line := fmt.Sprintf("%s ansible_host=%s ansible_user=%s\n", node.Hostname, node.IP, node.Username)
+	var role string
+	if node.Role == "master" {
+		role = "master"
+	} else {
+		role = "node"
+	}
+
+	line := fmt.Sprintf("%s ansible_host=%s ansible_user=%s kubernetes_role=%s\n", node.Hostname, node.IP, node.Username, role)
 	return file.WriteString(line)
 }
 
-func (p *Provisioner) createInventory(logger *log.Entry, deploymentID string, infra model.InfrastructureDeploymentInfo) (string, error) {
+func (p *Provisioner) getInventory(logger *log.Entry, deploymentID string, infra model.InfrastructureDeploymentInfo) (string, error) {
 	path := p.GetInventoryFolder(deploymentID, infra.ID)
-
-	err := os.MkdirAll(path, os.ModePerm)
-	if err != nil {
-		logger.WithError(err).Errorf("Error creating inventory folder %s", path)
-		return path, err
-	}
-
 	filePath := p.GetInventoryPath(deploymentID, infra.ID)
-	logger.Infof("Creating inventory at %s", filePath)
-	inventory, err := os.Create(filePath)
-	defer inventory.Close()
 
-	if err != nil {
-		logger.WithError(err).Errorf("Error creating inventory file %s", filePath)
-		return path, err
-	}
+	if _, err := os.Stat(filePath); err == nil {
 
-	_, err = inventory.WriteString("[master]\n")
-	if err != nil {
-		logger.WithError(err).Error("Error writing master header to inventory")
-		return path, err
-	}
+		return filePath, nil
 
-	_, err = p.writeHost(infra.Master, inventory)
-	if err != nil {
-		logger.WithError(err).Error("Error writing master information to inventory")
-		return path, err
-	}
+	} else if os.IsNotExist(err) {
 
-	_, err = inventory.WriteString("[slaves]\n")
-	if err != nil {
-		logger.WithError(err).Error("Error writing slaves header to inventory")
-		return path, err
-	}
-	for _, slave := range infra.Slaves {
-		_, err = p.writeHost(slave, inventory)
+		err := os.MkdirAll(path, os.ModePerm)
 		if err != nil {
-			logger.WithError(err).Errorf("Error writing slave %s header to inventory", slave.Hostname)
+			logger.WithError(err).Errorf("Error creating inventory folder %s", path)
 			return path, err
 		}
+
+		logger.Infof("Creating inventory at %s", filePath)
+		inventory, err := os.Create(filePath)
+		defer inventory.Close()
+
+		if err != nil {
+			logger.WithError(err).Errorf("Error creating inventory file %s", filePath)
+			return path, err
+		}
+
+		_, err = inventory.WriteString("[master]\n")
+		if err != nil {
+			logger.WithError(err).Error("Error writing master header to inventory")
+			return path, err
+		}
+
+		_, err = p.writeHost(infra.Master, inventory)
+		if err != nil {
+			logger.WithError(err).Error("Error writing master information to inventory")
+			return path, err
+		}
+
+		_, err = inventory.WriteString("[slaves]\n")
+		if err != nil {
+			logger.WithError(err).Error("Error writing slaves header to inventory")
+			return path, err
+		}
+		for _, slave := range infra.Slaves {
+			_, err = p.writeHost(slave, inventory)
+			if err != nil {
+				logger.WithError(err).Errorf("Error writing slave %s header to inventory", slave.Hostname)
+				return path, err
+			}
+		}
+
+		logger.Info("Inventory correctly created")
+
+		return path, nil
+	} else {
+		return "", err
 	}
-
-	logger.Info("Inventory correctly created")
-
-	return path, nil
 }
 
 func (p *Provisioner) deployK8s(deploymentID string, infra model.InfrastructureDeploymentInfo) error {
 	logger := log.WithField("infrastructure", infra.ID)
-	inventoryPath, err := p.createInventory(logger, deploymentID, infra)
+	inventoryPath, err := p.getInventory(logger, deploymentID, infra)
 	if err != nil {
 		return err
 	}
 
 	logger.Info("Calling Ansible for initial k8s deployment")
+	logger.Info("Getting required roles")
+	err = utils.ExecuteCommand(logger, "ansible-galaxy", "install", "geerlingguy.docker", "geerlingguy.kubernetes")
+
+	if err != nil {
+		logger.WithError(err).Error("Error installing kubernetes roles")
+		return err
+	}
 	//time.Sleep(180 * time.Second)
-	err = ExecutePlaybook(logger, p.ScriptsFolder+"/kubernetes/ansible_deploy.yml", inventoryPath, map[string]string{
-		"masterUsername": infra.Master.Username,
-	})
+	err = ExecutePlaybook(logger, p.ScriptsFolder+"/kubernetes/main.yml", inventoryPath, nil)
 
 	if err != nil {
 		logger.WithError(err).Error("Error executing ansible deployment for k8s deployment")

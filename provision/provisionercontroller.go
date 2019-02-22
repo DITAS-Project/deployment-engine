@@ -19,7 +19,6 @@ package provision
 import (
 	"deployment-engine/model"
 	"deployment-engine/persistence"
-	"deployment-engine/utils"
 	"fmt"
 
 	log "github.com/sirupsen/logrus"
@@ -37,7 +36,7 @@ func (p *ProvisionerController) Provision(deploymentID, infraID, product string)
 		return deployment, err
 	}
 
-	i, infra, err := utils.FindInfra(deployment, infraID)
+	infra, err := p.Repository.FindInfrastructure(deploymentID, infraID)
 	if err != nil {
 		log.WithError(err).Errorf("Error finding infrastructure %s", infraID)
 		return deployment, err
@@ -49,18 +48,11 @@ func (p *ProvisionerController) Provision(deploymentID, infraID, product string)
 		}
 	}
 
-	err = p.Provisioner.Provision(deploymentID, *infra, product)
+	err = p.Provisioner.Provision(deploymentID, infra, product)
 	if err != nil {
 		log.WithError(err).Errorf("Error provisioning product %s", product)
 		return deployment, err
 	}
 
-	deployment.Infrastructures[i].Products = append(deployment.Infrastructures[i].Products, product)
-	deployment, err = p.Repository.UpdateDeployment(deployment)
-	if err != nil {
-		log.WithError(err).Errorf("Error updating deployment information")
-		return deployment, err
-	}
-
-	return deployment, err
+	return p.Repository.AddProductToInfrastructure(deploymentID, infraID, product)
 }

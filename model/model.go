@@ -16,6 +16,12 @@
 
 package model
 
+const (
+	BasicAuthType = "basic"
+	OAuth2Type    = "oauth"
+	PKIType       = "PKI"
+)
+
 type Drive struct {
 	Name string `json:"name"` //Name of the image to use. Most of the times, it will be available as /dev/disk/by-id/${name} value in the VM
 	Type string `json:"type"` //Type of the drive. It can be "SSD" or "HDD"
@@ -38,7 +44,7 @@ type ResourceType struct {
 type CloudProviderInfo struct {
 	APIEndpoint string `json:"api_endpoint"` //Endpoint to use for this infrastructure
 	APIType     string `json:"api_type"`     //Type of the infrastructure. i.e AWS, Cloudsigma, GCP or Edge
-	KeypairID   string `json:"keypair_id"`   //Keypair to use to log in to the infrastructure manager
+	SecretID    string `json:"secret_id"`    //Secret identifier to use to log in to the infrastructure manager
 }
 
 type InfrastructureType struct {
@@ -50,9 +56,9 @@ type InfrastructureType struct {
 }
 
 type Deployment struct {
-	Name           string               `json:"name"`           //Name for this deployment
-	Description    string               `json:"description"`    //Optional description
-	Infrastructure []InfrastructureType `json:"infrastructure"` //List of infrastructures to deploy for this hybrid deployment
+	Name            string               `json:"name"`            //Name for this deployment
+	Description     string               `json:"description"`     //Optional description
+	Infrastructures []InfrastructureType `json:"infrastructures"` //List of infrastructures to deploy for this hybrid deployment
 }
 
 type DriveInfo struct {
@@ -72,6 +78,7 @@ type NodeInfo struct {
 
 type InfrastructureDeploymentInfo struct {
 	ID       string            `json:"id"`       //Unique infrastructure ID on the deployment
+	Name     string            `json:"name"`     //Name of the infrastructure
 	Type     string            `json:"type"`     //Type of the infrastructure: cloud or edge
 	Provider CloudProviderInfo `json:"provider"` //Provider information
 	Slaves   []NodeInfo        `json:"slaves"`   //List of slaves nodes information
@@ -82,6 +89,7 @@ type InfrastructureDeploymentInfo struct {
 
 type DeploymentInfo struct {
 	ID              string                         `json:"id" bson:"_id"`   //Unique ID for the deployment
+	Name            string                         `json:"name"`            //Name of the deployment
 	Infrastructures []InfrastructureDeploymentInfo `json:"infrastructures"` //Lisf of infrastructures.
 	Status          string                         `json:"status"`          //Global status of the deployment
 }
@@ -89,13 +97,36 @@ type DeploymentInfo struct {
 // Product is a series of scripts that allow to install software in a deployment
 type Product struct {
 	ID     string `json:"id" bson:"_id"` // Unique ID for the product
-	Name   string `json:name`            // Unique name of the product
-	Folder string `json:folder`          // Folder containing the scripts to deploy the product
+	Name   string `json:"name"`          // Unique name of the product
+	Folder string `json:"folder"`        // Folder containing the scripts to deploy the product
+}
+
+type Secret struct {
+	Description string            `json:"description"`
+	Format      string            `json:"format"`
+	Metadata    map[string]string `json:"metadata"`
+	Content     interface{}
+}
+
+type BasicAuthSecret struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+type OAuth2Secret struct {
+	ClientID     string   `json:"client_id"`
+	ClientSecret string   `json:"client_secret"`
+	Scopes       []string `json:"scopes"`
+}
+
+type PKISecret struct {
+	PrivateKey string `json:"private_key"`
+	PublicKey  string `json:"public_key"`
 }
 
 type Deployer interface {
-	DeployInfrastructure(infra InfrastructureType) (InfrastructureDeploymentInfo, error)
-	DeleteInfrastructure(infra InfrastructureDeploymentInfo) map[string]error
+	DeployInfrastructure(deploymentID string, infra InfrastructureType) (InfrastructureDeploymentInfo, error)
+	DeleteInfrastructure(deploymentID string, infra InfrastructureDeploymentInfo) map[string]error
 }
 
 //Provisioner is the interface that must implement custom provisioners such as ansible, etc
@@ -103,6 +134,7 @@ type Provisioner interface {
 	Provision(deployment string, infra InfrastructureDeploymentInfo, product string) error
 }
 
-type Frontent interface {
+// Frontend is the interface that must be implemented for any frontend that will serve an API around the functionality of the deployment engine
+type Frontend interface {
 	Run(addr string) error
 }
