@@ -57,9 +57,5 @@
   unused-packages = true
 
 [[constraint]]
-  name = "github.com/mongodb/mongo-go-driver"
-  version = "0.3.0"
-
-[[constraint]]
-  branch = "master"
-  name = "github.com/DITAS-Project/blueprint-go"
+  name = "go.mongodb.org/mongo-driver"
+  version = "v1.0.0-rc1"
