@@ -30,8 +30,10 @@ import (
 	"os"
 	"strconv"
 
+	"go.mongodb.org/mongo-driver/mongo/options"
+
 	blueprint "github.com/DITAS-Project/blueprint-go"
-	"github.com/mongodb/mongo-go-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo"
 	"gopkg.in/mgo.v2/bson"
 
 	log "github.com/sirupsen/logrus"
@@ -68,7 +70,7 @@ func NewVDCManager(provisioner *ansible.Provisioner, deployer *infrastructure.De
 	}
 
 	mongoConnectionURL := viper.GetString(mongorepo.MongoDBURLName)
-	client, err := mongo.Connect(context.Background(), mongoConnectionURL)
+	client, err := mongo.Connect(context.Background(), options.Client().ApplyURI(mongoConnectionURL))
 	if err == nil {
 		db := client.Database("deployment_engine")
 		if db != nil {
