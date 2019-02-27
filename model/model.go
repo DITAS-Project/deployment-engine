@@ -42,9 +42,10 @@ type ResourceType struct {
 }
 
 type CloudProviderInfo struct {
-	APIEndpoint string `json:"api_endpoint"` //Endpoint to use for this infrastructure
-	APIType     string `json:"api_type"`     //Type of the infrastructure. i.e AWS, Cloudsigma, GCP or Edge
-	SecretID    string `json:"secret_id"`    //Secret identifier to use to log in to the infrastructure manager
+	APIEndpoint string            `json:"api_endpoint"` //Endpoint to use for this infrastructure
+	APIType     string            `json:"api_type"`     //Type of the infrastructure. i.e AWS, Cloudsigma, GCP or Edge
+	SecretID    string            `json:"secret_id"`    //Secret identifier to use to log in to the infrastructure manager.
+	Credentials map[string]string `json:"credentials"`  //Credentials to access the cloud provider. Either this or secret_id is mandatory.
 }
 
 type InfrastructureType struct {

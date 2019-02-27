@@ -21,6 +21,7 @@ import (
 	"deployment-engine/infrastructure/cloudsigma"
 	"deployment-engine/model"
 	"deployment-engine/persistence"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -41,6 +42,30 @@ type Deployer struct {
 	Vault      persistence.Vault
 }
 
+func (c *Deployer) transformCredentials(raw, result interface{}) error {
+	strValue, err := json.Marshal(raw)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(strValue, result)
+}
+
+func (c *Deployer) getProviderCredentials(provider model.CloudProviderInfo, credentials interface{}) error {
+	if provider.Credentials != nil {
+		return c.transformCredentials(provider.Credentials, credentials)
+	}
+
+	if provider.SecretID != "" {
+		secret, err := c.Vault.GetSecret(provider.SecretID)
+		if err != nil {
+			return err
+		}
+		return c.transformCredentials(secret.Content, credentials)
+	}
+
+	return errors.New("Secret ID or credentials are needed for cloud provider")
+}
+
 func (c *Deployer) findProvider(provider model.CloudProviderInfo) (model.Deployer, error) {
 
 	if provider.SecretID == "" {
@@ -49,14 +74,15 @@ func (c *Deployer) findProvider(provider model.CloudProviderInfo) (model.Deploye
 
 	if strings.ToLower(provider.APIType) == "cloudsigma" {
 
-		secret, err := c.Vault.GetSecret(provider.SecretID)
+		var credentials model.BasicAuthSecret
+		err := c.getProviderCredentials(provider, &credentials)
+
 		if err != nil {
 			return nil, err
 		}
 
-		credentials, ok := secret.Content.(model.BasicAuthSecret)
-		if !ok {
-			return nil, fmt.Errorf("Invalid credentials found in vault for provider %v", provider)
+		if credentials.Username == "" || credentials.Password == "" {
+			return nil, fmt.Errorf("Invalid credentials specified for cloudsigma provider %s. Username and password are needed", provider.APIEndpoint)
 		}
 
 		dep, err := cloudsigma.NewDeployer(provider.APIEndpoint, credentials)
