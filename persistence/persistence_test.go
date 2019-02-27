@@ -32,6 +32,11 @@ func TestMain(m *testing.M) {
 		if err != nil {
 			log.Fatalf("Error creating repository: %s", err.Error())
 		}
+		repo.SetDatabase("deployment_engine_test")
+		err = repo.ClearDatabase()
+		if err != nil {
+			log.Fatalf("Error clearing database")
+		}
 		depRepos = append(depRepos, repo)
 		productRepos = append(productRepos, repo)
 		vaults = append(vaults, repo)

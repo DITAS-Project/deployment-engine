@@ -24,13 +24,13 @@ import (
 	"deployment-engine/model"
 	"fmt"
 
-	"github.com/mongodb/mongo-go-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/google/uuid"
-	"github.com/mongodb/mongo-go-driver/bson"
-	"github.com/mongodb/mongo-go-driver/mongo"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 const (
@@ -44,8 +44,10 @@ const (
 )
 
 type MongoRepository struct {
-	database *mongo.Database
-	cipher   cipher.AEAD
+	client                      *mongo.Client
+	database                    *mongo.Database
+	cipher                      cipher.AEAD
+	defaultFindAndUpdateOptions *options.FindOneAndUpdateOptions
 }
 
 func initializeCipher(passphrase string) (cipher.AEAD, error) {
@@ -62,16 +64,17 @@ func initializeCipher(passphrase string) (cipher.AEAD, error) {
 func CreateRepositoryNative() (*MongoRepository, error) {
 	viper.SetDefault(MongoDBURLName, MongoDBURLDefault)
 	mongoConnectionURL := viper.GetString(MongoDBURLName)
-	client, err := mongo.Connect(context.Background(), mongoConnectionURL, nil)
+	client, err := mongo.Connect(context.Background(), options.Client().ApplyURI(mongoConnectionURL), nil)
 	if err != nil {
 		log.WithError(err).Errorf("Error connecting to MongoDB server %s", mongoConnectionURL)
 		return nil, err
 	}
 
-	db := client.Database("deployment_engine")
 	repo := MongoRepository{
-		database: db,
+		client: client,
+		defaultFindAndUpdateOptions: options.FindOneAndUpdate().SetReturnDocument(options.After),
 	}
+	repo.SetDatabase("deployment_engine")
 
 	vaultPassphrase := viper.GetString(VaultPassphraseName)
 	if vaultPassphrase != "" {
@@ -86,6 +89,14 @@ func CreateRepositoryNative() (*MongoRepository, error) {
 	return &repo, err
 }
 
+func (m *MongoRepository) SetDatabase(db string) {
+	m.database = m.client.Database(db)
+}
+
+func (m *MongoRepository) ClearDatabase() error {
+	return m.database.Drop(context.Background())
+}
+
 func (m *MongoRepository) insert(collection string, object interface{}) error {
 	_, err := m.database.Collection(collection).InsertOne(context.Background(), object)
 	return err
@@ -96,7 +107,7 @@ func (m *MongoRepository) replace(collection string, id string, object interface
 }
 
 func (m *MongoRepository) update(collection string, id string, update bson.M, updated interface{}) error {
-	result := m.database.Collection(collection).FindOneAndUpdate(context.Background(), bson.M{"_id": id}, update)
+	result := m.database.Collection(collection).FindOneAndUpdate(context.Background(), bson.M{"_id": id}, update, m.defaultFindAndUpdateOptions)
 	return result.Decode(updated)
 }
 
@@ -143,6 +154,9 @@ func (m *MongoRepository) delete(collection, ID string) error {
 //SaveDeployment a new deployment information and return the updated deployment from the underlying database
 func (m *MongoRepository) SaveDeployment(deployment model.DeploymentInfo) (model.DeploymentInfo, error) {
 	deployment.ID = uuid.New().String()
+	if deployment.Infrastructures == nil {
+		deployment.Infrastructures = make([]model.InfrastructureDeploymentInfo, 0)
+	}
 	err := m.insert(deploymentCollection, deployment)
 	return deployment, err
 }
@@ -151,6 +165,9 @@ func (m *MongoRepository) SaveDeployment(deployment model.DeploymentInfo) (model
 func (m *MongoRepository) UpdateDeployment(deployment model.DeploymentInfo) (model.DeploymentInfo, error) {
 	var dep model.DeploymentInfo
 	dep.ID = deployment.ID
+	if deployment.Infrastructures == nil {
+		deployment.Infrastructures = make([]model.InfrastructureDeploymentInfo, 0)
+	}
 	err := m.replace(deploymentCollection, deployment.ID, deployment, &dep)
 	return dep, err
 }
@@ -182,6 +199,9 @@ func (m *MongoRepository) DeleteDeployment(deploymentID string) error {
 //AddInfrastructure adds a new infrastructure to an existing deployment
 func (m *MongoRepository) AddInfrastructure(deploymentID string, infra model.InfrastructureDeploymentInfo) (model.DeploymentInfo, error) {
 	var updated model.DeploymentInfo
+	if infra.Products == nil {
+		infra.Products = make([]string, 0)
+	}
 	err := m.update(deploymentCollection, deploymentID, bson.M{
 		"$push": bson.M{
 			"infrastructures": infra,
@@ -271,7 +291,7 @@ func (m *MongoRepository) AddProductToInfrastructure(deploymentID, infrastructur
 			"$push": bson.M{
 				"infrastructures.$.products": product,
 			},
-		}).Decode(&updated)
+		}, m.defaultFindAndUpdateOptions).Decode(&updated)
 	return updated, err
 }
 
