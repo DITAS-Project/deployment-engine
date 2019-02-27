@@ -359,9 +359,12 @@ type ImageInfo struct {
 	// Image is the image name in the standard format [group]/<image_name>:[release]
 	// required: true
 	Image string `json:"image"`
+
+	// Environment is a map of environment variables whose key is the variable name and value is the variable value
+	Environment map[string]string `json:environment`
 }
 
-// ImageSet represents a set of docker images whose key is an identifier and value is a docker image name in the standard format [group]/<image_name>:[release]
+// ImageSet represents a set of docker images whose key is an identifier and value is a the docker image information such as image name and listening ports
 // swagger:model
 type ImageSet map[string]ImageInfo
 
