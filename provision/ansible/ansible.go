@@ -19,10 +19,8 @@ package ansible
 import (
 	"deployment-engine/model"
 	"deployment-engine/utils"
-	"errors"
 	"fmt"
 	"os"
-	"time"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -60,68 +58,12 @@ func New() (*Provisioner, error) {
 	}, nil
 }
 
-func (p *Provisioner) clearKnownHost(logger *log.Entry, ip string) error {
-	return ExecutePlaybook(logger, p.ScriptsFolder+"/common/clear_known_hosts.yml", "", map[string]string{
-		"host_ip": ip,
-	})
+func (p *Provisioner) WaitForSSHPortReady(logger *log.Entry, inventoryPath, deploymentID string, infra model.InfrastructureDeploymentInfo) error {
+	logger.Info("Waiting for port 22 to be ready")
+	return ExecutePlaybook(logger, p.ScriptsFolder+"/common/wait_ssh_ready.yml", inventoryPath, nil)
 }
 
-func (p *Provisioner) addHostToHostFile(log *log.Entry, hostInfo model.NodeInfo) error {
-	logger := log.WithField("host", hostInfo.Hostname)
-
-	err := p.clearKnownHost(logger, hostInfo.IP)
-	if err != nil {
-		logger.WithError(err).Error("Error clearing known hosts")
-		return err
-	}
-
-	host := fmt.Sprintf("%s@%s", hostInfo.Username, hostInfo.IP)
-	command := fmt.Sprintf("echo %s %s | sudo tee -a /etc/hosts > /dev/null 2>&1", hostInfo.IP, hostInfo.Hostname)
-	timeout := 30 * time.Second
-	logger.Info("Waiting for ssh service to be ready")
-	_, timedOut, _ := utils.WaitForStatusChange("starting", timeout, func() (string, error) {
-		err := utils.ExecuteCommand(logger, "ssh", "-o", "StrictHostKeyChecking=no", host, command)
-		if err != nil {
-			return "starting", nil
-		}
-		return "started", nil
-	})
-	if timedOut {
-		msg := "Timeout waiting for ssh service to start"
-		logger.Errorf(msg)
-		return errors.New(msg)
-	}
-	logger.Info("Ssh service ready")
-
-	return nil
-}
-
-func (p *Provisioner) addToHostFile(logger *log.Entry, infra model.InfrastructureDeploymentInfo) error {
-
-	logger.Info("Adding master to hosts")
-	err := p.addHostToHostFile(logger, infra.Master)
-
-	if err != nil {
-		logger.WithError(err).Error("Error adding master to hosts")
-		return err
-	}
-
-	logger.Info("Master added. Adding slaves to hosts")
-
-	for _, slave := range infra.Slaves {
-		err = p.addHostToHostFile(logger, slave)
-		if err != nil {
-			logger.WithError(err).Errorf("Error adding slave %s to hosts", slave.Hostname)
-			return err
-		}
-	}
-
-	logger.Info("Slaves added")
-
-	return nil
-}
-
-func (p *Provisioner) writeHost(node model.NodeInfo, file *os.File) (int, error) {
+func (p *Provisioner) WriteHost(node model.NodeInfo, file *os.File) (int, error) {
 	var role string
 	if node.Role == "master" {
 		role = "master"
@@ -129,11 +71,51 @@ func (p *Provisioner) writeHost(node model.NodeInfo, file *os.File) (int, error)
 		role = "node"
 	}
 
-	line := fmt.Sprintf("%s ansible_host=%s ansible_user=%s kubernetes_role=%s\n", node.Hostname, node.IP, node.Username, role)
+	devices := ""
+	if node.DataDrives != nil {
+		for i := 0; i < len(node.DataDrives); i++ {
+			device := fmt.Sprintf("\"/dev/vd%s\"", string(rune('b'+i)))
+			devices = devices + device
+			if i < (len(node.DataDrives) - 1) {
+				devices = devices + ","
+			}
+		}
+	}
+
+	line := fmt.Sprintf("%s ansible_host=%s ansible_user=%s kubernetes_role=%s devices='[%s]'\n", node.Hostname, node.IP, node.Username, role, devices)
 	return file.WriteString(line)
 }
 
-func (p *Provisioner) getInventory(logger *log.Entry, deploymentID string, infra model.InfrastructureDeploymentInfo) (string, error) {
+func (p *Provisioner) defaultProvisionerInventoryWriter(logger *log.Entry, inventory *os.File, infra model.InfrastructureDeploymentInfo) error {
+	_, err := inventory.WriteString("[master]\n")
+	if err != nil {
+		logger.WithError(err).Error("Error writing master header to inventory")
+		return err
+	}
+
+	_, err = p.WriteHost(infra.Master, inventory)
+	if err != nil {
+		logger.WithError(err).Error("Error writing master information to inventory")
+		return err
+	}
+
+	_, err = inventory.WriteString("[slaves]\n")
+	if err != nil {
+		logger.WithError(err).Error("Error writing slaves header to inventory")
+		return err
+	}
+	for _, slave := range infra.Slaves {
+		_, err = p.WriteHost(slave, inventory)
+		if err != nil {
+			logger.WithError(err).Errorf("Error writing slave %s header to inventory", slave.Hostname)
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (p *Provisioner) GetCustomInventory(logger *log.Entry, deploymentID string, infra model.InfrastructureDeploymentInfo, writer func(logger *log.Entry, inventory *os.File, infra model.InfrastructureDeploymentInfo) error) (string, error) {
 	path := p.GetInventoryFolder(deploymentID, infra.ID)
 	filePath := p.GetInventoryPath(deploymentID, infra.ID)
 
@@ -158,29 +140,9 @@ func (p *Provisioner) getInventory(logger *log.Entry, deploymentID string, infra
 			return path, err
 		}
 
-		_, err = inventory.WriteString("[master]\n")
+		err = writer(logger, inventory, infra)
 		if err != nil {
-			logger.WithError(err).Error("Error writing master header to inventory")
 			return path, err
-		}
-
-		_, err = p.writeHost(infra.Master, inventory)
-		if err != nil {
-			logger.WithError(err).Error("Error writing master information to inventory")
-			return path, err
-		}
-
-		_, err = inventory.WriteString("[slaves]\n")
-		if err != nil {
-			logger.WithError(err).Error("Error writing slaves header to inventory")
-			return path, err
-		}
-		for _, slave := range infra.Slaves {
-			_, err = p.writeHost(slave, inventory)
-			if err != nil {
-				logger.WithError(err).Errorf("Error writing slave %s header to inventory", slave.Hostname)
-				return path, err
-			}
 		}
 
 		logger.Info("Inventory correctly created")
@@ -191,9 +153,19 @@ func (p *Provisioner) getInventory(logger *log.Entry, deploymentID string, infra
 	}
 }
 
+func (p *Provisioner) GetInventory(logger *log.Entry, deploymentID string, infra model.InfrastructureDeploymentInfo) (string, error) {
+	return p.GetCustomInventory(logger, deploymentID, infra, p.defaultProvisionerInventoryWriter)
+}
+
 func (p *Provisioner) deployK8s(deploymentID string, infra model.InfrastructureDeploymentInfo) error {
 	logger := log.WithField("infrastructure", infra.ID)
-	inventoryPath, err := p.getInventory(logger, deploymentID, infra)
+
+	inventoryPath, err := p.GetInventory(logger, deploymentID, infra)
+	if err != nil {
+		return err
+	}
+
+	err = p.WaitForSSHPortReady(logger, inventoryPath, deploymentID, infra)
 	if err != nil {
 		return err
 	}
@@ -219,14 +191,6 @@ func (p *Provisioner) deployK8s(deploymentID string, infra model.InfrastructureD
 }
 
 func (p Provisioner) Provision(deploymentId string, infra model.InfrastructureDeploymentInfo, product string) error {
-
-	if len(infra.Products) == 0 {
-		err := p.addToHostFile(log.WithField("infrastructure", infra.ID), infra)
-		if err != nil {
-			log.WithError(err).Error("Error setting known_hosts")
-			return err
-		}
-	}
 
 	if product == "kubernetes" {
 		return p.deployK8s(deploymentId, infra)

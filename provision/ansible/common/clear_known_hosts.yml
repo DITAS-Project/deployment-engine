@@ -1,7 +1,0 @@
----
-  - hosts: localhost
-    tasks:
-      - name: Clear known hosts
-        known_hosts:
-          name: "{{ host_ip }}"
-          state: absent

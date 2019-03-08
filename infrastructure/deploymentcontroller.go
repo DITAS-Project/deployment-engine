@@ -56,6 +56,9 @@ func (c *Deployer) getProviderCredentials(provider model.CloudProviderInfo, cred
 	}
 
 	if provider.SecretID != "" {
+		if c.Vault == nil {
+			return errors.New("Found secret identifier but a vault hasn't been configured")
+		}
 		secret, err := c.Vault.GetSecret(provider.SecretID)
 		if err != nil {
 			return err
@@ -68,8 +71,8 @@ func (c *Deployer) getProviderCredentials(provider model.CloudProviderInfo, cred
 
 func (c *Deployer) findProvider(provider model.CloudProviderInfo) (model.Deployer, error) {
 
-	if provider.SecretID == "" {
-		return nil, fmt.Errorf("Secret identifier is empty for Cloud Provider %v", provider)
+	if provider.SecretID == "" && (provider.Credentials == nil || len(provider.Credentials) == 0) {
+		return nil, fmt.Errorf("Either secret ID or provider credentials are mandatory for Provider %v", provider)
 	}
 
 	if strings.ToLower(provider.APIType) == "cloudsigma" {
@@ -92,13 +95,22 @@ func (c *Deployer) findProvider(provider model.CloudProviderInfo) (model.Deploye
 	return nil, fmt.Errorf("Can't find a suitable deployer for API type %s", provider.APIType)
 }
 
-func (c *Deployer) DeployInfrastructure(deploymentID string, infra model.InfrastructureType, deployer model.Deployer, channel chan InfrastructureCreationResult) {
+func (c *Deployer) DeployInfrastructure(deploymentID string, infra model.InfrastructureType, channel chan InfrastructureCreationResult) {
+	deployer, err := c.findProvider(infra.Provider)
+
+	if err != nil {
+		channel <- InfrastructureCreationResult{
+			Error: err,
+		}
+		return
+	}
 	depInfo, err := deployer.DeployInfrastructure(deploymentID, infra)
 	depInfo.Provider = infra.Provider
 	channel <- InfrastructureCreationResult{
 		Info:  depInfo,
 		Error: err,
 	}
+	return
 }
 
 //CreateDeployment will create an hybrid deployment with the configuration passed as argument
@@ -125,15 +137,7 @@ func (c *Deployer) CreateDeployment(deployment model.Deployment) (model.Deployme
 	channel := make(chan InfrastructureCreationResult, len(deployment.Infrastructures))
 
 	for _, infra := range deployment.Infrastructures {
-		logger = logger.WithField("infrastructure", infra.Name)
-		deployer, infraErr := c.findProvider(infra.Provider)
-
-		if infraErr != nil {
-			logger.WithError(infraErr).Errorf("Error getting deployment provider")
-			break
-		}
-
-		go c.DeployInfrastructure(result.ID, infra, deployer, channel)
+		go c.DeployInfrastructure(result.ID, infra, channel)
 	}
 
 	var depError error
@@ -160,7 +164,7 @@ func (c *Deployer) CreateDeployment(deployment model.Deployment) (model.Deployme
 		// TODO: Remove partial infrastructures if autoclean is on
 	}
 
-	return result, err
+	return result, depError
 }
 
 func (c *Deployer) DeleteDeployment(deploymentID string) error {
