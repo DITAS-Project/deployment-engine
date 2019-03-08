@@ -95,6 +95,19 @@ func (c *Deployer) findProvider(provider model.CloudProviderInfo) (model.Deploye
 	return nil, fmt.Errorf("Can't find a suitable deployer for API type %s", provider.APIType)
 }
 
+func (c *Deployer) mergeCustomProperties(source map[string]string, target map[string]string) map[string]string {
+	result := make(map[string]string)
+	if source != nil {
+		result = source
+	}
+	if target != nil {
+		for k, v := range target {
+			result[k] = v
+		}
+	}
+	return result
+}
+
 func (c *Deployer) DeployInfrastructure(deploymentID string, infra model.InfrastructureType, channel chan InfrastructureCreationResult) {
 	deployer, err := c.findProvider(infra.Provider)
 

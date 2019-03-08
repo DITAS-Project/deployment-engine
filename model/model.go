@@ -29,16 +29,17 @@ type Drive struct {
 }
 
 type ResourceType struct {
-	Name    string  `json:"name"`         //Suffix for the hostname. The real hostname will be formed of the infrastructure name + resource name
-	Type    string  `json:"type"`         //Type of the VM to create i.e. n1-small
-	CPU     int     `json:"cpu"`          //CPU speed in Mhz. Ignored if type is provided
-	Cores   int     `json:"cores"`        //Number of cores. Ignored if type is provided
-	RAM     int64   `json:"ram"`          //RAM quantity in Mb. Ignored if type is provided
-	Disk    int64   `json:"disk"`         //Boot disk size in Mb
-	Role    string  `json:"role"`         //Role that this VM plays. In case of a Kubernetes deployment at least one "master" is needed.
-	ImageId string  `json:"image_id"`     //Boot image ID to use
-	IP      string  `json:"ip,omitempty"` //IP to assign this VM. In case it's not specified, the first available one will be used.
-	Drives  []Drive `json:"drives"`       //List of data drives to attach to this VM
+	Name            string            `json:"name"`             //Suffix for the hostname. The real hostname will be formed of the infrastructure name + resource name
+	Type            string            `json:"type"`             //Type of the VM to create i.e. n1-small
+	CPU             int               `json:"cpu"`              //CPU speed in Mhz. Ignored if type is provided
+	Cores           int               `json:"cores"`            //Number of cores. Ignored if type is provided
+	RAM             int64             `json:"ram"`              //RAM quantity in Mb. Ignored if type is provided
+	Disk            int64             `json:"disk"`             //Boot disk size in Mb
+	Role            string            `json:"role"`             //Role that this VM plays. In case of a Kubernetes deployment at least one "master" is needed.
+	ImageId         string            `json:"image_id"`         //Boot image ID to use
+	IP              string            `json:"ip,omitempty"`     //IP to assign this VM. In case it's not specified, the first available one will be used.
+	Drives          []Drive           `json:"drives"`           //List of data drives to attach to this VM
+	ExtraProperties map[string]string `json:"extra_properties"` //Extra properties to pass to the provider or the provisioner
 }
 
 type CloudProviderInfo struct {
@@ -49,11 +50,12 @@ type CloudProviderInfo struct {
 }
 
 type InfrastructureType struct {
-	Name        string            `json:"name"`        //Unique name for the infrastructure
-	Description string            `json:"description"` //Optional description for the infrastructure
-	Type        string            `json:"type"`        //Type of the infrastructure: Cloud or Edge
-	Provider    CloudProviderInfo `json:"provider"`    //Provider information
-	Resources   []ResourceType    `json:"resources"`   //List of resources to deploy
+	Name            string            `json:"name"`             //Unique name for the infrastructure
+	Description     string            `json:"description"`      //Optional description for the infrastructure
+	Type            string            `json:"type"`             //Type of the infrastructure: Cloud or Edge
+	Provider        CloudProviderInfo `json:"provider"`         //Provider information
+	Resources       []ResourceType    `json:"resources"`        //List of resources to deploy
+	ExtraProperties map[string]string `json:"extra_properties"` //Extra properties to pass to the provider or the provisioner
 }
 
 type Deployment struct {
@@ -68,24 +70,26 @@ type DriveInfo struct {
 }
 
 type NodeInfo struct {
-	Hostname   string      `json:"hostname"`                       //Hostname of the node.
-	Role       string      `json:"role"`                           //Role of the node. Master or slave.
-	IP         string      `json:"ip"`                             //IP assigned to this node.
-	Username   string      `json:"username"`                       //Username to use to manage it. If not present, root will be used.
-	UUID       string      `json:"uuid"`                           //UUID of this node in the infrastructure provider
-	DriveUUID  string      `json:"drive_uuid" bson:"drive_uuid"`   //Boot disk UUID for this node in the infrastructure provider
-	DataDrives []DriveInfo `json:"data_drives" bson:"data_drives"` //Data drives information
+	Hostname        string            `json:"hostname"`                       //Hostname of the node.
+	Role            string            `json:"role"`                           //Role of the node. Master or slave.
+	IP              string            `json:"ip"`                             //IP assigned to this node.
+	Username        string            `json:"username"`                       //Username to use to manage it. If not present, root will be used.
+	UUID            string            `json:"uuid"`                           //UUID of this node in the infrastructure provider
+	DriveUUID       string            `json:"drive_uuid" bson:"drive_uuid"`   //Boot disk UUID for this node in the infrastructure provider
+	DataDrives      []DriveInfo       `json:"data_drives" bson:"data_drives"` //Data drives information
+	ExtraProperties map[string]string `json:"extra_properties"`               //Extra properties to pass to the provider or the provisioner
 }
 
 type InfrastructureDeploymentInfo struct {
-	ID       string            `json:"id"`       //Unique infrastructure ID on the deployment
-	Name     string            `json:"name"`     //Name of the infrastructure
-	Type     string            `json:"type"`     //Type of the infrastructure: cloud or edge
-	Provider CloudProviderInfo `json:"provider"` //Provider information
-	Slaves   []NodeInfo        `json:"slaves"`   //List of slaves nodes information
-	Master   NodeInfo          `json:"master"`   //Master node information
-	Status   string            `json:"status"`   //Status of the infrastructure
-	Products []string          `json:"products"` //List of installed products in this infrastructure
+	ID              string            `json:"id"`               //Unique infrastructure ID on the deployment
+	Name            string            `json:"name"`             //Name of the infrastructure
+	Type            string            `json:"type"`             //Type of the infrastructure: cloud or edge
+	Provider        CloudProviderInfo `json:"provider"`         //Provider information
+	Slaves          []NodeInfo        `json:"slaves"`           //List of slaves nodes information
+	Master          NodeInfo          `json:"master"`           //Master node information
+	Status          string            `json:"status"`           //Status of the infrastructure
+	Products        []string          `json:"products"`         //List of installed products in this infrastructure
+	ExtraProperties map[string]string `json:"extra_properties"` //Extra properties to pass to the provider or the provisioner
 }
 
 type DeploymentInfo struct {
