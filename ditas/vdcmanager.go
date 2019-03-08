@@ -26,6 +26,7 @@ import (
 	"deployment-engine/provision/ansible"
 	"deployment-engine/utils"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -41,11 +42,13 @@ import (
 )
 
 const (
-	DitasScriptsFolderProperty = "ditas.scripts.folder"
-	DitasConfigFolderProperty  = "ditas.config.folder"
+	DitasScriptsFolderProperty   = "ditas.folders.scripts"
+	DitasConfigFolderProperty    = "ditas.folders.config"
+	DitasKubesprayFolderProperty = "ditas.folders.kubespray"
 
-	DitasScriptsFolderDefaultValue = "ditas/scripts"
-	DitasConfigFolderDefaultValue  = "ditas/VDC-Shared-Config"
+	DitasScriptsFolderDefaultValue   = "ditas/scripts"
+	DitasConfigFolderDefaultValue    = "ditas/VDC-Shared-Config"
+	DitasKubesprayFolderDefaultValue = "ditas/kubespray"
 )
 
 type VDCManager struct {
@@ -53,6 +56,7 @@ type VDCManager struct {
 	ScriptsFolder         string
 	ConfigFolder          string
 	ConfigVariablesPath   string
+	KubesprayFolder       string
 	DeploymentController  *infrastructure.Deployer
 	ProvisionerController *provision.ProvisionerController
 	Provisioner           *ansible.Provisioner
@@ -78,6 +82,7 @@ func NewVDCManager(provisioner *ansible.Provisioner, deployer *infrastructure.De
 				Collection:            db.Collection("vdcs"),
 				ScriptsFolder:         viper.GetString(DitasScriptsFolderProperty),
 				ConfigFolder:          viper.GetString(DitasConfigFolderProperty),
+				KubesprayFolder:       viper.GetString(DitasKubesprayFolderProperty),
 				ConfigVariablesPath:   configFolder + "/vars.yml",
 				Provisioner:           provisioner,
 				DeploymentController:  deployer,
@@ -92,6 +97,9 @@ func NewVDCManager(provisioner *ansible.Provisioner, deployer *infrastructure.De
 
 func (m *VDCManager) DeployBlueprint(request CreateDeploymentRequest) error {
 	bp := request.Blueprint
+	if bp.InternalStructure.Overview.Name == nil {
+		return errors.New("Invalid blueprint. Name is mandatory")
+	}
 	blueprintName := *bp.InternalStructure.Overview.Name
 	var vdcInfo VDCInformation
 	var deploymentInfo model.DeploymentInfo
@@ -119,12 +127,12 @@ func (m *VDCManager) DeployBlueprint(request CreateDeploymentRequest) error {
 		if err != nil {
 			log.WithError(err).Error("Error deploying kubernetes. Trying to clean deployment")
 
-			for _, infra := range deploymentInfo.Infrastructures {
+			/*for _, infra := range deploymentInfo.Infrastructures {
 				_, err := m.DeploymentController.DeleteInfrastructure(deploymentInfo.ID, infra.ID)
 				if err != nil {
 					log.WithError(err).Errorf("Error deleting insfrastructure %s", infra.ID)
 				}
-			}
+			}*/
 			return err
 		}
 
@@ -146,10 +154,115 @@ func (m *VDCManager) DeployBlueprint(request CreateDeploymentRequest) error {
 	return m.DeployVDC(vdcInfo, bp, deploymentInfo.Infrastructures[0])
 }
 
+func (m *VDCManager) provisionK3s(deploymentId string, infra model.InfrastructureDeploymentInfo) error {
+	infraId := infra.ID
+	logger := log.WithField("infrastructure", infraId)
+
+	inventory, err := m.Provisioner.GetInventory(logger, deploymentId, infra)
+	if err != nil {
+		return err
+	}
+
+	err = m.Provisioner.WaitForSSHPortReady(logger, inventory, deploymentId, infra)
+	if err != nil {
+		return err
+	}
+
+	/*err = m.Provisioner.AddToHostFile(logger, infra)
+	if err != nil {
+		return err
+	}*/
+
+	err = m.executePlaybook(deploymentId, infra, "deploy_k3s.yml", nil)
+	if err != nil {
+		return err
+	}
+
+	err = m.executePlaybook(deploymentId, infra, "join_k3s_nodes.yml", map[string]string{
+		"master_ip": infra.Master.IP,
+	})
+
+	return err
+}
+
+func (m *VDCManager) writeAllToGroup(inventory *os.File, group string, infra model.InfrastructureDeploymentInfo) error {
+	_, err := inventory.WriteString(fmt.Sprintln(fmt.Sprintf("[%s]", group)))
+	if err != nil {
+		return err
+	}
+
+	_, err = inventory.WriteString(fmt.Sprintln(infra.Master.Hostname))
+	if err != nil {
+		return err
+	}
+
+	for _, node := range infra.Slaves {
+		_, err = inventory.WriteString(fmt.Sprintln(node.Hostname))
+		if err != nil {
+			return err
+		}
+	}
+
+	return err
+}
+
+func (m *VDCManager) createKubesprayInventory(logger *log.Entry, inventory *os.File, infra model.InfrastructureDeploymentInfo) error {
+	_, err := m.Provisioner.WriteHost(infra.Master, inventory)
+	if err != nil {
+		return err
+	}
+
+	for _, host := range infra.Slaves {
+		_, err = m.Provisioner.WriteHost(host, inventory)
+		if err != nil {
+			return err
+		}
+	}
+
+	_, err = inventory.WriteString("\n[kube-master]\n")
+	if err != nil {
+		return err
+	}
+
+	_, err = inventory.WriteString(fmt.Sprintln(infra.Master.Hostname))
+	if err != nil {
+		return err
+	}
+
+	err = m.writeAllToGroup(inventory, "etcd", infra)
+	if err != nil {
+		return err
+	}
+
+	err = m.writeAllToGroup(inventory, "kube-node", infra)
+	if err != nil {
+		return err
+	}
+
+	_, err = inventory.WriteString("\n[k8s-cluster:children]\nkube-node\nkube-master\n")
+	return err
+}
+
+func (m *VDCManager) provisionKubernetesWithKubespray(deploymentID string, infra model.InfrastructureDeploymentInfo) error {
+	logger := log.WithField("infrastructure", infra.ID)
+	inventory, err := m.Provisioner.GetCustomInventory(logger, deploymentID, infra, m.createKubesprayInventory)
+	if err != nil {
+		return err
+	}
+
+	err = m.Provisioner.WaitForSSHPortReady(logger, inventory, deploymentID, infra)
+	if err != nil {
+		return err
+	}
+
+	return ansible.ExecutePlaybook(logger, m.KubesprayFolder+"/cluster.yml", inventory, nil)
+}
+
 func (m *VDCManager) provisionKubernetes(deployment model.DeploymentInfo, vdcInfo *VDCInformation) (model.DeploymentInfo, error) {
 	result := deployment
 	for _, infra := range deployment.Infrastructures {
-		result, err := m.ProvisionerController.Provision(deployment.ID, infra.ID, "kubernetes")
+		//err := m.Provisioner.Provision(deployment.ID, infra, "kubernetes")
+		err := m.provisionKubernetesWithKubespray(deployment.ID, infra)
 		if err != nil {
 			log.WithError(err).Errorf("Error deploying kubernetes on infrastructure %s. Trying to clean up deployment.", infra.ID)
 			return result, err
@@ -241,9 +354,9 @@ func (m *VDCManager) DeployVDC(vdcInfo VDCInformation, blueprint blueprint.Bluep
 }
 
 func (m *VDCManager) initializeInfra(deploymentID string, infra model.InfrastructureDeploymentInfo) error {
-	err := m.executePlaybook(deploymentID, infra, "deploy_nfs.yml", nil)
+	err := m.executePlaybook(deploymentID, infra, "prepare_data_disks.yml", nil)
 	if err != nil {
-		log.WithError(err).Errorf("Error configuring NFS on Master")
+		log.WithError(err).Errorf("Error preparing persistent storage")
 		return err
 	}
 

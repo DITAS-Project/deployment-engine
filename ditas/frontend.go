@@ -129,6 +129,16 @@ func (a *DitasFrontend) createDep(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
+	if request.Blueprint.InternalStructure.Overview.Name == nil {
+		restfrontend.RespondWithError(w, http.StatusBadRequest, "Invalid blueprint. Name is mandatory")
+		return
+	}
+
+	if request.Resources == nil || len(request.Resources) == 0 {
+		restfrontend.RespondWithError(w, http.StatusBadRequest, "List of resources to deploy is mandatory")
+		return
+	}
+
 	err := a.VDCManagerInstance.DeployBlueprint(request)
 
 	if err != nil {

@@ -90,8 +90,11 @@ type CloudProviderInfo struct {
 	// example: AWS
 	APIType string `json:"api_type"`
 
-	// Authentication information to use on the provider.
-	Authentication interface{} `json:"authentication"`
+	//Secret identifier to use to log in to the infrastructure manager.
+	SecretID string `json:"secret_id"`
+
+	//Credentials to access the cloud provider. Either this or secret_id is mandatory.
+	Credentials map[string]string `json:"credentials"`
 }
 
 // InfrastructureType represents a cloud or edge site that's able to create resources such as virtual machines or volumes

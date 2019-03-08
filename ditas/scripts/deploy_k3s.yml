@@ -1,0 +1,52 @@
+---
+  - hosts: all
+    become: yes
+    tasks:
+    - include_tasks: prepare-RedHat.yml
+      when: ansible_os_family == 'RedHat'
+
+  - hosts: [all]
+    become: yes
+    tasks:
+      - name: Install k3s binary
+        get_url:
+          url: https://github.com/rancher/k3s/releases/download/v0.2.0-rc4/k3s
+          dest: /usr/bin/k3s
+          checksum: sha256:b35ec639b0b99fddf9e4e12e3fb02761c343d9e3f608137a7821df4343aee2b2
+          mode: 755
+          owner: root
+          group: root
+      - name: Generate kubectl alias
+        file:
+          src: /usr/bin/k3s
+          dest: /usr/bin/kubectl
+          owner: root
+          group: root
+          state: link
+      - name: Generate crictl alias
+        file:
+          src: /usr/bin/k3s
+          dest: /usr/bin/crictl
+          owner: root
+          group: root
+          state: link
+
+  - hosts: [master]
+    become: yes
+    tasks:
+      - name: Set startup command
+        set_fact:
+          init_options: server
+      - name: Copy systemd unit
+        template: 
+          src: k3s.service
+          dest: /etc/systemd/system/k3s.service
+      - name: Enable k3s service
+        systemd:
+          name: k3s
+          state: started
+          enabled: yes
+          daemon_reload: yes
+
+
+

@@ -1,10 +1,11 @@
 ---
   - hosts: [master]
+    become: yes
     tasks:
-      - name: Copy deployment files
-        copy:
-          src: storageos
-          dest: /home/{{ ansible_user }}
-      - name: Deploy StorageOS control panel
-        shell: ./storageos/deploy-operator.yml
+      - name: Add StorageOS repository
+        shell: helm repo add storageos https://charts.storageos.com
+      - name: Update Helm repositories
+        shell: helm repo update
+      - name: Deploy StorageOS
+        shell: helm install storageos/storageoscluster-operator --namespace storageos-operator
         
