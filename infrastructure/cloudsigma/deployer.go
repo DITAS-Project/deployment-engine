@@ -139,7 +139,7 @@ func (d *CloudsigmaDeployer) createDataDisk(logInput *log.Entry, hostname string
 	logInput.Info("Creating data disk")
 	dataDisk, err := d.client.CreateDrive(ResourceType{
 		Media: "disk",
-		Size:  5 * 1024 * 1024 * 1024,
+		Size:  storage.Size * 1024 * 1024,
 		Name:  fmt.Sprintf("data-%s-%s", hostname, storage.Name),
 	})
 	result := DiskCreationResult{
