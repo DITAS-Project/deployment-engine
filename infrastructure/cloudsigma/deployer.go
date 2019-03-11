@@ -36,6 +36,13 @@ import (
 
 const (
 	DeploymentType = "cloudsigma"
+
+	BootDriveTypeProperty = "cloudsigma_boot_drive_type"
+
+	BootDriveTypeLibrary = "library"
+	BootDriveTypeCustom  = "custom"
+
+	BootDriveTypeDefault = BootDriveTypeLibrary
 )
 
 type CloudsigmaDeployer struct {
@@ -132,7 +139,7 @@ func (d *CloudsigmaDeployer) createDataDisk(logInput *log.Entry, hostname string
 	logInput.Info("Creating data disk")
 	dataDisk, err := d.client.CreateDrive(ResourceType{
 		Media: "disk",
-		Size:  5 * 1024 * 1024 * 1024,
+		Size:  storage.Size * 1024 * 1024,
 		Name:  fmt.Sprintf("data-%s-%s", hostname, storage.Name),
 	})
 	result := DiskCreationResult{
@@ -151,6 +158,10 @@ func (d *CloudsigmaDeployer) createDataDisk(logInput *log.Entry, hostname string
 	return
 }
 
+func (d *CloudsigmaDeployer) isLibraryDrive(resource model.ResourceType) bool {
+	return resource.ExtraProperties == nil || resource.ExtraProperties[BootDriveTypeProperty] == "" || resource.ExtraProperties[BootDriveTypeProperty] == BootDriveTypeLibrary
+}
+
 func (d *CloudsigmaDeployer) cloneDisk(logInput *log.Entry, hostname string, resource model.ResourceType, c chan DiskCreationResult) {
 
 	logger := log.WithField("disk", resource.ImageId)
@@ -165,7 +176,7 @@ func (d *CloudsigmaDeployer) cloneDisk(logInput *log.Entry, hostname string, res
 
 	logger.Info("Cloning disk")
 
-	cloned, err := d.client.CloneDrive(resource.ImageId, &drive)
+	cloned, err := d.client.CloneDrive(resource.ImageId, &drive, d.isLibraryDrive(resource))
 
 	result := DiskCreationResult{
 		Disk:  cloned,
@@ -342,9 +353,10 @@ func (d *CloudsigmaDeployer) CreateServer(resource model.ResourceType, ip IPRefe
 
 	result = NodeCreationResult{
 		Info: model.NodeInfo{
-			Role:     strings.ToLower(resource.Role),
-			Hostname: nodeName,
-			Username: "cloudsigma",
+			Role:            strings.ToLower(resource.Role),
+			Hostname:        nodeName,
+			Username:        "cloudsigma",
+			ExtraProperties: resource.ExtraProperties,
 		},
 	}
 	logger.Info("Creating node", nodeName)
@@ -451,8 +463,9 @@ func (d CloudsigmaDeployer) clearHostName(hostname string) (string, error) {
 func (d CloudsigmaDeployer) DeployInfrastructure(deploymentID string, infra model.InfrastructureType) (model.InfrastructureDeploymentInfo, error) {
 
 	deployment := model.InfrastructureDeploymentInfo{
-		ID:       uuid.New().String(),
-		Products: make([]string, 0),
+		ID:              uuid.New().String(),
+		Products:        make([]string, 0),
+		ExtraProperties: infra.ExtraProperties,
 	}
 
 	if infra.Name == "" {
