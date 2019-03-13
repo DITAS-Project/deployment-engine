@@ -62,6 +62,29 @@ type VDCManager struct {
 	Provisioner           *ansible.Provisioner
 }
 
+type glusterFSHostnamesType struct {
+	Manage  []string `json:"manage"`
+	Storage []string `json:"storage"`
+}
+
+type glusterFSNodeInfoType struct {
+	Hostnames glusterFSHostnamesType `json:"hostnames"`
+	Zone      int                    `json:"zone"`
+}
+
+type glusterFSNodeType struct {
+	Node    glusterFSNodeInfoType `json:"node"`
+	Devices []string              `json:"devices"`
+}
+
+type glusterFSClusterType struct {
+	Nodes []glusterFSNodeType `json:"nodes"`
+}
+
+type glusterFSTopology struct {
+	Clusters []glusterFSClusterType `json:"clusters"`
+}
+
 func NewVDCManager(provisioner *ansible.Provisioner, deployer *infrastructure.Deployer, provisionerController *provision.ProvisionerController) (*VDCManager, error) {
 	viper.SetDefault(mongorepo.MongoDBURLName, mongorepo.MongoDBURLDefault)
 	viper.SetDefault(DitasScriptsFolderProperty, DitasScriptsFolderDefaultValue)
@@ -168,11 +191,6 @@ func (m *VDCManager) provisionK3s(deploymentId string, infra model.Infrastructur
 		return err
 	}
 
-	/*err = m.Provisioner.AddToHostFile(logger, infra)
-	if err != nil {
-		return err
-	}*/
-
 	err = m.executePlaybook(deploymentId, infra, "deploy_k3s.yml", nil)
 	if err != nil {
 		return err
@@ -258,15 +276,85 @@ func (m *VDCManager) provisionKubernetesWithKubespray(deploymentID string, infra
 	return ansible.ExecutePlaybook(logger, m.KubesprayFolder+"/cluster.yml", inventory, nil)
 }
 
+func (m *VDCManager) toGlusterFSDevices(devices []model.DriveInfo) []string {
+	result := make([]string, len(devices))
+	for i := 0; i < len(devices); i++ {
+		result = append(result, fmt.Sprintf("\"/dev/vd%s\"", string(rune('b'+i))))
+	}
+	return result
+}
+
+func (m *VDCManager) toGlusterFSNode(node model.NodeInfo) glusterFSNodeType {
+	return glusterFSNodeType{
+		Node: glusterFSNodeInfoType{
+			Hostnames: glusterFSHostnamesType{
+				Manage:  []string{node.Hostname},
+				Storage: []string{node.IP},
+			},
+			Zone: 1,
+		},
+		Devices: m.toGlusterFSDevices(node.DataDrives),
+	}
+}
+
+func (m *VDCManager) generateGlusterFSTopology(infra model.InfrastructureDeploymentInfo) (string, error) {
+	nodes := make([]glusterFSNodeType, len(infra.Slaves)+1)
+	nodes = append(nodes, m.toGlusterFSNode(infra.Master))
+	for _, node := range infra.Slaves {
+		nodes = append(nodes, m.toGlusterFSNode(node))
+	}
+	result, err := json.Marshal(glusterFSTopology{
+		Clusters: []glusterFSClusterType{
+			glusterFSClusterType{
+				Nodes: nodes,
+			},
+		},
+	})
+	if err != nil {
+		return "", err
+	}
+
+	return string(result), nil
+}
+
+func (m *VDCManager) provisionGlusterFS(deploymentID string, infra model.InfrastructureDeploymentInfo) error {
+	err := utils.ExecuteCommand(log.NewEntry(log.New()), "ansible-galaxy", "install", "galexrt.kernel-modules")
+	if err != nil {
+		return err
+	}
+
+	topology, err := m.generateGlusterFSTopology(infra)
+	if err != nil {
+		return err
+	}
+
+	singleNode := ""
+	if len(infra.Slaves) < 2 {
+		singleNode = "--single-node"
+	}
+
+	return m.executePlaybook(deploymentID, infra, "deploy_glusterfs.yml", map[string]string{
+		"topology":    topology,
+		"single_node": singleNode,
+	})
+}
+
 func (m *VDCManager) provisionKubernetes(deployment model.DeploymentInfo, vdcInfo *VDCInformation) (model.DeploymentInfo, error) {
 	result := deployment
 	for _, infra := range deployment.Infrastructures {
-		//err := m.Provisioner.Provision(deployment.ID, infra, "kubernetes")
-		err := m.provisionKubernetesWithKubespray(deployment.ID, infra)
+		err := m.Provisioner.Provision(deployment.ID, infra, "kubernetes")
+		//err := m.provisionKubernetesWithKubespray(deployment.ID, infra)
 		if err != nil {
 			log.WithError(err).Errorf("Error deploying kubernetes on infrastructure %s. Trying to clean up deployment.", infra.ID)
 			return result, err
 		}
+
+		err = m.provisionGlusterFS(deployment.ID, infra)
+		if err != nil {
+			log.WithError(err).Error("Error deploying glusterfs to master")
+			return result, err
+		}
+
 		vdcInfo.InfraVDCs[infra.ID] = InfraServicesInformation{
 			Initialized: false,
 			LastPort:    30000,

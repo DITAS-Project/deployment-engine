@@ -1,0 +1,45 @@
+---
+  hosts: [master]
+  become: true
+  roles:
+    - { role: galexrt.kernel-modules, x: 42 }
+  tasks:
+
+    - name: Install glusterfs + dependencies
+      package:
+        name: "{{ item }}"
+        state: present
+      with_items:
+        - glusterfs-client
+        - git
+    
+    - name: Make sure required modules are loaded
+      kernel_modules:
+        name: "{{ item }}"
+      with_items:
+        - dm_snapshot
+        - dm_mirror
+        - dm_thin_pool
+    
+    - name: Checkout glusterfs-kubernetes deployer
+      git:
+        repo: https://github.com/gluster/gluster-kubernetes.git
+        dest: /root/gluster-kubernetes
+
+    - name: Copy topology file
+      template:
+        src: templates/topology.json.j2
+        dest: /root/gluster-kubernetes/deploy/topology.json
+
+    - name: Fix wrong kubernetes deployment template
+      replace:
+        path: /root/gluster-kubernetes/deploy/kube-templates/glusterfs-daemonset.yaml
+        regexp: "/usr/lib/modules"
+        replace: "/lib/modules"
+    
+    - name: Execute glusterfs cluster deployment
+      shell: "./gk-deploy -g -v {{ single_node }}"
+      args:
+        chdir: /root/gluster-kubernetes/deploy
+    
+    

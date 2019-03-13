@@ -3,11 +3,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:c65126e83baeed9132a3b5f06aaa1236ae0cbcf9a64325dc628969272351ec20"
+  digest = "1:297caa1e1e55c3027646bd9ae7f5d951a16a78d8a7fc34a663799773eab05165"
   name = "github.com/DITAS-Project/blueprint-go"
   packages = ["."]
   pruneopts = "UT"
-  revision = "82973f5175ce00bf2d3cedc498d422b973472e54"
+  revision = "d2d2b094b09cf26a354359e67651dd1ff1f2c837"
 
 [[projects]]
   digest = "1:a2682518d905d662d984ef9959984ef87cecb777d379bfa9d9fe40e78069b3e4"
@@ -244,7 +244,7 @@
   revision = "73f8eece6fdcd902c185bf651de50f3828bed5ed"
 
 [[projects]]
-  digest = "1:7280a69811fe89d769f5cbbee7ec10cc33488d1e0d573c6d65e35a8887ab3420"
+  digest = "1:84b2931e886dc94331f0a72b1907cf663c77cf763706e81d96999d323dc209cc"
   name = "go.mongodb.org/mongo-driver"
   packages = [
     "bson",
@@ -279,8 +279,8 @@
     "x/network/wiremessage"
   ]
   pruneopts = "UT"
-  revision = "ccf36d0607fa2f6f4ae9645e625a7f33b26cf6d1"
-  version = "v1.0.0-rc1"
+  revision = "82905e3077cb5ce7f194748a47b55bf7fff65ccf"
+  version = "v1.0.0-rc2"
 
 [[projects]]
   branch = "master"
@@ -291,7 +291,7 @@
     "ssh/terminal"
   ]
   pruneopts = "UT"
-  revision = "8dd112bcdc25174059e45e07517d9fc663123347"
+  revision = "c2843e01d9a2bc60bb26ad24e09734fdc2d9ec58"
 
 [[projects]]
   branch = "master"
@@ -302,7 +302,7 @@
     "publicsuffix"
   ]
   pruneopts = "UT"
-  revision = "16b79f2e4e95ea23b2bf9903c9809ff7b013ce85"
+  revision = "56fb01167e7d1e1d17dd87993d34c963f4356e87"
 
 [[projects]]
   branch = "master"
@@ -314,14 +314,14 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:4331a1ccaa56cb90dba6ddd13797c221205af5ba719cbdbd701f44532dde19ea"
+  digest = "1:85cd5224b89829559e8327ba2e52e0df72638d33cf3082b066ea9dea34391e2f"
   name = "golang.org/x/sys"
   packages = [
     "unix",
     "windows"
   ]
   pruneopts = "UT"
-  revision = "c2f5717e611cf8e89a852a41081355194d80c943"
+  revision = "10058d7d4faa7dd5ef860cbd31af00903076e7b8"
 
 [[projects]]
   digest = "1:0c56024909189aee3364b7f21a95a27459f718aa7c199a5c111c36cfffd9eaef"

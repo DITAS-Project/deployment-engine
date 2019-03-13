@@ -78,6 +78,9 @@ type ResourceType struct {
 
 	// List of data drives to attach to this VM
 	Drives []Drive `json:"drives"`
+
+	//Extra properties to pass to the provider or the provisioner
+	ExtraProperties map[string]string `json:"extra_properties"`
 }
 
 // CloudProviderInfo contains information about a cloud or edge provider
@@ -128,6 +131,9 @@ type InfrastructureType struct {
 
 	// List of tags to apply to this infrastructure
 	Tags []string `json:"tags"`
+
+	//Extra properties to pass to the provider or the provisioner
+	ExtraProperties map[string]string `json:"extra_properties"`
 }
 
 // CookbookAppendix is the definition of the Cookbook Appendix section in the blueprint
