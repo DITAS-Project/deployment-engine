@@ -169,7 +169,7 @@ func (m *VDCManager) DeployBlueprint(request CreateDeploymentRequest) error {
 func (m *VDCManager) provisionKubernetes(deployment model.DeploymentInfo, vdcInfo *VDCInformation) (model.DeploymentInfo, error) {
 	result := deployment
 	for _, infra := range deployment.Infrastructures {
-		err := m.Provisioner.Provision(deployment.ID, infra, "kubernetes")
+		err := m.Provisioner.Provision(deployment.ID, infra, "kubeadm")
 		//err := m.provisionKubernetesWithKubespray(deployment.ID, infra)
 		if err != nil {
 			log.WithError(err).Errorf("Error deploying kubernetes on infrastructure %s. Trying to clean up deployment.", infra.ID)
