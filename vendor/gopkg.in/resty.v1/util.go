@@ -145,7 +145,11 @@ func createMultipartHeader(param, fileName, contentType string) textproto.MIMEHe
 	return hdr
 }
 
+<<<<<<< HEAD
 func addMultipartFormField(w *multipart.Writer, mf *MultipartField) error {
+=======
+func addMultipartFormField(w *multipart.Writer, mf *multipartField) error {
+>>>>>>> master
 	partWriter, err := w.CreatePart(createMultipartHeader(mf.Param, mf.FileName, mf.ContentType))
 	if err != nil {
 		return err

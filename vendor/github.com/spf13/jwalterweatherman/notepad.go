@@ -8,7 +8,10 @@ package jwalterweatherman
 import (
 	"fmt"
 	"io"
+<<<<<<< HEAD
 	"io/ioutil"
+=======
+>>>>>>> master
 	"log"
 )
 
@@ -59,6 +62,7 @@ type Notepad struct {
 	prefix          string
 	flags           int
 
+<<<<<<< HEAD
 	logListeners []LogListener
 }
 
@@ -81,6 +85,15 @@ func NewNotepad(
 ) *Notepad {
 
 	n := &Notepad{logListeners: logListeners}
+=======
+	// One per Threshold
+	logCounters [7]*logCounter
+}
+
+// NewNotepad create a new notepad.
+func NewNotepad(outThreshold Threshold, logThreshold Threshold, outHandle, logHandle io.Writer, prefix string, flags int) *Notepad {
+	n := &Notepad{}
+>>>>>>> master
 
 	n.loggers = [7]**log.Logger{&n.TRACE, &n.DEBUG, &n.INFO, &n.WARN, &n.ERROR, &n.CRITICAL, &n.FATAL}
 	n.outHandle = outHandle
@@ -111,10 +124,16 @@ func (n *Notepad) init() {
 
 	for t, logger := range n.loggers {
 		threshold := Threshold(t)
+<<<<<<< HEAD
+=======
+		counter := &logCounter{}
+		n.logCounters[t] = counter
+>>>>>>> master
 		prefix := n.prefix + threshold.String() + " "
 
 		switch {
 		case threshold >= n.logThreshold && threshold >= n.stdoutThreshold:
+<<<<<<< HEAD
 			*logger = log.New(n.createLogWriters(threshold, logAndOut), prefix, n.flags)
 
 		case threshold >= n.logThreshold:
@@ -146,6 +165,22 @@ func (n *Notepad) createLogWriters(t Threshold, handle io.Writer) io.Writer {
 	}
 
 	return io.MultiWriter(writers...)
+=======
+			*logger = log.New(io.MultiWriter(counter, logAndOut), prefix, n.flags)
+
+		case threshold >= n.logThreshold:
+			*logger = log.New(io.MultiWriter(counter, n.logHandle), prefix, n.flags)
+
+		case threshold >= n.stdoutThreshold:
+			*logger = log.New(io.MultiWriter(counter, n.outHandle), prefix, n.flags)
+
+		default:
+			// counter doesn't care about prefix and flags, so don't use them
+			// for performance.
+			*logger = log.New(counter, "", 0)
+		}
+	}
+>>>>>>> master
 }
 
 // SetLogThreshold changes the threshold above which messages are written to the

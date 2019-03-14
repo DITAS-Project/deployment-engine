@@ -11,6 +11,10 @@ import (
 	"time"
 
 	"go.mongodb.org/mongo-driver/event"
+<<<<<<< HEAD
+=======
+	"go.mongodb.org/mongo-driver/x/network/compressor"
+>>>>>>> master
 )
 
 type config struct {
@@ -24,8 +28,12 @@ type config struct {
 	readTimeout    time.Duration
 	writeTimeout   time.Duration
 	tlsConfig      *TLSConfig
+<<<<<<< HEAD
 	compressors    []string
 	zlibLevel      *int
+=======
+	compressors    []compressor.Compressor
+>>>>>>> master
 }
 
 func newConfig(opts ...Option) (*config, error) {
@@ -66,7 +74,11 @@ func WithAppName(fn func(string) string) Option {
 }
 
 // WithCompressors sets the compressors that can be used for communication.
+<<<<<<< HEAD
 func WithCompressors(fn func([]string) []string) Option {
+=======
+func WithCompressors(fn func([]compressor.Compressor) []compressor.Compressor) Option {
+>>>>>>> master
 	return func(c *config) error {
 		c.compressors = fn(c.compressors)
 		return nil
@@ -146,6 +158,7 @@ func WithMonitor(fn func(*event.CommandMonitor) *event.CommandMonitor) Option {
 		return nil
 	}
 }
+<<<<<<< HEAD
 
 // WithZlibLevel sets the zLib compression level.
 func WithZlibLevel(fn func(*int) *int) Option {
@@ -154,3 +167,5 @@ func WithZlibLevel(fn func(*int) *int) Option {
 		return nil
 	}
 }
+=======
+>>>>>>> master

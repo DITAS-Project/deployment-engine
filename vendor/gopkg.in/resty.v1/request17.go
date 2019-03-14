@@ -49,7 +49,11 @@ type Request struct {
 	client              *Client
 	bodyBuf             *bytes.Buffer
 	multipartFiles      []*File
+<<<<<<< HEAD
 	multipartFields     []*MultipartField
+=======
+	multipartFields     []*multipartField
+>>>>>>> master
 }
 
 // Context method returns the Context if its already set in request

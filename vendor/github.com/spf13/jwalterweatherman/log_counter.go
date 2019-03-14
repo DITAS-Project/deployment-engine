@@ -6,6 +6,7 @@
 package jwalterweatherman
 
 import (
+<<<<<<< HEAD
 	"io"
 	"sync/atomic"
 )
@@ -30,10 +31,33 @@ func (c *Counter) Count() uint64 {
 }
 
 func (c *Counter) Write(p []byte) (n int, err error) {
+=======
+	"sync/atomic"
+)
+
+type logCounter struct {
+	counter uint64
+}
+
+func (c *logCounter) incr() {
+	atomic.AddUint64(&c.counter, 1)
+}
+
+func (c *logCounter) resetCounter() {
+	atomic.StoreUint64(&c.counter, 0)
+}
+
+func (c *logCounter) getCount() uint64 {
+	return atomic.LoadUint64(&c.counter)
+}
+
+func (c *logCounter) Write(p []byte) (n int, err error) {
+>>>>>>> master
 	c.incr()
 	return len(p), nil
 }
 
+<<<<<<< HEAD
 // LogCounter creates a LogListener that counts log statements >= the given threshold.
 func LogCounter(counter *Counter, t1 Threshold) LogListener {
 	return func(t2 Threshold) io.Writer {
@@ -42,5 +66,28 @@ func LogCounter(counter *Counter, t1 Threshold) LogListener {
 			return nil
 		}
 		return counter
+=======
+// LogCountForLevel returns the number of log invocations for a given threshold.
+func (n *Notepad) LogCountForLevel(l Threshold) uint64 {
+	return n.logCounters[l].getCount()
+}
+
+// LogCountForLevelsGreaterThanorEqualTo returns the number of log invocations
+// greater than or equal to a given threshold.
+func (n *Notepad) LogCountForLevelsGreaterThanorEqualTo(threshold Threshold) uint64 {
+	var cnt uint64
+
+	for i := int(threshold); i < len(n.logCounters); i++ {
+		cnt += n.LogCountForLevel(Threshold(i))
+	}
+
+	return cnt
+}
+
+// ResetLogCounters resets the invocation counters for all levels.
+func (n *Notepad) ResetLogCounters() {
+	for _, np := range n.logCounters {
+		np.resetCounter()
+>>>>>>> master
 	}
 }

@@ -10,9 +10,13 @@ package primitive // import "go.mongodb.org/mongo-driver/bson/primitive"
 
 import (
 	"bytes"
+<<<<<<< HEAD
 	"encoding/json"
 	"fmt"
 	"time"
+=======
+	"fmt"
+>>>>>>> master
 )
 
 // Binary represents a BSON binary value.
@@ -35,11 +39,14 @@ type Undefined struct{}
 // DateTime represents the BSON datetime value.
 type DateTime int64
 
+<<<<<<< HEAD
 // MarshalJSON marshal to time type
 func (d DateTime) MarshalJSON() ([]byte, error) {
 	return json.Marshal(time.Unix(int64(d)/1000, int64(d)%1000*1000000))
 }
 
+=======
+>>>>>>> master
 // Null repreesnts the BSON null value.
 type Null struct{}
 

@@ -28,11 +28,14 @@ var (
 	errENOENT error = syscall.ENOENT
 )
 
+<<<<<<< HEAD
 var (
 	signalNameMapOnce sync.Once
 	signalNameMap     map[string]syscall.Signal
 )
 
+=======
+>>>>>>> master
 // errnoErr returns common boxed Errno values, to prevent
 // allocations at runtime.
 func errnoErr(e syscall.Errno) error {
@@ -71,6 +74,7 @@ func SignalName(s syscall.Signal) string {
 	return ""
 }
 
+<<<<<<< HEAD
 // SignalNum returns the syscall.Signal for signal named s,
 // or 0 if a signal with such name is not found.
 // The signal name should start with "SIG".
@@ -84,6 +88,8 @@ func SignalNum(s string) syscall.Signal {
 	return signalNameMap[s]
 }
 
+=======
+>>>>>>> master
 // clen returns the index of the first NULL byte in n or len(n) if n contains no NULL byte.
 func clen(n []byte) int {
 	i := bytes.IndexByte(n, 0)
@@ -395,6 +401,7 @@ func SetNonblock(fd int, nonblocking bool) (err error) {
 func Exec(argv0 string, argv []string, envv []string) error {
 	return syscall.Exec(argv0, argv, envv)
 }
+<<<<<<< HEAD
 
 // Lutimes sets the access and modification times tv on path. If path refers to
 // a symlink, it is not dereferenced and the timestamps are set on the symlink.
@@ -414,3 +421,5 @@ func Lutimes(path string, tv []Timeval) error {
 	}
 	return UtimesNanoAt(AT_FDCWD, path, ts, AT_SYMLINK_NOFOLLOW)
 }
+=======
+>>>>>>> master

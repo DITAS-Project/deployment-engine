@@ -252,7 +252,10 @@ var (
 	procOpenProcessToken                   = modadvapi32.NewProc("OpenProcessToken")
 	procGetTokenInformation                = modadvapi32.NewProc("GetTokenInformation")
 	procGetUserProfileDirectoryW           = moduserenv.NewProc("GetUserProfileDirectoryW")
+<<<<<<< HEAD
 	procGetSystemDirectoryW                = modkernel32.NewProc("GetSystemDirectoryW")
+=======
+>>>>>>> master
 )
 
 func RegisterEventSource(uncServerName *uint16, sourceName *uint16) (handle Handle, err error) {
@@ -2719,6 +2722,7 @@ func GetUserProfileDirectory(t Token, dir *uint16, dirLen *uint32) (err error) {
 	}
 	return
 }
+<<<<<<< HEAD
 
 func getSystemDirectory(dir *uint16, dirLen uint32) (len uint32, err error) {
 	r0, _, e1 := syscall.Syscall(procGetSystemDirectoryW.Addr(), 2, uintptr(unsafe.Pointer(dir)), uintptr(dirLen), 0)
@@ -2732,3 +2736,5 @@ func getSystemDirectory(dir *uint16, dirLen uint32) (len uint32, err error) {
 	}
 	return
 }
+=======
+>>>>>>> master

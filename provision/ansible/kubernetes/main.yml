@@ -9,7 +9,7 @@
 
   vars:
     kubernetes_allow_pods_on_master: True
+    kubernetes_apt_ignore_key_error: true
 
   roles:
-    - geerlingguy.docker
     - geerlingguy.kubernetes

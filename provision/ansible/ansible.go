@@ -18,7 +18,6 @@ package ansible
 
 import (
 	"deployment-engine/model"
-	"deployment-engine/utils"
 	"fmt"
 	"os"
 
@@ -37,6 +36,28 @@ const (
 type Provisioner struct {
 	InventoryFolder string
 	ScriptsFolder   string
+	Provisioners    map[string]ProductProvisioner
+}
+
+type InventoryHost struct {
+	Name string
+	Vars map[string]string
+}
+
+type InventoryGroup struct {
+	Name      string
+	Hosts     []string
+	GroupVars map[string]string
+}
+
+type Inventory struct {
+	Hosts  []InventoryHost
+	Groups []InventoryGroup
+}
+
+type ProductProvisioner interface {
+	BuildInventory(deploymentID string, infra model.InfrastructureDeploymentInfo) (Inventory, error)
+	DeployProduct(inventory, deploymentID string, infra model.InfrastructureDeploymentInfo) error
 }
 
 func New() (*Provisioner, error) {
@@ -52,72 +73,95 @@ func New() (*Provisioner, error) {
 		return nil, err
 	}
 
-	return &Provisioner{
+	result := Provisioner{
 		InventoryFolder: inventoryFolder,
 		ScriptsFolder:   scriptsFolder,
-	}, nil
+	}
+
+	result.Provisioners = map[string]ProductProvisioner{
+		"docker":     NewDockerProvisioner(&result),
+		"kubernetes": NewKubernetesProvisioner(&result),
+	}
+
+	return &result, nil
 }
 
-func (p *Provisioner) WaitForSSHPortReady(logger *log.Entry, inventoryPath, deploymentID string, infra model.InfrastructureDeploymentInfo) error {
+func (p *Provisioner) WaitForSSHPortReady(deploymentID string, infra model.InfrastructureDeploymentInfo) error {
+	logger := log.WithField("deployment", deploymentID).WithField("infrastructure", infra.ID)
 	logger.Info("Waiting for port 22 to be ready")
+
+	inventory, err := p.Provisioners["docker"].BuildInventory(deploymentID, infra)
+	if err != nil {
+		return err
+	}
+
+	inventoryPath, err := p.WriteInventory(deploymentID, infra.ID, "common", inventory)
+	if err != nil {
+		return err
+	}
+
 	return ExecutePlaybook(logger, p.ScriptsFolder+"/common/wait_ssh_ready.yml", inventoryPath, nil)
 }
 
-func (p *Provisioner) WriteHost(node model.NodeInfo, file *os.File) (int, error) {
-	var role string
-	if node.Role == "master" {
-		role = "master"
-	} else {
-		role = "node"
+func (p Provisioner) WriteGroup(inventoryFile *os.File, group InventoryGroup) error {
+	_, err := inventoryFile.WriteString(fmt.Sprintf("[%s]\n", group.Name))
+	if err != nil {
+		return err
 	}
 
-	devices := ""
-	if node.DataDrives != nil {
-		for i := 0; i < len(node.DataDrives); i++ {
-			device := fmt.Sprintf("\"/dev/vd%s\"", string(rune('b'+i)))
-			devices = devices + device
-			if i < (len(node.DataDrives) - 1) {
-				devices = devices + ","
+	if group.Hosts != nil {
+		for _, host := range group.Hosts {
+			_, err := inventoryFile.WriteString(fmt.Sprintf("%s\n", host))
+			if err != nil {
+				return err
 			}
 		}
 	}
 
-	line := fmt.Sprintf("%s ansible_host=%s ansible_user=%s kubernetes_role=%s devices='[%s]'\n", node.Hostname, node.IP, node.Username, role, devices)
-	return file.WriteString(line)
-}
-
-func (p *Provisioner) defaultProvisionerInventoryWriter(logger *log.Entry, inventory *os.File, infra model.InfrastructureDeploymentInfo) error {
-	_, err := inventory.WriteString("[master]\n")
-	if err != nil {
-		logger.WithError(err).Error("Error writing master header to inventory")
-		return err
-	}
-
-	_, err = p.WriteHost(infra.Master, inventory)
-	if err != nil {
-		logger.WithError(err).Error("Error writing master information to inventory")
-		return err
-	}
-
-	_, err = inventory.WriteString("[slaves]\n")
-	if err != nil {
-		logger.WithError(err).Error("Error writing slaves header to inventory")
-		return err
-	}
-	for _, slave := range infra.Slaves {
-		_, err = p.WriteHost(slave, inventory)
+	if group.GroupVars != nil {
+		_, err := inventoryFile.WriteString(fmt.Sprintf("[%s:vars]\n", group.Name))
 		if err != nil {
-			logger.WithError(err).Errorf("Error writing slave %s header to inventory", slave.Hostname)
 			return err
+		}
+
+		for k, v := range group.GroupVars {
+			_, err := inventoryFile.WriteString(fmt.Sprintf("%s=%s\n", k, v))
+			if err != nil {
+				return err
+			}
 		}
 	}
 
 	return nil
 }
 
-func (p *Provisioner) GetCustomInventory(logger *log.Entry, deploymentID string, infra model.InfrastructureDeploymentInfo, writer func(logger *log.Entry, inventory *os.File, infra model.InfrastructureDeploymentInfo) error) (string, error) {
-	path := p.GetInventoryFolder(deploymentID, infra.ID)
-	filePath := p.GetInventoryPath(deploymentID, infra.ID)
+func (p Provisioner) WriteHost(inventoryFile *os.File, host InventoryHost) error {
+	_, err := inventoryFile.WriteString(host.Name)
+	if err != nil {
+		return err
+	}
+
+	if host.Vars != nil {
+		for k, v := range host.Vars {
+			strVar := fmt.Sprintf(" %s=%s", k, v)
+			_, err = inventoryFile.WriteString(strVar)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	_, err = inventoryFile.WriteString("\n")
+	if err != nil {
+		return err
+	}
+
+	return err
+}
+
+func (p Provisioner) WriteInventory(deploymentID, infraID, product string, inventory Inventory) (string, error) {
+	path := p.GetInventoryFolder(deploymentID, infraID)
+	filePath := fmt.Sprintf("%s_%s", p.GetInventoryPath(deploymentID, infraID), product)
 
 	if _, err := os.Stat(filePath); err == nil {
 
@@ -127,76 +171,66 @@ func (p *Provisioner) GetCustomInventory(logger *log.Entry, deploymentID string,
 
 		err := os.MkdirAll(path, os.ModePerm)
 		if err != nil {
-			logger.WithError(err).Errorf("Error creating inventory folder %s", path)
+			log.WithError(err).Errorf("Error creating inventory folder %s", path)
 			return path, err
 		}
 
-		logger.Infof("Creating inventory at %s", filePath)
-		inventory, err := os.Create(filePath)
-		defer inventory.Close()
+		log.Infof("Creating inventory at %s", filePath)
+		inventoryFile, err := os.Create(filePath)
+		defer inventoryFile.Close()
 
 		if err != nil {
-			logger.WithError(err).Errorf("Error creating inventory file %s", filePath)
+			log.WithError(err).Errorf("Error creating inventory file %s", filePath)
 			return path, err
 		}
 
-		err = writer(logger, inventory, infra)
-		if err != nil {
-			return path, err
+		for _, host := range inventory.Hosts {
+			err = p.WriteHost(inventoryFile, host)
+			if err != nil {
+				return filePath, err
+			}
 		}
 
-		logger.Info("Inventory correctly created")
+		if inventory.Groups != nil {
+			for _, group := range inventory.Groups {
+				err = p.WriteGroup(inventoryFile, group)
+				if err != nil {
+					return filePath, err
+				}
+			}
+		}
 
-		return path, nil
-	} else {
-		return "", err
-	}
-}
-
-func (p *Provisioner) GetInventory(logger *log.Entry, deploymentID string, infra model.InfrastructureDeploymentInfo) (string, error) {
-	return p.GetCustomInventory(logger, deploymentID, infra, p.defaultProvisionerInventoryWriter)
-}
-
-func (p *Provisioner) deployK8s(deploymentID string, infra model.InfrastructureDeploymentInfo) error {
-	logger := log.WithField("infrastructure", infra.ID)
-
-	inventoryPath, err := p.GetInventory(logger, deploymentID, infra)
-	if err != nil {
-		return err
 	}
 
-	err = p.WaitForSSHPortReady(logger, inventoryPath, deploymentID, infra)
-	if err != nil {
-		return err
-	}
-
-	logger.Info("Calling Ansible for initial k8s deployment")
-	logger.Info("Getting required roles")
-	err = utils.ExecuteCommand(logger, "ansible-galaxy", "install", "geerlingguy.docker", "geerlingguy.kubernetes")
-
-	if err != nil {
-		logger.WithError(err).Error("Error installing kubernetes roles")
-		return err
-	}
-	//time.Sleep(180 * time.Second)
-	err = ExecutePlaybook(logger, p.ScriptsFolder+"/kubernetes/main.yml", inventoryPath, nil)
-
-	if err != nil {
-		logger.WithError(err).Error("Error executing ansible deployment for k8s deployment")
-		return err
-	}
-
-	logger.Info("K8s cluster created")
-	return nil
+	return filePath, nil
 }
 
 func (p Provisioner) Provision(deploymentId string, infra model.InfrastructureDeploymentInfo, product string) error {
 
-	if product == "kubernetes" {
-		return p.deployK8s(deploymentId, infra)
+	provisioner := p.Provisioners[product]
+	if provisioner == nil {
+		return fmt.Errorf("Product %s not supported by this deployer", product)
 	}
 
-	return fmt.Errorf("Product %s not supported by this deployer", product)
+	err := p.WaitForSSHPortReady(deploymentId, infra)
+	if err != nil {
+		log.WithError(err).Error("Error waiting for infrastructure to be ready")
+		return err
+	}
+
+	inventory, err := provisioner.BuildInventory(deploymentId, infra)
+	if err != nil {
+		log.WithError(err).Errorf("Error getting inventory for product %s", product)
+		return err
+	}
+
+	inventoryPath, err := p.WriteInventory(deploymentId, infra.ID, product, inventory)
+	if err != nil {
+		log.WithError(err).Errorf("Error creating inventory file for product %s", product)
+		return err
+	}
+
+	return provisioner.DeployProduct(inventoryPath, deploymentId, infra)
 }
 
 func (p *Provisioner) GetInventoryFolder(deploymentID, infraID string) string {
