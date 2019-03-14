@@ -19,7 +19,6 @@ package ansible
 import (
 	"deployment-engine/model"
 	"deployment-engine/utils"
-	"strings"
 
 	"github.com/sirupsen/logrus"
 )
@@ -71,16 +70,8 @@ func (p KubernetesProvisioner) BuildInventory(deploymentID string, infra model.I
 
 func (p KubernetesProvisioner) DeployProduct(inventoryPath, deploymentID string, infra model.InfrastructureDeploymentInfo) error {
 
-	installDocker := true
-	if infra.ExtraProperties != nil {
-		dockerPresent, ok := infra.ExtraProperties[DockerPresentProperty]
-		if ok && strings.ToLower(strings.Trim(dockerPresent, " ")) == "true" {
-			installDocker = false
-		}
-	}
-
-	if installDocker {
-		err := p.parent.Provision(deploymentID, infra, "docker")
+	if !infra.ExtraProperties.GetBool(DockerPresentProperty) {
+		err := p.parent.WaitAndProvision(deploymentID, infra, "docker", false)
 		if err != nil {
 			return err
 		}

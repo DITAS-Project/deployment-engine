@@ -19,11 +19,7 @@ import (
 	"unsafe"
 )
 
-<<<<<<< HEAD
 // New creates a new SaslClient. The target parameter should be a hostname with no port.
-=======
-// New creates a new SaslClient.
->>>>>>> master
 func New(target, username, password string, passwordSet bool, props map[string]string) (*SaslClient, error) {
 	initOnce.Do(initSSPI)
 	if initError != nil {
@@ -34,10 +30,7 @@ func New(target, username, password string, passwordSet bool, props map[string]s
 	serviceName := "mongodb"
 	serviceRealm := ""
 	canonicalizeHostName := false
-<<<<<<< HEAD
 	var serviceHostSet bool
-=======
->>>>>>> master
 
 	for key, value := range props {
 		switch strings.ToUpper(key) {
@@ -51,7 +44,6 @@ func New(target, username, password string, passwordSet bool, props map[string]s
 			serviceRealm = value
 		case "SERVICE_NAME":
 			serviceName = value
-<<<<<<< HEAD
 		case "SERVICE_HOST":
 			serviceHostSet = true
 			target = value
@@ -75,27 +67,6 @@ func New(target, username, password string, passwordSet bool, props map[string]s
 	}
 
 	servicePrincipalName := fmt.Sprintf("%s/%s", serviceName, target)
-=======
-		}
-	}
-
-	hostname, _, err := net.SplitHostPort(target)
-	if err != nil {
-		return nil, fmt.Errorf("invalid endpoint (%s) specified: %s", target, err)
-	}
-	if canonicalizeHostName {
-		names, err := net.LookupAddr(hostname)
-		if err != nil || len(names) == 0 {
-			return nil, fmt.Errorf("unable to canonicalize hostname: %s", err)
-		}
-		hostname = names[0]
-		if hostname[len(hostname)-1] == '.' {
-			hostname = hostname[:len(hostname)-1]
-		}
-	}
-
-	servicePrincipalName := fmt.Sprintf("%s/%s", serviceName, hostname)
->>>>>>> master
 	if serviceRealm != "" {
 		servicePrincipalName += "@" + serviceRealm
 	}

@@ -19,25 +19,18 @@ func setTimeval(sec, usec int64) Timeval {
 	return Timeval{Sec: int32(sec), Usec: int32(usec)}
 }
 
-<<<<<<< HEAD
 //sysnb	pipe(p *[2]_C_int) (err error)
 
-=======
->>>>>>> master
 func Pipe(p []int) (err error) {
 	if len(p) != 2 {
 		return EINVAL
 	}
 	var pp [2]_C_int
-<<<<<<< HEAD
 	// Try pipe2 first for Android O, then try pipe for kernel 2.6.23.
 	err = pipe2(&pp, 0)
 	if err == ENOSYS {
 		err = pipe(&pp)
 	}
-=======
-	err = pipe2(&pp, 0)
->>>>>>> master
 	p[0] = int(pp[0])
 	p[1] = int(pp[1])
 	return

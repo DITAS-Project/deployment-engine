@@ -208,7 +208,6 @@ func Poll(fds []PollFd, timeout int) (n int, err error) {
 	}
 	return ppoll(&fds[0], len(fds), ts, nil)
 }
-<<<<<<< HEAD
 
 //sys	kexecFileLoad(kernelFd int, initrdFd int, cmdlineLen int, cmdline string, flags int) (err error)
 
@@ -222,5 +221,3 @@ func KexecFileLoad(kernelFd int, initrdFd int, cmdline string, flags int) error 
 	}
 	return kexecFileLoad(kernelFd, initrdFd, cmdlineLen, cmdline, flags)
 }
-=======
->>>>>>> master

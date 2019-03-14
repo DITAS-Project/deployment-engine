@@ -311,11 +311,7 @@ func (c *Client) R() *Request {
 
 		client:          c,
 		multipartFiles:  []*File{},
-<<<<<<< HEAD
 		multipartFields: []*MultipartField{},
-=======
-		multipartFields: []*multipartField{},
->>>>>>> master
 		pathParams:      map[string]string{},
 		jsonEscapeHTML:  true,
 	}
@@ -921,13 +917,8 @@ func (f *File) String() string {
 	return fmt.Sprintf("ParamName: %v; FileName: %v", f.ParamName, f.Name)
 }
 
-<<<<<<< HEAD
 // MultipartField represent custom data part for multipart request
 type MultipartField struct {
-=======
-// multipartField represent custom data part for multipart request
-type multipartField struct {
->>>>>>> master
 	Param       string
 	FileName    string
 	ContentType string

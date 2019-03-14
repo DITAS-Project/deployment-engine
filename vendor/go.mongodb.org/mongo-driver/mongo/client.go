@@ -24,17 +24,9 @@ import (
 	"go.mongodb.org/mongo-driver/x/mongo/driver/topology"
 	"go.mongodb.org/mongo-driver/x/mongo/driver/uuid"
 	"go.mongodb.org/mongo-driver/x/network/command"
-<<<<<<< HEAD
 	"go.mongodb.org/mongo-driver/x/network/connection"
 	"go.mongodb.org/mongo-driver/x/network/connstring"
 	"go.mongodb.org/mongo-driver/x/network/description"
-=======
-	"go.mongodb.org/mongo-driver/x/network/compressor"
-	"go.mongodb.org/mongo-driver/x/network/connection"
-	"go.mongodb.org/mongo-driver/x/network/connstring"
-	"go.mongodb.org/mongo-driver/x/network/description"
-	"go.mongodb.org/mongo-driver/x/network/wiremessage"
->>>>>>> master
 )
 
 const defaultLocalThreshold = 15 * time.Millisecond
@@ -215,44 +207,16 @@ func (c *Client) configure(opts *options.ClientOptions) error {
 		appName = *opts.AppName
 	}
 	// Compressors & ZlibLevel
-<<<<<<< HEAD
 	var comps []string
 	if len(opts.Compressors) > 0 {
 		comps = opts.Compressors
 
 		connOpts = append(connOpts, connection.WithCompressors(
 			func(compressors []string) []string {
-=======
-	var compressors []string
-	if len(opts.Compressors) > 0 {
-		compressors = opts.Compressors
-		comps := make([]compressor.Compressor, 0, len(compressors))
-
-		for _, c := range compressors {
-			switch c {
-			case "snappy":
-				comps = append(comps, compressor.CreateSnappy())
-			case "zlib":
-				level := wiremessage.DefaultZlibLevel
-				if opts.ZlibLevel != nil {
-					level = *opts.ZlibLevel
-				}
-				zlibComp, err := compressor.CreateZlib(level)
-				if err != nil {
-					return err
-				}
-				comps = append(comps, zlibComp)
-			}
-		}
-
-		connOpts = append(connOpts, connection.WithCompressors(
-			func(compressors []compressor.Compressor) []compressor.Compressor {
->>>>>>> master
 				return append(compressors, comps...)
 			},
 		))
 
-<<<<<<< HEAD
 		for _, comp := range comps {
 			if comp == "zlib" {
 				connOpts = append(connOpts, connection.WithZlibLevel(func(level *int) *int {
@@ -267,14 +231,6 @@ func (c *Client) configure(opts *options.ClientOptions) error {
 	}
 	// Handshaker
 	var handshaker connection.Handshaker = &command.Handshake{Client: command.ClientDoc(appName), Compressors: comps}
-=======
-		serverOpts = append(serverOpts, topology.WithCompressionOptions(
-			func(opts ...string) []string { return append(opts, compressors...) },
-		))
-	}
-	// Handshaker
-	var handshaker connection.Handshaker = &command.Handshake{Client: command.ClientDoc(appName), Compressors: compressors}
->>>>>>> master
 	// Auth & Database & Password & Username
 	if opts.Auth != nil {
 		cred := &auth.Cred{
@@ -303,11 +259,7 @@ func (c *Client) configure(opts *options.ClientOptions) error {
 		handshakeOpts := &auth.HandshakeOptions{
 			AppName:       appName,
 			Authenticator: authenticator,
-<<<<<<< HEAD
 			Compressors:   comps,
-=======
-			Compressors:   compressors,
->>>>>>> master
 		}
 		if mechanism == "" {
 			// Required for SASL mechanism negotiation during handshake

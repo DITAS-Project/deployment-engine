@@ -83,40 +83,23 @@ func (s *SnappyCompressor) Name() string {
 
 // CompressBytes uses zlib to compress a slice of bytes.
 func (z *ZlibCompressor) CompressBytes(src, dest []byte) ([]byte, error) {
-<<<<<<< HEAD
 	output := &writer{
 		buf: dest[:0],
 	}
 
 	z.zlibWriter.Reset(output)
-=======
-	dest = dest[:0]
-	z.zlibWriter.Reset(&writer{
-		buf: dest,
-	})
->>>>>>> master
 
 	_, err := z.zlibWriter.Write(src)
 	if err != nil {
 		_ = z.zlibWriter.Close()
-<<<<<<< HEAD
 		return output.buf, err
-=======
-		return dest, err
->>>>>>> master
 	}
 
 	err = z.zlibWriter.Close()
 	if err != nil {
-<<<<<<< HEAD
 		return output.buf, err
 	}
 	return output.buf, nil
-=======
-		return dest, err
-	}
-	return dest, nil
->>>>>>> master
 }
 
 // UncompressBytes uses zlib to uncompress a slice of bytes. It assumes dest is empty and is the exact size that it
@@ -156,7 +139,6 @@ func CreateSnappy() Compressor {
 }
 
 // CreateZlib creates a zlib compressor
-<<<<<<< HEAD
 func CreateZlib(level *int) (Compressor, error) {
 	var l int
 
@@ -176,26 +158,13 @@ func CreateZlib(level *int) (Compressor, error) {
 
 	var compressBuf bytes.Buffer
 	zlibWriter, err := zlib.NewWriterLevel(&compressBuf, l)
-=======
-func CreateZlib(level int) (Compressor, error) {
-	if level < 0 {
-		level = wiremessage.DefaultZlibLevel
-	}
-
-	var compressBuf bytes.Buffer
-	zlibWriter, err := zlib.NewWriterLevel(&compressBuf, level)
->>>>>>> master
 
 	if err != nil {
 		return &ZlibCompressor{}, err
 	}
 
 	return &ZlibCompressor{
-<<<<<<< HEAD
 		level:      l,
-=======
-		level:      level,
->>>>>>> master
 		zlibWriter: zlibWriter,
 	}, nil
 }

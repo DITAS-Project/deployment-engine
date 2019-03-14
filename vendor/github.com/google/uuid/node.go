@@ -48,10 +48,7 @@ func setNodeInterface(name string) bool {
 	// does not specify a specific interface generate a random Node ID
 	// (section 4.1.6)
 	if name == "" {
-<<<<<<< HEAD
 		ifname = "random"
-=======
->>>>>>> master
 		randomBits(nodeID[:])
 		return true
 	}

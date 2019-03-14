@@ -192,10 +192,7 @@ struct ltchars {
 #include <linux/if_packet.h>
 #include <linux/if_addr.h>
 #include <linux/falloc.h>
-<<<<<<< HEAD
 #include <linux/fanotify.h>
-=======
->>>>>>> master
 #include <linux/filter.h>
 #include <linux/fs.h>
 #include <linux/kexec.h>
@@ -505,10 +502,7 @@ ccflags="$@"
 		$2 !~ "WMESGLEN" &&
 		$2 ~ /^W[A-Z0-9]+$/ ||
 		$2 ~/^PPPIOC/ ||
-<<<<<<< HEAD
 		$2 ~ /^FAN_|FANOTIFY_/ ||
-=======
->>>>>>> master
 		$2 ~ /^BLK[A-Z]*(GET$|SET$|BUF$|PART$|SIZE)/ {printf("\t%s = C.%s\n", $2, $2)}
 		$2 ~ /^__WCOREFLAG$/ {next}
 		$2 ~ /^__W[A-Z0-9]+$/ {printf("\t%s = C.%s\n", substr($2,3), $2)}

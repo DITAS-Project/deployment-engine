@@ -62,29 +62,6 @@ type VDCManager struct {
 	Provisioner           *ansible.Provisioner
 }
 
-type glusterFSHostnamesType struct {
-	Manage  []string `json:"manage"`
-	Storage []string `json:"storage"`
-}
-
-type glusterFSNodeInfoType struct {
-	Hostnames glusterFSHostnamesType `json:"hostnames"`
-	Zone      int                    `json:"zone"`
-}
-
-type glusterFSNodeType struct {
-	Node    glusterFSNodeInfoType `json:"node"`
-	Devices []string              `json:"devices"`
-}
-
-type glusterFSClusterType struct {
-	Nodes []glusterFSNodeType `json:"nodes"`
-}
-
-type glusterFSTopology struct {
-	Clusters []glusterFSClusterType `json:"clusters"`
-}
-
 func NewVDCManager(provisioner *ansible.Provisioner, deployer *infrastructure.Deployer, provisionerController *provision.ProvisionerController) (*VDCManager, error) {
 	viper.SetDefault(mongorepo.MongoDBURLName, mongorepo.MongoDBURLDefault)
 	viper.SetDefault(DitasScriptsFolderProperty, DitasScriptsFolderDefaultValue)
@@ -98,23 +75,35 @@ func NewVDCManager(provisioner *ansible.Provisioner, deployer *infrastructure.De
 
 	mongoConnectionURL := viper.GetString(mongorepo.MongoDBURLName)
 	client, err := mongo.Connect(context.Background(), options.Client().ApplyURI(mongoConnectionURL))
-	if err == nil {
-		db := client.Database("deployment_engine")
-		if db != nil {
-			return &VDCManager{
-				Collection:            db.Collection("vdcs"),
-				ScriptsFolder:         viper.GetString(DitasScriptsFolderProperty),
-				ConfigFolder:          viper.GetString(DitasConfigFolderProperty),
-				KubesprayFolder:       viper.GetString(DitasKubesprayFolderProperty),
-				ConfigVariablesPath:   configFolder + "/vars.yml",
-				Provisioner:           provisioner,
-				DeploymentController:  deployer,
-				ProvisionerController: provisionerController,
-			}, nil
-		}
-	} else {
+	if err != nil {
 		log.WithError(err).Errorf("Error connecting to MongoDB server %s", mongoConnectionURL)
+		return nil, err
 	}
+
+	db := client.Database("deployment_engine")
+	if db == nil {
+		log.WithError(err).Error("Error getting deployment engine database")
+		return nil, err
+	}
+
+	scriptsFolder := viper.GetString(DitasScriptsFolderProperty)
+	kubesprayFolder := viper.GetString(DitasKubesprayFolderProperty)
+	provisioner.Provisioners["glusterfs"] = NewGlusterfsProvisioner(provisioner, scriptsFolder)
+	provisioner.Provisioners["k3s"] = NewK3sProvisioner(provisioner, scriptsFolder)
+	provisioner.Provisioners["kubeadm"] = NewKubeadmProvisioner(provisioner, scriptsFolder)
+	provisioner.Provisioners["kubespray"] = NewKubesprayProvisioner(provisioner, kubesprayFolder)
+
+	return &VDCManager{
+		Collection:            db.Collection("vdcs"),
+		ScriptsFolder:         viper.GetString(DitasScriptsFolderProperty),
+		ConfigFolder:          viper.GetString(DitasConfigFolderProperty),
+		KubesprayFolder:       viper.GetString(DitasKubesprayFolderProperty),
+		ConfigVariablesPath:   configFolder + "/vars.yml",
+		Provisioner:           provisioner,
+		DeploymentController:  deployer,
+		ProvisionerController: provisionerController,
+	}, nil
+
 	return nil, err
 }
 
@@ -177,168 +166,6 @@ func (m *VDCManager) DeployBlueprint(request CreateDeploymentRequest) error {
 	return m.DeployVDC(vdcInfo, bp, deploymentInfo.Infrastructures[0])
 }
 
-func (m *VDCManager) provisionK3s(deploymentId string, infra model.InfrastructureDeploymentInfo) error {
-	infraId := infra.ID
-	logger := log.WithField("infrastructure", infraId)
-
-	inventory, err := m.Provisioner.GetInventory(logger, deploymentId, infra)
-	if err != nil {
-		return err
-	}
-
-	err = m.Provisioner.WaitForSSHPortReady(logger, inventory, deploymentId, infra)
-	if err != nil {
-		return err
-	}
-
-	err = m.executePlaybook(deploymentId, infra, "deploy_k3s.yml", nil)
-	if err != nil {
-		return err
-	}
-
-	err = m.executePlaybook(deploymentId, infra, "join_k3s_nodes.yml", map[string]string{
-		"master_ip": infra.Master.IP,
-	})
-
-	return err
-}
-
-func (m *VDCManager) writeAllToGroup(inventory *os.File, group string, infra model.InfrastructureDeploymentInfo) error {
-	_, err := inventory.WriteString(fmt.Sprintln(fmt.Sprintf("[%s]", group)))
-	if err != nil {
-		return err
-	}
-
-	_, err = inventory.WriteString(fmt.Sprintln(infra.Master.Hostname))
-	if err != nil {
-		return err
-	}
-
-	for _, node := range infra.Slaves {
-		_, err = inventory.WriteString(fmt.Sprintln(node.Hostname))
-		if err != nil {
-			return err
-		}
-	}
-
-	return err
-}
-
-func (m *VDCManager) createKubesprayInventory(logger *log.Entry, inventory *os.File, infra model.InfrastructureDeploymentInfo) error {
-	_, err := m.Provisioner.WriteHost(infra.Master, inventory)
-	if err != nil {
-		return err
-	}
-
-	for _, host := range infra.Slaves {
-		_, err = m.Provisioner.WriteHost(host, inventory)
-		if err != nil {
-			return err
-		}
-	}
-
-	_, err = inventory.WriteString("\n[kube-master]\n")
-	if err != nil {
-		return err
-	}
-
-	_, err = inventory.WriteString(fmt.Sprintln(infra.Master.Hostname))
-	if err != nil {
-		return err
-	}
-
-	err = m.writeAllToGroup(inventory, "etcd", infra)
-	if err != nil {
-		return err
-	}
-
-	err = m.writeAllToGroup(inventory, "kube-node", infra)
-	if err != nil {
-		return err
-	}
-
-	_, err = inventory.WriteString("\n[k8s-cluster:children]\nkube-node\nkube-master\n")
-	return err
-}
-
-func (m *VDCManager) provisionKubernetesWithKubespray(deploymentID string, infra model.InfrastructureDeploymentInfo) error {
-	logger := log.WithField("infrastructure", infra.ID)
-	inventory, err := m.Provisioner.GetCustomInventory(logger, deploymentID, infra, m.createKubesprayInventory)
-	if err != nil {
-		return err
-	}
-
-	err = m.Provisioner.WaitForSSHPortReady(logger, inventory, deploymentID, infra)
-	if err != nil {
-		return err
-	}
-
-	return ansible.ExecutePlaybook(logger, m.KubesprayFolder+"/cluster.yml", inventory, nil)
-}
-
-func (m *VDCManager) toGlusterFSDevices(devices []model.DriveInfo) []string {
-	result := make([]string, len(devices))
-	for i := 0; i < len(devices); i++ {
-		result = append(result, fmt.Sprintf("\"/dev/vd%s\"", string(rune('b'+i))))
-	}
-	return result
-}
-
-func (m *VDCManager) toGlusterFSNode(node model.NodeInfo) glusterFSNodeType {
-	return glusterFSNodeType{
-		Node: glusterFSNodeInfoType{
-			Hostnames: glusterFSHostnamesType{
-				Manage:  []string{node.Hostname},
-				Storage: []string{node.IP},
-			},
-			Zone: 1,
-		},
-		Devices: m.toGlusterFSDevices(node.DataDrives),
-	}
-}
-
-func (m *VDCManager) generateGlusterFSTopology(infra model.InfrastructureDeploymentInfo) (string, error) {
-	nodes := make([]glusterFSNodeType, len(infra.Slaves)+1)
-	nodes = append(nodes, m.toGlusterFSNode(infra.Master))
-	for _, node := range infra.Slaves {
-		nodes = append(nodes, m.toGlusterFSNode(node))
-	}
-	result, err := json.Marshal(glusterFSTopology{
-		Clusters: []glusterFSClusterType{
-			glusterFSClusterType{
-				Nodes: nodes,
-			},
-		},
-	})
-	if err != nil {
-		return "", err
-	}
-
-	return string(result), nil
-}
-
-func (m *VDCManager) provisionGlusterFS(deploymentID string, infra model.InfrastructureDeploymentInfo) error {
-	err := utils.ExecuteCommand(log.NewEntry(log.New()), "ansible-galaxy", "install", "galexrt.kernel-modules")
-	if err != nil {
-		return err
-	}
-
-	topology, err := m.generateGlusterFSTopology(infra)
-	if err != nil {
-		return err
-	}
-
-	singleNode := ""
-	if len(infra.Slaves) < 2 {
-		singleNode = "--single-node"
-	}
-
-	return m.executePlaybook(deploymentID, infra, "deploy_glusterfs.yml", map[string]string{
-		"topology":    topology,
-		"single_node": singleNode,
-	})
-}
-
 func (m *VDCManager) provisionKubernetes(deployment model.DeploymentInfo, vdcInfo *VDCInformation) (model.DeploymentInfo, error) {
 	result := deployment
 	for _, infra := range deployment.Infrastructures {
@@ -349,7 +176,7 @@ func (m *VDCManager) provisionKubernetes(deployment model.DeploymentInfo, vdcInf
 			return result, err
 		}
 
-		err = m.provisionGlusterFS(deployment.ID, infra)
+		err = m.Provisioner.WaitAndProvision(deployment.ID, infra, "glusterfs", false)
 		if err != nil {
 			log.WithError(err).Error("Error deploying glusterfs to master")
 			return result, err

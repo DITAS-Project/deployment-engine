@@ -372,10 +372,7 @@ type Tokengroups struct {
 //sys	OpenProcessToken(h Handle, access uint32, token *Token) (err error) = advapi32.OpenProcessToken
 //sys	GetTokenInformation(t Token, infoClass uint32, info *byte, infoLen uint32, returnedLen *uint32) (err error) = advapi32.GetTokenInformation
 //sys	GetUserProfileDirectory(t Token, dir *uint16, dirLen *uint32) (err error) = userenv.GetUserProfileDirectoryW
-<<<<<<< HEAD
 //sys	getSystemDirectory(dir *uint16, dirLen uint32) (len uint32, err error) = kernel32.GetSystemDirectoryW
-=======
->>>>>>> master
 
 // An access token contains the security information for a logon session.
 // The system creates an access token when a user logs on, and every
@@ -472,7 +469,6 @@ func (t Token) GetUserProfileDirectory() (string, error) {
 	}
 }
 
-<<<<<<< HEAD
 // GetSystemDirectory retrieves path to current location of the system
 // directory, which is typically, though not always, C:\Windows\System32.
 func GetSystemDirectory() (string, error) {
@@ -490,8 +486,6 @@ func GetSystemDirectory() (string, error) {
 	}
 }
 
-=======
->>>>>>> master
 // IsMember reports whether the access token t is a member of the provided SID.
 func (t Token) IsMember(sid *SID) (bool, error) {
 	var b int32

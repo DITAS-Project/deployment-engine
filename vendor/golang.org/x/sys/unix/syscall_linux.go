@@ -39,7 +39,6 @@ func Creat(path string, mode uint32) (fd int, err error) {
 	return Open(path, O_CREAT|O_WRONLY|O_TRUNC, mode)
 }
 
-<<<<<<< HEAD
 //sys	FanotifyInit(flags uint, event_f_flags uint) (fd int, err error)
 //sys	fanotifyMark(fd int, flags uint, mask uint64, dirFd int, pathname *byte) (err error)
 
@@ -54,8 +53,6 @@ func FanotifyMark(fd int, flags uint, mask uint64, dirFd int, pathname string) (
 	return fanotifyMark(fd, flags, mask, dirFd, p)
 }
 
-=======
->>>>>>> master
 //sys	fchmodat(dirfd int, path string, mode uint32) (err error)
 
 func Fchmodat(dirfd int, path string, mode uint32, flags int) (err error) {
@@ -1007,7 +1004,6 @@ func GetsockoptString(fd, level, opt int) (string, error) {
 	return string(buf[:vallen-1]), nil
 }
 
-<<<<<<< HEAD
 func GetsockoptTpacketStats(fd, level, opt int) (*TpacketStats, error) {
 	var value TpacketStats
 	vallen := _Socklen(SizeofTpacketStats)
@@ -1022,19 +1018,14 @@ func GetsockoptTpacketStatsV3(fd, level, opt int) (*TpacketStatsV3, error) {
 	return &value, err
 }
 
-=======
->>>>>>> master
 func SetsockoptIPMreqn(fd, level, opt int, mreq *IPMreqn) (err error) {
 	return setsockopt(fd, level, opt, unsafe.Pointer(mreq), unsafe.Sizeof(*mreq))
 }
 
-<<<<<<< HEAD
 func SetsockoptPacketMreq(fd, level, opt int, mreq *PacketMreq) error {
 	return setsockopt(fd, level, opt, unsafe.Pointer(mreq), unsafe.Sizeof(*mreq))
 }
 
-=======
->>>>>>> master
 // SetsockoptSockFprog attaches a classic BPF or an extended BPF program to a
 // socket to filter incoming packets.  See 'man 7 socket' for usage information.
 func SetsockoptSockFprog(fd, level, opt int, fprog *SockFprog) error {
@@ -1049,7 +1040,6 @@ func SetsockoptCanRawFilter(fd, level, opt int, filter []CanFilter) error {
 	return setsockopt(fd, level, opt, p, uintptr(len(filter)*SizeofCanFilter))
 }
 
-<<<<<<< HEAD
 func SetsockoptTpacketReq(fd, level, opt int, tp *TpacketReq) error {
 	return setsockopt(fd, level, opt, unsafe.Pointer(tp), unsafe.Sizeof(*tp))
 }
@@ -1058,8 +1048,6 @@ func SetsockoptTpacketReq3(fd, level, opt int, tp *TpacketReq3) error {
 	return setsockopt(fd, level, opt, unsafe.Pointer(tp), unsafe.Sizeof(*tp))
 }
 
-=======
->>>>>>> master
 // Keyctl Commands (http://man7.org/linux/man-pages/man2/keyctl.2.html)
 
 // KeyctlInt calls keyctl commands in which each argument is an int.

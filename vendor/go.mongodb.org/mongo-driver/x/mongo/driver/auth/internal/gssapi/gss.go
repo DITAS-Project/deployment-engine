@@ -19,20 +19,12 @@ package gssapi
 import "C"
 import (
 	"fmt"
-<<<<<<< HEAD
-=======
-	"net"
->>>>>>> master
 	"runtime"
 	"strings"
 	"unsafe"
 )
 
-<<<<<<< HEAD
 // New creates a new SaslClient. The target parameter should be a hostname with no port.
-=======
-// New creates a new SaslClient.
->>>>>>> master
 func New(target, username, password string, passwordSet bool, props map[string]string) (*SaslClient, error) {
 	serviceName := "mongodb"
 
@@ -44,26 +36,14 @@ func New(target, username, password string, passwordSet bool, props map[string]s
 			return nil, fmt.Errorf("SERVICE_REALM is not supported when using gssapi on %s", runtime.GOOS)
 		case "SERVICE_NAME":
 			serviceName = value
-<<<<<<< HEAD
 		case "SERVICE_HOST":
 			target = value
-=======
->>>>>>> master
 		default:
 			return nil, fmt.Errorf("unknown mechanism property %s", key)
 		}
 	}
 
-<<<<<<< HEAD
 	servicePrincipalName := fmt.Sprintf("%s@%s", serviceName, target)
-=======
-	hostname, _, err := net.SplitHostPort(target)
-	if err != nil {
-		return nil, fmt.Errorf("invalid endpoint (%s) specified: %s", target, err)
-	}
-
-	servicePrincipalName := fmt.Sprintf("%s@%s", serviceName, hostname)
->>>>>>> master
 
 	return &SaslClient{
 		servicePrincipalName: servicePrincipalName,
