@@ -90,8 +90,12 @@ func (c *Client) GetLibDrive(params map[string]string) (ResourceType, error) {
 	return getFirstObjectOfList(c.httpClient.R().SetQueryParams(params), "/libdrives", resty.MethodGet)
 }
 
-func (c *Client) CloneDrive(uuid string, info *ResourceType) (ResourceType, error) {
-	path := fmt.Sprintf("/libdrives/%s/action/?do=clone", uuid)
+func (c *Client) CloneDrive(uuid string, info *ResourceType, library bool) (ResourceType, error) {
+	source := "libdrives"
+	if !library {
+		source = "drives"
+	}
+	path := fmt.Sprintf("/%s/%s/action/?do=clone", source, uuid)
 	request := c.httpClient.R()
 	if info != nil {
 		request = request.SetBody(info)

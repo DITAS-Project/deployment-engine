@@ -18,19 +18,16 @@ package ansible
 
 import (
 	"deployment-engine/model"
-	"deployment-engine/utils"
-	"errors"
 	"fmt"
 	"os"
-	"time"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
 
 const (
-	InventoryFolderProperty = "ansible.inventory.folder"
-	ScriptsFolderProperty   = "ansible.scripts.folder"
+	InventoryFolderProperty = "ansible.folders.inventory"
+	ScriptsFolderProperty   = "ansible.folders.scripts"
 
 	InventoryFolderDefaultValue = "/tmp/ansible_inventories"
 	ScriptsFolderDefaultValue   = "provision/ansible"
@@ -39,6 +36,28 @@ const (
 type Provisioner struct {
 	InventoryFolder string
 	ScriptsFolder   string
+	Provisioners    map[string]ProductProvisioner
+}
+
+type InventoryHost struct {
+	Name string
+	Vars map[string]string
+}
+
+type InventoryGroup struct {
+	Name      string
+	Hosts     []string
+	GroupVars map[string]string
+}
+
+type Inventory struct {
+	Hosts  []InventoryHost
+	Groups []InventoryGroup
+}
+
+type ProductProvisioner interface {
+	BuildInventory(deploymentID string, infra model.InfrastructureDeploymentInfo) (Inventory, error)
+	DeployProduct(inventory, deploymentID string, infra model.InfrastructureDeploymentInfo) error
 }
 
 func New() (*Provisioner, error) {
@@ -54,164 +73,164 @@ func New() (*Provisioner, error) {
 		return nil, err
 	}
 
-	return &Provisioner{
+	result := Provisioner{
 		InventoryFolder: inventoryFolder,
 		ScriptsFolder:   scriptsFolder,
-	}, nil
+	}
+
+	result.Provisioners = map[string]ProductProvisioner{
+		"docker":     NewDockerProvisioner(&result),
+		"kubernetes": NewKubernetesProvisioner(&result),
+	}
+
+	return &result, nil
 }
 
-func (p *Provisioner) clearKnownHost(logger *log.Entry, ip string) error {
-	return ExecutePlaybook(logger, p.ScriptsFolder+"/common/clear_known_hosts.yml", "", map[string]string{
-		"host_ip": ip,
-	})
-}
+func (p *Provisioner) WaitForSSHPortReady(deploymentID string, infra model.InfrastructureDeploymentInfo) error {
+	logger := log.WithField("deployment", deploymentID).WithField("infrastructure", infra.ID)
+	logger.Info("Waiting for port 22 to be ready")
 
-func (p *Provisioner) addHostToHostFile(log *log.Entry, hostInfo model.NodeInfo) error {
-	logger := log.WithField("host", hostInfo.Hostname)
-
-	err := p.clearKnownHost(logger, hostInfo.IP)
+	inventory, err := p.Provisioners["docker"].BuildInventory(deploymentID, infra)
 	if err != nil {
-		logger.WithError(err).Error("Error clearing known hosts")
 		return err
 	}
 
-	host := fmt.Sprintf("%s@%s", hostInfo.Username, hostInfo.IP)
-	command := fmt.Sprintf("echo %s %s | sudo tee -a /etc/hosts > /dev/null 2>&1", hostInfo.IP, hostInfo.Hostname)
-	timeout := 30 * time.Second
-	logger.Info("Waiting for ssh service to be ready")
-	_, timedOut, _ := utils.WaitForStatusChange("starting", timeout, func() (string, error) {
-		err := utils.ExecuteCommand(logger, "ssh", "-o", "StrictHostKeyChecking=no", host, command)
-		if err != nil {
-			return "starting", nil
+	inventoryPath, err := p.WriteInventory(deploymentID, infra.ID, "common", inventory)
+	if err != nil {
+		return err
+	}
+
+	return ExecutePlaybook(logger, p.ScriptsFolder+"/common/wait_ssh_ready.yml", inventoryPath, nil)
+}
+
+func (p Provisioner) WriteGroup(inventoryFile *os.File, group InventoryGroup) error {
+	_, err := inventoryFile.WriteString(fmt.Sprintf("[%s]\n", group.Name))
+	if err != nil {
+		return err
+	}
+
+	if group.Hosts != nil {
+		for _, host := range group.Hosts {
+			_, err := inventoryFile.WriteString(fmt.Sprintf("%s\n", host))
+			if err != nil {
+				return err
+			}
 		}
-		return "started", nil
-	})
-	if timedOut {
-		msg := "Timeout waiting for ssh service to start"
-		logger.Errorf(msg)
-		return errors.New(msg)
-	}
-	logger.Info("Ssh service ready")
-
-	return nil
-}
-
-func (p *Provisioner) addToHostFile(logger *log.Entry, infra model.InfrastructureDeploymentInfo) error {
-
-	logger.Info("Adding master to hosts")
-	err := p.addHostToHostFile(logger, infra.Master)
-
-	if err != nil {
-		logger.WithError(err).Error("Error adding master to hosts")
-		return err
 	}
 
-	logger.Info("Master added. Adding slaves to hosts")
-
-	for _, slave := range infra.Slaves {
-		err = p.addHostToHostFile(logger, slave)
+	if group.GroupVars != nil {
+		_, err := inventoryFile.WriteString(fmt.Sprintf("[%s:vars]\n", group.Name))
 		if err != nil {
-			logger.WithError(err).Errorf("Error adding slave %s to hosts", slave.Hostname)
 			return err
 		}
-	}
 
-	logger.Info("Slaves added")
-
-	return nil
-}
-
-func (p *Provisioner) writeHost(node model.NodeInfo, file *os.File) (int, error) {
-	line := fmt.Sprintf("%s ansible_host=%s ansible_user=%s\n", node.Hostname, node.IP, node.Username)
-	return file.WriteString(line)
-}
-
-func (p *Provisioner) createInventory(logger *log.Entry, deploymentID string, infra model.InfrastructureDeploymentInfo) (string, error) {
-	path := p.GetInventoryFolder(deploymentID, infra.ID)
-
-	err := os.MkdirAll(path, os.ModePerm)
-	if err != nil {
-		logger.WithError(err).Errorf("Error creating inventory folder %s", path)
-		return path, err
-	}
-
-	filePath := p.GetInventoryPath(deploymentID, infra.ID)
-	logger.Infof("Creating inventory at %s", filePath)
-	inventory, err := os.Create(filePath)
-	defer inventory.Close()
-
-	if err != nil {
-		logger.WithError(err).Errorf("Error creating inventory file %s", filePath)
-		return path, err
-	}
-
-	_, err = inventory.WriteString("[master]\n")
-	if err != nil {
-		logger.WithError(err).Error("Error writing master header to inventory")
-		return path, err
-	}
-
-	_, err = p.writeHost(infra.Master, inventory)
-	if err != nil {
-		logger.WithError(err).Error("Error writing master information to inventory")
-		return path, err
-	}
-
-	_, err = inventory.WriteString("[slaves]\n")
-	if err != nil {
-		logger.WithError(err).Error("Error writing slaves header to inventory")
-		return path, err
-	}
-	for _, slave := range infra.Slaves {
-		_, err = p.writeHost(slave, inventory)
-		if err != nil {
-			logger.WithError(err).Errorf("Error writing slave %s header to inventory", slave.Hostname)
-			return path, err
+		for k, v := range group.GroupVars {
+			_, err := inventoryFile.WriteString(fmt.Sprintf("%s=%s\n", k, v))
+			if err != nil {
+				return err
+			}
 		}
 	}
 
-	logger.Info("Inventory correctly created")
-
-	return path, nil
+	return nil
 }
 
-func (p *Provisioner) deployK8s(deploymentID string, infra model.InfrastructureDeploymentInfo) error {
-	logger := log.WithField("infrastructure", infra.ID)
-	inventoryPath, err := p.createInventory(logger, deploymentID, infra)
+func (p Provisioner) WriteHost(inventoryFile *os.File, host InventoryHost) error {
+	_, err := inventoryFile.WriteString(host.Name)
 	if err != nil {
 		return err
 	}
 
-	logger.Info("Calling Ansible for initial k8s deployment")
-	//time.Sleep(180 * time.Second)
-	err = ExecutePlaybook(logger, p.ScriptsFolder+"/kubernetes/ansible_deploy.yml", inventoryPath, map[string]string{
-		"masterUsername": infra.Master.Username,
-	})
+	if host.Vars != nil {
+		for k, v := range host.Vars {
+			strVar := fmt.Sprintf(" %s=%s", k, v)
+			_, err = inventoryFile.WriteString(strVar)
+			if err != nil {
+				return err
+			}
+		}
+	}
 
+	_, err = inventoryFile.WriteString("\n")
 	if err != nil {
-		logger.WithError(err).Error("Error executing ansible deployment for k8s deployment")
 		return err
 	}
 
-	logger.Info("K8s cluster created")
-	return nil
+	return err
+}
+
+func (p Provisioner) WriteInventory(deploymentID, infraID, product string, inventory Inventory) (string, error) {
+	path := p.GetInventoryFolder(deploymentID, infraID)
+	filePath := fmt.Sprintf("%s_%s", p.GetInventoryPath(deploymentID, infraID), product)
+
+	if _, err := os.Stat(filePath); err == nil {
+
+		return filePath, nil
+
+	} else if os.IsNotExist(err) {
+
+		err := os.MkdirAll(path, os.ModePerm)
+		if err != nil {
+			log.WithError(err).Errorf("Error creating inventory folder %s", path)
+			return path, err
+		}
+
+		log.Infof("Creating inventory at %s", filePath)
+		inventoryFile, err := os.Create(filePath)
+		defer inventoryFile.Close()
+
+		if err != nil {
+			log.WithError(err).Errorf("Error creating inventory file %s", filePath)
+			return path, err
+		}
+
+		for _, host := range inventory.Hosts {
+			err = p.WriteHost(inventoryFile, host)
+			if err != nil {
+				return filePath, err
+			}
+		}
+
+		if inventory.Groups != nil {
+			for _, group := range inventory.Groups {
+				err = p.WriteGroup(inventoryFile, group)
+				if err != nil {
+					return filePath, err
+				}
+			}
+		}
+
+	}
+
+	return filePath, nil
 }
 
 func (p Provisioner) Provision(deploymentId string, infra model.InfrastructureDeploymentInfo, product string) error {
 
-	if len(infra.Products) == 0 {
-		err := p.addToHostFile(log.WithField("infrastructure", infra.ID), infra)
-		if err != nil {
-			log.WithError(err).Error("Error setting known_hosts")
-			return err
-		}
+	provisioner := p.Provisioners[product]
+	if provisioner == nil {
+		return fmt.Errorf("Product %s not supported by this deployer", product)
 	}
 
-	if product == "kubernetes" {
-		return p.deployK8s(deploymentId, infra)
+	err := p.WaitForSSHPortReady(deploymentId, infra)
+	if err != nil {
+		log.WithError(err).Error("Error waiting for infrastructure to be ready")
+		return err
 	}
 
-	return fmt.Errorf("Product %s not supported by this deployer", product)
+	inventory, err := provisioner.BuildInventory(deploymentId, infra)
+	if err != nil {
+		log.WithError(err).Errorf("Error getting inventory for product %s", product)
+		return err
+	}
+
+	inventoryPath, err := p.WriteInventory(deploymentId, infra.ID, product, inventory)
+	if err != nil {
+		log.WithError(err).Errorf("Error creating inventory file for product %s", product)
+		return err
+	}
+
+	return provisioner.DeployProduct(inventoryPath, deploymentId, infra)
 }
 
 func (p *Provisioner) GetInventoryFolder(deploymentID, infraID string) string {
