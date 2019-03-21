@@ -45,17 +45,17 @@ func (p KubesprayProvisioner) BuildInventory(deploymentID string, infra model.In
 
 	masterGroup := ansible.InventoryGroup{
 		Name:  "kube-master",
-		Hosts: make([]string, 1),
+		Hosts: []string{infra.Master.Hostname},
 	}
 
 	slavesGroup := ansible.InventoryGroup{
 		Name:  "kube-node",
-		Hosts: make([]string, len(infra.Slaves)+1),
+		Hosts: make([]string, len(baseInventory.Hosts)),
 	}
 
 	etcdGroup := ansible.InventoryGroup{
 		Name:  "etcd",
-		Hosts: make([]string, 1),
+		Hosts: []string{infra.Master.Hostname},
 	}
 
 	childrenGroup := ansible.InventoryGroup{
@@ -63,15 +63,8 @@ func (p KubesprayProvisioner) BuildInventory(deploymentID string, infra model.In
 		Hosts: []string{"kube-master", "kube-node"},
 	}
 
-	for _, host := range baseInventory.Hosts {
-
-		slavesGroup.Hosts = append(slavesGroup.Hosts, host.Name)
-
-		role, _ := host.Vars["kubernetes_role"]
-		if role == "master" {
-			masterGroup.Hosts = append(masterGroup.Hosts, host.Name)
-			etcdGroup.Hosts = append(etcdGroup.Hosts, host.Name)
-		}
+	for i, host := range baseInventory.Hosts {
+		slavesGroup.Hosts[i] = host.Name
 	}
 
 	baseInventory.Groups = []ansible.InventoryGroup{masterGroup, slavesGroup, etcdGroup, childrenGroup}

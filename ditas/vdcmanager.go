@@ -92,6 +92,7 @@ func NewVDCManager(provisioner *ansible.Provisioner, deployer *infrastructure.De
 	provisioner.Provisioners["k3s"] = NewK3sProvisioner(provisioner, scriptsFolder)
 	provisioner.Provisioners["kubeadm"] = NewKubeadmProvisioner(provisioner, scriptsFolder)
 	provisioner.Provisioners["kubespray"] = NewKubesprayProvisioner(provisioner, kubesprayFolder)
+	provisioner.Provisioners["rook"] = NewRookProvisioner(provisioner, scriptsFolder)
 
 	return &VDCManager{
 		Collection:            db.Collection("vdcs"),
@@ -169,14 +170,14 @@ func (m *VDCManager) DeployBlueprint(request CreateDeploymentRequest) error {
 func (m *VDCManager) provisionKubernetes(deployment model.DeploymentInfo, vdcInfo *VDCInformation) (model.DeploymentInfo, error) {
 	result := deployment
 	for _, infra := range deployment.Infrastructures {
-		err := m.Provisioner.Provision(deployment.ID, infra, "kubeadm")
+		err := m.Provisioner.Provision(deployment.ID, infra, "k3s")
 		//err := m.provisionKubernetesWithKubespray(deployment.ID, infra)
 		if err != nil {
 			log.WithError(err).Errorf("Error deploying kubernetes on infrastructure %s. Trying to clean up deployment.", infra.ID)
 			return result, err
 		}
 
-		err = m.Provisioner.WaitAndProvision(deployment.ID, infra, "glusterfs", false)
+		err = m.Provisioner.WaitAndProvision(deployment.ID, infra, "rook", false)
 		if err != nil {
 			log.WithError(err).Error("Error deploying glusterfs to master")
 			return result, err
@@ -269,12 +270,6 @@ func (m *VDCManager) DeployVDC(vdcInfo VDCInformation, blueprint blueprint.Bluep
 }
 
 func (m *VDCManager) initializeInfra(deploymentID string, infra model.InfrastructureDeploymentInfo) error {
-	err := m.executePlaybook(deploymentID, infra, "prepare_data_disks.yml", nil)
-	if err != nil {
-		log.WithError(err).Errorf("Error preparing persistent storage")
-		return err
-	}
-
 	return m.deployVDM(deploymentID, infra)
 }
 

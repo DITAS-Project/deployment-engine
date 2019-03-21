@@ -3,7 +3,7 @@ kind: Service
 metadata:
   name: "{{ vdcId }}"
 spec:
-  type: NodePort
+  type: LoadBalancer
   selector:
     component: "{{ vdcId }}"
   ports:
@@ -39,8 +39,6 @@ spec:
         volumeMounts:
         - name: blueprint
           mountPath: /opt/blueprint
-        - name: data
-          mountPath: /mnt/ditas-data
 
       - name: slalite
         image: ditas/slalite
@@ -49,8 +47,6 @@ spec:
         volumeMounts:
         - name: blueprint
           mountPath: /opt/blueprint
-        - name: data
-          mountPath: /mnt/ditas-data
     
       - name: ideko-uc
         image: ditas/ideko-use-case-with-flow-demo:latest
@@ -59,14 +55,9 @@ spec:
         volumeMounts:
         - name: blueprint
           mountPath: /opt/blueprint
-        - name: data
-          mountPath: /mnt/ditas-data
 
       volumes:
       - name: blueprint
         configMap:
           name: "{{ vdcId }}"
-      - name: data
-        persistentVolumeClaim:
-          claimName: "{{ vdcId }}"
   

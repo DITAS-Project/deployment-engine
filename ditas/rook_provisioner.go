@@ -21,39 +21,48 @@ package ditas
 import (
 	"deployment-engine/model"
 	"deployment-engine/provision/ansible"
+	"strconv"
 
 	"github.com/sirupsen/logrus"
 )
 
-type K3sProvisioner struct {
+const (
+	DitasGitInstalledProperty = "ditas_git_installed"
+)
+
+type RookProvisioner struct {
 	parent        *ansible.Provisioner
 	scriptsFolder string
 }
 
-func NewK3sProvisioner(parent *ansible.Provisioner, scriptsFolder string) K3sProvisioner {
-	return K3sProvisioner{
+func NewRookProvisioner(parent *ansible.Provisioner, scriptsFolder string) RookProvisioner {
+	return RookProvisioner{
 		parent:        parent,
 		scriptsFolder: scriptsFolder,
 	}
 }
 
-func (p K3sProvisioner) BuildInventory(deploymentID string, infra model.InfrastructureDeploymentInfo) (ansible.Inventory, error) {
+func (p RookProvisioner) BuildInventory(deploymentID string, infra model.InfrastructureDeploymentInfo) (ansible.Inventory, error) {
 	return p.parent.Provisioners["kubeadm"].BuildInventory(deploymentID, infra)
 }
 
-func (p K3sProvisioner) DeployProduct(inventoryPath, deploymentID string, infra model.InfrastructureDeploymentInfo) error {
+func (p RookProvisioner) DeployProduct(inventoryPath, deploymentID string, infra model.InfrastructureDeploymentInfo) error {
 
 	logger := logrus.WithFields(logrus.Fields{
 		"deployment":     deploymentID,
 		"infrastructure": infra.ID,
 	})
-	err := ansible.ExecutePlaybook(logger, p.scriptsFolder+"/deploy_k3s.yml", inventoryPath, nil)
-	if err != nil {
-		logger.WithError(err).Error("Error initializing master")
-		return err
+
+	installGit := !infra.ExtraProperties.GetBool(DitasGitInstalledProperty)
+	haAvailable := len(infra.Slaves) > 1
+	numMons := 1
+	if haAvailable {
+		numMons = 3
 	}
 
-	return ansible.ExecutePlaybook(logger, p.scriptsFolder+"/join_k3s_nodes.yml", inventoryPath, map[string]string{
-		"master_ip": infra.Master.IP,
+	return ansible.ExecutePlaybook(logger, p.scriptsFolder+"/deploy_rook.yml", inventoryPath, map[string]string{
+		"ha_available": string(strconv.AppendBool([]byte{}, haAvailable)),
+		"install_git":  string(strconv.AppendBool([]byte{}, installGit)),
+		"num_mons":     strconv.Itoa(numMons),
 	})
 }

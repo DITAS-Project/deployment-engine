@@ -23,8 +23,13 @@ import (
 	"deployment-engine/provision/ansible"
 	"encoding/json"
 	"fmt"
+	"strconv"
 
 	"github.com/sirupsen/logrus"
+)
+
+const (
+	DitasGlusterFSClientInstalled = "ditas_glusterfs_client_installed"
 )
 
 type glusterFSHostnamesType struct {
@@ -63,25 +68,13 @@ func NewGlusterfsProvisioner(parent *ansible.Provisioner, scriptsFolder string) 
 }
 
 func (p GlusterfsProvisioner) BuildInventory(deploymentID string, infra model.InfrastructureDeploymentInfo) (ansible.Inventory, error) {
-	baseInventory, err := p.parent.Provisioners["kubernetes"].BuildInventory(deploymentID, infra)
-	if err != nil {
-		return baseInventory, err
-	}
-
-	baseInventory.Groups = []ansible.InventoryGroup{
-		ansible.InventoryGroup{
-			Name:  "master",
-			Hosts: []string{infra.Master.Hostname},
-		},
-	}
-
-	return baseInventory, nil
+	return p.parent.Provisioners["kubeadm"].BuildInventory(deploymentID, infra)
 }
 
 func (p GlusterfsProvisioner) toGlusterFSDevices(devices []model.DriveInfo) []string {
 	result := make([]string, len(devices))
 	for i := 0; i < len(devices); i++ {
-		result = append(result, fmt.Sprintf("\"/dev/vd%s\"", string(rune('b'+i))))
+		result[i] = fmt.Sprintf("/dev/vd%s", string(rune('b'+i)))
 	}
 	return result
 }
@@ -101,9 +94,9 @@ func (p GlusterfsProvisioner) toGlusterFSNode(node model.NodeInfo) glusterFSNode
 
 func (p GlusterfsProvisioner) generateGlusterFSTopology(infra model.InfrastructureDeploymentInfo) (string, error) {
 	nodes := make([]glusterFSNodeType, len(infra.Slaves)+1)
-	nodes = append(nodes, p.toGlusterFSNode(infra.Master))
-	for _, node := range infra.Slaves {
-		nodes = append(nodes, p.toGlusterFSNode(node))
+	nodes[0] = p.toGlusterFSNode(infra.Master)
+	for i, node := range infra.Slaves {
+		nodes[i+1] = p.toGlusterFSNode(node)
 	}
 	result, err := json.Marshal(glusterFSTopology{
 		Clusters: []glusterFSClusterType{
@@ -126,6 +119,8 @@ func (p GlusterfsProvisioner) DeployProduct(inventoryPath, deploymentID string, 
 		"infrastructure": infra.ID,
 	})
 
+	installClient := !infra.ExtraProperties.GetBool(DitasGlusterFSClientInstalled)
+
 	topology, err := p.generateGlusterFSTopology(infra)
 	if err != nil {
 		return err
@@ -137,7 +132,8 @@ func (p GlusterfsProvisioner) DeployProduct(inventoryPath, deploymentID string, 
 	}
 
 	return ansible.ExecutePlaybook(logger, p.scriptsFolder+"/deploy_glusterfs.yml", inventoryPath, map[string]string{
-		"topology":    topology,
-		"single_node": singleNode,
+		"topology":       topology,
+		"single_node":    singleNode,
+		"install_client": string(strconv.AppendBool([]byte{}, installClient)),
 	})
 }

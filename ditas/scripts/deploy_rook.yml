@@ -1,0 +1,46 @@
+---
+  - hosts: [master]
+    tasks:
+      - name: Install dependencies
+        become: true
+        package:
+          name: "{{ item }}"
+          state: present
+        with_items:
+          - git
+        when: install_git
+      
+      - name: Get Rook repository
+        shell: git clone --branch v0.9.3 https://github.com/rook/rook/
+
+      - name: Deploy Rook operator
+        shell: kubectl create -f rook/cluster/examples/kubernetes/ceph/operator.yaml
+      
+      - name: Wait for Rook operator to be ready
+        shell: kubectl wait deployment/rook-ceph-operator --for condition=available --namespace rook-ceph-system
+      
+      - name: Copy cluster configuration
+        template:
+          src: templates/cluster.yaml.j2
+          dest: cluster.yaml
+
+      - name: Deploy cluster
+        shell: kubectl create -f cluster.yaml
+
+      - name: Copy non-HA storage class
+        template:
+          src: kubernetes/storageclass_rook_single.yml
+          dest: storageclass_rook_single.yml
+
+      - name: Deploy non-HA storage class
+        shell: kubectl create -f storageclass_rook_single.yml
+
+      - name: Copy HA storage class
+        template:
+          src: kubernetes/storageclass_rook_ha.yml
+          dest: storageclass_rook_ha.yml
+        when: ha_available
+      
+      - name: Deploy HA storage class
+        shell: kubectl create -f storageclass_rook_ha.yml
+        when: ha_available

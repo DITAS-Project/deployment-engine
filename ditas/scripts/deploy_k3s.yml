@@ -7,15 +7,18 @@
 
   - hosts: [all]
     become: yes
+    gather_facts: no
     tasks:
       - name: Install k3s binary
         get_url:
-          url: https://github.com/rancher/k3s/releases/download/v0.2.0-rc4/k3s
+          url: https://github.com/rancher/k3s/releases/download/v0.2.0/k3s
           dest: /usr/bin/k3s
-          checksum: sha256:b35ec639b0b99fddf9e4e12e3fb02761c343d9e3f608137a7821df4343aee2b2
+          checksum: sha256:a77f1830856ea4fb136f22cc930ab2eaf7635c1563089932630b4d2521a9fe31
           mode: 755
           owner: root
           group: root
+          validate_certs: no
+
       - name: Generate kubectl alias
         file:
           src: /usr/bin/k3s
@@ -33,6 +36,7 @@
 
   - hosts: [master]
     become: yes
+    gather_facts: no
     tasks:
       - name: Set startup command
         set_fact:

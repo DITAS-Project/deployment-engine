@@ -1,27 +1,6 @@
 ---
 
   - hosts: [master]
-    become: yes
-    tasks:
-      - name: Create data directory
-        file: 
-          path: /mnt/data/{{ vdcId }}
-          state: directory
-          mode: "a+rw"
-
-      - name: Copy NFS exports
-        template: 
-          src: configs/exports.j2 
-          dest: /etc/exports.d/{{ vdcId }}.exports 
-          owner: root
-          group: root
-      
-      - name: restart nfs server
-        service: 
-          name: nfs-kernel-server 
-          state: restarted
-
-  - hosts: [master]
     vars_files:
       - "{{ vars_file }}"
     tasks:
@@ -47,12 +26,6 @@
 
   - hosts: [master]
     tasks:
-      - name: Copy Persistent Volume description
-        template: src=kubernetes/pv.yaml dest={{ vdcId }}-pv.yaml
-      
-      - name: Create Persistent Volume
-        shell: kubectl create -f {{ vdcId }}-pv.yaml
-
       - name: Copy VDC deployment
         template: src=kubernetes/vdc.yaml dest={{ vdcId }}.yaml
 
