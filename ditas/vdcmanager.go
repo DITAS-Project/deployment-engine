@@ -324,6 +324,21 @@ func (m *VDCManager) writeBlueprint(logger *log.Entry, bp blueprint.BlueprintTyp
 	return name, nil
 }
 
+func (m *VDCManager) DeployDatasource(blueprintId, infraId, datasourceType string, args map[string][]string) error {
+	var blueprintInfo VDCInformation
+	err := m.Collection.FindOne(context.Background(), bson.M{"_id": blueprintId}, nil).Decode(&blueprintInfo)
+	if err != nil {
+		return err
+	}
+
+	infra, err := m.DeploymentController.Repository.FindInfrastructure(blueprintInfo.DeploymentID, infraId)
+	if err != nil {
+		return err
+	}
+
+	return m.Provisioner.Provision(blueprintInfo.DeploymentID, infra, datasourceType, args)
+}
+
 func initializeVDCInformation() InfraServicesInformation {
 	return InfraServicesInformation{
 		Initialized:        false,

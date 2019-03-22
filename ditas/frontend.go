@@ -88,6 +88,7 @@ func (a DitasFrontend) Run(addr string) error {
 
 func (a *DitasFrontend) initializeRoutes() {
 	a.Router.HandleFunc("/deployment", a.createDep).Methods("POST")
+	a.Router.HandleFunc("/deployment/{blueprintId}/{infraId}/{datasource}", a.createDatasource).Methods("POST")
 	//a.Router.HandleFunc("/deployment/{depId}/{infraId}", a.DefaultFrontend.deleteInfra).Methods("DELETE")
 }
 
@@ -245,5 +246,9 @@ func (a *DitasFrontend) createDep(w http.ResponseWriter, r *http.Request) {
 		restfrontend.RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Error deploying blueprint: %s", err.Error()))
 		return
 	}
+
+}
+
+func (a *DitasFrontend) createDatasource(w http.ResponseWriter, r *http.Request) {
 
 }
