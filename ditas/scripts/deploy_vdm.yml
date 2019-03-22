@@ -6,23 +6,21 @@
     tasks:
       - name: Create blueprint directory
         file:
-          path: /home/{{ ansible_user }}/vdm
+          path: /home/{{ hostvars[inventory_hostname].ansible_user }}/vdm
           state: directory
           mode: "a+rw"
 
       - name: Copy VDM configuration files
-        template: src={{ item }} dest=/home/{{ ansible_user }}/vdm/{{ item | basename | regex_replace('\.j2','') }}
+        template: src={{ item }} dest=/home/{{ hostvars[inventory_hostname].ansible_user }}/vdm/{{ item | basename | regex_replace('\.j2','') }}
         with_fileglob:
           - "{{ config_folder }}/vdm/*"
       
-      - name: Create K8s Config Map
-        shell: kubectl create configmap vdm --from-file=/home/{{ ansible_user }}/vdm
-  
-  
-  - hosts: [master]
-    tasks:
+      - name: Create K8s Config Map for VDM
+        shell: kubectl create configmap vdm --from-file=/home/{{ hostvars[inventory_hostname].ansible_user }}/vdm
+      
       - name: Copy VDM deployment
         template: src=kubernetes/vdm.yaml dest=vdm.yaml
 
       - name: Add VDM
         shell: kubectl create -f vdm.yaml
+      

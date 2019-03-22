@@ -88,18 +88,24 @@ func NewVDCManager(provisioner *ansible.Provisioner, deployer *infrastructure.De
 
 	scriptsFolder := viper.GetString(DitasScriptsFolderProperty)
 	kubesprayFolder := viper.GetString(DitasKubesprayFolderProperty)
+	configVarsPath := configFolder + "/vars.yml"
+	ditasPodsConfigFolder := viper.GetString(DitasConfigFolderProperty)
+	vdcCollection := db.Collection("vdcs")
+
 	provisioner.Provisioners["glusterfs"] = NewGlusterfsProvisioner(provisioner, scriptsFolder)
 	provisioner.Provisioners["k3s"] = NewK3sProvisioner(provisioner, scriptsFolder)
 	provisioner.Provisioners["kubeadm"] = NewKubeadmProvisioner(provisioner, scriptsFolder)
 	provisioner.Provisioners["kubespray"] = NewKubesprayProvisioner(provisioner, kubesprayFolder)
 	provisioner.Provisioners["rook"] = NewRookProvisioner(provisioner, scriptsFolder)
+	provisioner.Provisioners["vdm"] = NewVDMProvisioner(provisioner, scriptsFolder, configVarsPath, configFolder)
+	provisioner.Provisioners["mysql"] = NewMySQLProvisioner(provisioner, scriptsFolder, vdcCollection)
 
 	return &VDCManager{
-		Collection:            db.Collection("vdcs"),
-		ScriptsFolder:         viper.GetString(DitasScriptsFolderProperty),
-		ConfigFolder:          viper.GetString(DitasConfigFolderProperty),
-		KubesprayFolder:       viper.GetString(DitasKubesprayFolderProperty),
-		ConfigVariablesPath:   configFolder + "/vars.yml",
+		Collection:            vdcCollection,
+		ScriptsFolder:         scriptsFolder,
+		ConfigFolder:          ditasPodsConfigFolder,
+		KubesprayFolder:       kubesprayFolder,
+		ConfigVariablesPath:   configVarsPath,
 		Provisioner:           provisioner,
 		DeploymentController:  deployer,
 		ProvisionerController: provisionerController,
@@ -164,7 +170,7 @@ func (m *VDCManager) DeployBlueprint(request CreateDeploymentRequest) error {
 		}
 	}
 
-	return m.DeployVDC(vdcInfo, bp, deploymentInfo.Infrastructures[0])
+	return m.DeployVDC(vdcInfo, bp, deploymentInfo.ID, deploymentInfo.Infrastructures[0])
 }
 
 func (m *VDCManager) provisionKubernetes(deployment model.DeploymentInfo, vdcInfo *VDCInformation) (model.DeploymentInfo, error) {
@@ -183,12 +189,7 @@ func (m *VDCManager) provisionKubernetes(deployment model.DeploymentInfo, vdcInf
 			return result, err
 		}
 
-		vdcInfo.InfraVDCs[infra.ID] = InfraServicesInformation{
-			Initialized: false,
-			LastPort:    30000,
-			VdcNumber:   0,
-			VdcPorts:    make(map[string]int),
-		}
+		vdcInfo.InfraVDCs[infra.ID] = initializeVDCInformation()
 	}
 	return result, nil
 }
@@ -216,7 +217,7 @@ func (m *VDCManager) getDeployment(bp *blueprint.BlueprintType, infrastructures 
 	return &deployment, err
 }
 
-func (m *VDCManager) DeployVDC(vdcInfo VDCInformation, blueprint blueprint.BlueprintType, infra model.InfrastructureDeploymentInfo) error {
+func (m *VDCManager) DeployVDC(vdcInfo VDCInformation, blueprint blueprint.BlueprintType, deploymentID string, infra model.InfrastructureDeploymentInfo) error {
 	blueprintName := *blueprint.InternalStructure.Overview.Name
 	var err error
 
@@ -232,7 +233,7 @@ func (m *VDCManager) DeployVDC(vdcInfo VDCInformation, blueprint blueprint.Bluep
 	}
 
 	if !infraVdcs.Initialized {
-		err = m.initializeInfra(vdcInfo.DeploymentID, infra)
+		err = m.Provisioner.Provision(deploymentID, infra, "vdm")
 		if err != nil {
 			log.WithError(err).Errorf("Error initializing infrastructure %s in deployment %s to host VDCs", infra.ID, vdcInfo.DeploymentID)
 			return err
@@ -267,17 +268,6 @@ func (m *VDCManager) DeployVDC(vdcInfo VDCInformation, blueprint blueprint.Bluep
 	}
 
 	return nil
-}
-
-func (m *VDCManager) initializeInfra(deploymentID string, infra model.InfrastructureDeploymentInfo) error {
-	return m.deployVDM(deploymentID, infra)
-}
-
-func (m *VDCManager) deployVDM(deploymentID string, infra model.InfrastructureDeploymentInfo) error {
-	return m.executePlaybook(deploymentID, infra, "deploy_vdm.yml", map[string]string{
-		"vars_file":     m.ConfigVariablesPath,
-		"config_folder": m.ConfigFolder,
-	})
 }
 
 func (m *VDCManager) doDeployVDC(deploymentID string, infra model.InfrastructureDeploymentInfo, bp blueprint.BlueprintType, vdcID string, port int) error {
@@ -332,4 +322,15 @@ func (m *VDCManager) writeBlueprint(logger *log.Entry, bp blueprint.BlueprintTyp
 	logger.Info("Blueprint copied")
 
 	return name, nil
+}
+
+func initializeVDCInformation() InfraServicesInformation {
+	return InfraServicesInformation{
+		Initialized:        false,
+		LastPort:           30000,
+		VdcNumber:          0,
+		VdcPorts:           make(map[string]int),
+		LastDatasourcePort: 40000,
+		Datasources:        make(map[string]map[string]int),
+	}
 }
