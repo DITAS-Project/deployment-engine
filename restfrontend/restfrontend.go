@@ -163,7 +163,9 @@ func (a *App) DeployProduct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	deployment, err := a.ProvisionerController.Provision(depId, infraId, product)
+	params := r.URL.Query()
+
+	deployment, err := a.ProvisionerController.Provision(depId, infraId, product, params)
 	if err != nil {
 		RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Error deploying product: %s", err.Error()))
 		return

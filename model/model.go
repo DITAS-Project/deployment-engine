@@ -142,7 +142,7 @@ type Deployer interface {
 
 //Provisioner is the interface that must implement custom provisioners such as ansible, etc
 type Provisioner interface {
-	Provision(deployment string, infra InfrastructureDeploymentInfo, product string) error
+	Provision(deployment string, infra InfrastructureDeploymentInfo, product string, args map[string][]string) error
 }
 
 // Frontend is the interface that must be implemented for any frontend that will serve an API around the functionality of the deployment engine

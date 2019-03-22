@@ -29,7 +29,7 @@ type ProvisionerController struct {
 	Provisioner model.Provisioner
 }
 
-func (p *ProvisionerController) Provision(deploymentID, infraID, product string) (model.DeploymentInfo, error) {
+func (p *ProvisionerController) Provision(deploymentID, infraID, product string, args map[string][]string) (model.DeploymentInfo, error) {
 	deployment, err := p.Repository.GetDeployment(deploymentID)
 	if err != nil {
 		log.WithError(err).Errorf("Error getting deployment %s", deploymentID)
@@ -48,7 +48,7 @@ func (p *ProvisionerController) Provision(deploymentID, infraID, product string)
 		}
 	}
 
-	err = p.Provisioner.Provision(deploymentID, infra, product)
+	err = p.Provisioner.Provision(deploymentID, infra, product, args)
 	if err != nil {
 		log.WithError(err).Errorf("Error provisioning product %s", product)
 		return deployment, err

@@ -56,8 +56,8 @@ type Inventory struct {
 }
 
 type ProductProvisioner interface {
-	BuildInventory(deploymentID string, infra model.InfrastructureDeploymentInfo) (Inventory, error)
-	DeployProduct(inventory, deploymentID string, infra model.InfrastructureDeploymentInfo) error
+	BuildInventory(deploymentID string, infra model.InfrastructureDeploymentInfo, args map[string][]string) (Inventory, error)
+	DeployProduct(inventory, deploymentID string, infra model.InfrastructureDeploymentInfo, args map[string][]string) error
 }
 
 func New() (*Provisioner, error) {
@@ -86,11 +86,11 @@ func New() (*Provisioner, error) {
 	return &result, nil
 }
 
-func (p *Provisioner) WaitForSSHPortReady(deploymentID string, infra model.InfrastructureDeploymentInfo) error {
+func (p *Provisioner) WaitForSSHPortReady(deploymentID string, infra model.InfrastructureDeploymentInfo, args map[string][]string) error {
 	logger := log.WithField("deployment", deploymentID).WithField("infrastructure", infra.ID)
 	logger.Info("Waiting for port 22 to be ready")
 
-	inventory, err := p.Provisioners["docker"].BuildInventory(deploymentID, infra)
+	inventory, err := p.Provisioners["docker"].BuildInventory(deploymentID, infra, args)
 	if err != nil {
 		return err
 	}
@@ -205,21 +205,20 @@ func (p Provisioner) WriteInventory(deploymentID, infraID, product string, inven
 	return filePath, nil
 }
 
-func (p Provisioner) WaitAndProvision(deploymentId string, infra model.InfrastructureDeploymentInfo, product string, wait bool) error {
+func (p Provisioner) Provision(deploymentId string, infra model.InfrastructureDeploymentInfo, product string, args map[string][]string) error {
+
 	provisioner := p.Provisioners[product]
 	if provisioner == nil {
 		return fmt.Errorf("Product %s not supported by this deployer", product)
 	}
 
-	if wait {
-		err := p.WaitForSSHPortReady(deploymentId, infra)
-		if err != nil {
-			log.WithError(err).Error("Error waiting for infrastructure to be ready")
-			return err
-		}
+	err := p.WaitForSSHPortReady(deploymentId, infra, args)
+	if err != nil {
+		log.WithError(err).Error("Error waiting for infrastructure to be ready")
+		return err
 	}
 
-	inventory, err := provisioner.BuildInventory(deploymentId, infra)
+	inventory, err := provisioner.BuildInventory(deploymentId, infra, args)
 	if err != nil {
 		log.WithError(err).Errorf("Error getting inventory for product %s", product)
 		return err
@@ -231,7 +230,7 @@ func (p Provisioner) WaitAndProvision(deploymentId string, infra model.Infrastru
 		return err
 	}
 
-	return provisioner.DeployProduct(inventoryPath, deploymentId, infra)
+	return provisioner.DeployProduct(inventoryPath, deploymentId, infra, args)
 }
 
 func (p Provisioner) Provision(deploymentId string, infra model.InfrastructureDeploymentInfo, product string) error {
