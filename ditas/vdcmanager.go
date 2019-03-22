@@ -176,14 +176,14 @@ func (m *VDCManager) DeployBlueprint(request CreateDeploymentRequest) error {
 func (m *VDCManager) provisionKubernetes(deployment model.DeploymentInfo, vdcInfo *VDCInformation) (model.DeploymentInfo, error) {
 	result := deployment
 	for _, infra := range deployment.Infrastructures {
-		err := m.Provisioner.Provision(deployment.ID, infra, "k3s")
+		err := m.Provisioner.Provision(deployment.ID, infra, "k3s", nil)
 		//err := m.provisionKubernetesWithKubespray(deployment.ID, infra)
 		if err != nil {
 			log.WithError(err).Errorf("Error deploying kubernetes on infrastructure %s. Trying to clean up deployment.", infra.ID)
 			return result, err
 		}
 
-		err = m.Provisioner.WaitAndProvision(deployment.ID, infra, "rook", false)
+		err = m.Provisioner.WaitAndProvision(deployment.ID, infra, "rook", false, nil)
 		if err != nil {
 			log.WithError(err).Error("Error deploying glusterfs to master")
 			return result, err
@@ -233,7 +233,7 @@ func (m *VDCManager) DeployVDC(vdcInfo VDCInformation, blueprint blueprint.Bluep
 	}
 
 	if !infraVdcs.Initialized {
-		err = m.Provisioner.Provision(deploymentID, infra, "vdm")
+		err = m.Provisioner.Provision(deploymentID, infra, "vdm", nil)
 		if err != nil {
 			log.WithError(err).Errorf("Error initializing infrastructure %s in deployment %s to host VDCs", infra.ID, vdcInfo.DeploymentID)
 			return err

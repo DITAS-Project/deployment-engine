@@ -47,11 +47,11 @@ func NewMySQLProvisioner(parent *ansible.Provisioner, scriptsFolder string, coll
 	}
 }
 
-func (p MySQLProvisioner) BuildInventory(deploymentID string, infra model.InfrastructureDeploymentInfo) (ansible.Inventory, error) {
-	return p.parent.Provisioners["kubeadm"].BuildInventory(deploymentID, infra)
+func (p MySQLProvisioner) BuildInventory(deploymentID string, infra model.InfrastructureDeploymentInfo, args map[string][]string) (ansible.Inventory, error) {
+	return p.parent.Provisioners["kubeadm"].BuildInventory(deploymentID, infra, args)
 }
 
-func (p MySQLProvisioner) DeployProduct(inventoryPath, deploymentID string, infra model.InfrastructureDeploymentInfo) error {
+func (p MySQLProvisioner) DeployProduct(inventoryPath, deploymentID string, infra model.InfrastructureDeploymentInfo, args map[string][]string) error {
 
 	logger := logrus.WithFields(logrus.Fields{
 		"deployment":     deploymentID,

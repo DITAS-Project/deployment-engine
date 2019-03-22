@@ -41,8 +41,8 @@ func NewKubeadmProvisioner(parent *ansible.Provisioner, scriptsFolder string) Ku
 	}
 }
 
-func (p KubeadmProvisioner) BuildInventory(deploymentID string, infra model.InfrastructureDeploymentInfo) (ansible.Inventory, error) {
-	inventory, err := p.parent.Provisioners["kubernetes"].BuildInventory(deploymentID, infra)
+func (p KubeadmProvisioner) BuildInventory(deploymentID string, infra model.InfrastructureDeploymentInfo, args map[string][]string) (ansible.Inventory, error) {
+	inventory, err := p.parent.Provisioners["kubernetes"].BuildInventory(deploymentID, infra, args)
 	if err != nil {
 		return inventory, err
 	}
@@ -66,7 +66,7 @@ func (p KubeadmProvisioner) BuildInventory(deploymentID string, infra model.Infr
 	return inventory, err
 }
 
-func (p KubeadmProvisioner) DeployProduct(inventoryPath, deploymentID string, infra model.InfrastructureDeploymentInfo) error {
+func (p KubeadmProvisioner) DeployProduct(inventoryPath, deploymentID string, infra model.InfrastructureDeploymentInfo, args map[string][]string) error {
 
 	logger := logrus.WithFields(map[string]interface{}{
 		"deployment":     deploymentID,
@@ -76,5 +76,5 @@ func (p KubeadmProvisioner) DeployProduct(inventoryPath, deploymentID string, in
 	if infra.ExtraProperties.GetBool(KubeadmPreinstalledProperty) {
 		return ansible.ExecutePlaybook(logger, p.scriptsFolder+"/kubeadm.yml", inventoryPath, nil)
 	}
-	return p.parent.Provisioners["kubernetes"].DeployProduct(inventoryPath, deploymentID, infra)
+	return p.parent.Provisioners["kubernetes"].DeployProduct(inventoryPath, deploymentID, infra, args)
 }

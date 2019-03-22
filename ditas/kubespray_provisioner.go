@@ -37,8 +37,8 @@ func NewKubesprayProvisioner(parent *ansible.Provisioner, kubesprayFolder string
 	}
 }
 
-func (p KubesprayProvisioner) BuildInventory(deploymentID string, infra model.InfrastructureDeploymentInfo) (ansible.Inventory, error) {
-	baseInventory, err := p.parent.Provisioners["kubernetes"].BuildInventory(deploymentID, infra)
+func (p KubesprayProvisioner) BuildInventory(deploymentID string, infra model.InfrastructureDeploymentInfo, args map[string][]string) (ansible.Inventory, error) {
+	baseInventory, err := p.parent.Provisioners["kubernetes"].BuildInventory(deploymentID, infra, args)
 	if err != nil {
 		return baseInventory, err
 	}
@@ -71,7 +71,7 @@ func (p KubesprayProvisioner) BuildInventory(deploymentID string, infra model.In
 	return baseInventory, err
 }
 
-func (p KubesprayProvisioner) DeployProduct(inventoryPath, deploymentID string, infra model.InfrastructureDeploymentInfo) error {
+func (p KubesprayProvisioner) DeployProduct(inventoryPath, deploymentID string, infra model.InfrastructureDeploymentInfo, args map[string][]string) error {
 
 	logger := logrus.WithFields(logrus.Fields{
 		"deployment":     deploymentID,

@@ -41,11 +41,11 @@ func NewVDMProvisioner(parent *ansible.Provisioner, scriptsFolder, configVariabl
 	}
 }
 
-func (p VDMProvisioner) BuildInventory(deploymentID string, infra model.InfrastructureDeploymentInfo) (ansible.Inventory, error) {
-	return p.parent.Provisioners["kubeadm"].BuildInventory(deploymentID, infra)
+func (p VDMProvisioner) BuildInventory(deploymentID string, infra model.InfrastructureDeploymentInfo, args map[string][]string) (ansible.Inventory, error) {
+	return p.parent.Provisioners["kubeadm"].BuildInventory(deploymentID, infra, args)
 }
 
-func (p VDMProvisioner) DeployProduct(inventoryPath, deploymentID string, infra model.InfrastructureDeploymentInfo) error {
+func (p VDMProvisioner) DeployProduct(inventoryPath, deploymentID string, infra model.InfrastructureDeploymentInfo, args map[string][]string) error {
 
 	logger := logrus.WithFields(logrus.Fields{
 		"deployment":     deploymentID,

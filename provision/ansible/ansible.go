@@ -205,17 +205,19 @@ func (p Provisioner) WriteInventory(deploymentID, infraID, product string, inven
 	return filePath, nil
 }
 
-func (p Provisioner) Provision(deploymentId string, infra model.InfrastructureDeploymentInfo, product string, args map[string][]string) error {
+func (p Provisioner) WaitAndProvision(deploymentId string, infra model.InfrastructureDeploymentInfo, product string, wait bool, args map[string][]string) error {
 
 	provisioner := p.Provisioners[product]
 	if provisioner == nil {
 		return fmt.Errorf("Product %s not supported by this deployer", product)
 	}
 
-	err := p.WaitForSSHPortReady(deploymentId, infra, args)
-	if err != nil {
-		log.WithError(err).Error("Error waiting for infrastructure to be ready")
-		return err
+	if wait {
+		err := p.WaitForSSHPortReady(deploymentId, infra, args)
+		if err != nil {
+			log.WithError(err).Error("Error waiting for infrastructure to be ready")
+			return err
+		}
 	}
 
 	inventory, err := provisioner.BuildInventory(deploymentId, infra, args)
@@ -233,8 +235,8 @@ func (p Provisioner) Provision(deploymentId string, infra model.InfrastructureDe
 	return provisioner.DeployProduct(inventoryPath, deploymentId, infra, args)
 }
 
-func (p Provisioner) Provision(deploymentId string, infra model.InfrastructureDeploymentInfo, product string) error {
-	return p.WaitAndProvision(deploymentId, infra, product, true)
+func (p Provisioner) Provision(deploymentId string, infra model.InfrastructureDeploymentInfo, product string, args map[string][]string) error {
+	return p.WaitAndProvision(deploymentId, infra, product, true, args)
 }
 
 func (p *Provisioner) GetInventoryFolder(deploymentID, infraID string) string {

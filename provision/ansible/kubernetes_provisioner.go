@@ -71,7 +71,7 @@ func (p KubernetesProvisioner) BuildInventory(deploymentID string, infra model.I
 func (p KubernetesProvisioner) DeployProduct(inventoryPath, deploymentID string, infra model.InfrastructureDeploymentInfo, args map[string][]string) error {
 
 	if !infra.ExtraProperties.GetBool(DockerPresentProperty) {
-		err := p.parent.WaitAndProvision(deploymentID, infra, "docker", false)
+		err := p.parent.WaitAndProvision(deploymentID, infra, "docker", false, args)
 		if err != nil {
 			return err
 		}

@@ -67,8 +67,8 @@ func NewGlusterfsProvisioner(parent *ansible.Provisioner, scriptsFolder string) 
 	}
 }
 
-func (p GlusterfsProvisioner) BuildInventory(deploymentID string, infra model.InfrastructureDeploymentInfo) (ansible.Inventory, error) {
-	return p.parent.Provisioners["kubeadm"].BuildInventory(deploymentID, infra)
+func (p GlusterfsProvisioner) BuildInventory(deploymentID string, infra model.InfrastructureDeploymentInfo, args map[string][]string) (ansible.Inventory, error) {
+	return p.parent.Provisioners["kubeadm"].BuildInventory(deploymentID, infra, args)
 }
 
 func (p GlusterfsProvisioner) toGlusterFSDevices(devices []model.DriveInfo) []string {
@@ -112,7 +112,7 @@ func (p GlusterfsProvisioner) generateGlusterFSTopology(infra model.Infrastructu
 	return string(result), nil
 }
 
-func (p GlusterfsProvisioner) DeployProduct(inventoryPath, deploymentID string, infra model.InfrastructureDeploymentInfo) error {
+func (p GlusterfsProvisioner) DeployProduct(inventoryPath, deploymentID string, infra model.InfrastructureDeploymentInfo, args map[string][]string) error {
 
 	logger := logrus.WithFields(logrus.Fields{
 		"deployment":     deploymentID,
