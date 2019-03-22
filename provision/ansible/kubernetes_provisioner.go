@@ -56,7 +56,7 @@ func (p KubernetesProvisioner) buildHost(host model.NodeInfo) InventoryHost {
 	}
 }
 
-func (p KubernetesProvisioner) BuildInventory(deploymentID string, infra model.InfrastructureDeploymentInfo) (Inventory, error) {
+func (p KubernetesProvisioner) BuildInventory(deploymentID string, infra model.InfrastructureDeploymentInfo, args map[string][]string) (Inventory, error) {
 	result := Inventory{
 		Hosts: make([]InventoryHost, len(infra.Slaves)+1),
 	}
@@ -69,7 +69,7 @@ func (p KubernetesProvisioner) BuildInventory(deploymentID string, infra model.I
 	return result, nil
 }
 
-func (p KubernetesProvisioner) DeployProduct(inventoryPath, deploymentID string, infra model.InfrastructureDeploymentInfo) error {
+func (p KubernetesProvisioner) DeployProduct(inventoryPath, deploymentID string, infra model.InfrastructureDeploymentInfo, args map[string][]string) error {
 
 	installDocker := true
 	if infra.ExtraProperties != nil {
@@ -80,7 +80,7 @@ func (p KubernetesProvisioner) DeployProduct(inventoryPath, deploymentID string,
 	}
 
 	if installDocker {
-		err := p.parent.Provision(deploymentID, infra, "docker")
+		err := p.parent.Provision(deploymentID, infra, "docker", args)
 		if err != nil {
 			return err
 		}
