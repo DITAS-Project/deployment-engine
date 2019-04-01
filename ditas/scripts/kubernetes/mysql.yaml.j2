@@ -52,6 +52,8 @@ spec:
               secretKeyRef:
                 name: "{{ mysql_id }}pw"
                 key: password
+          - name: MYSQL_ROOT_HOST
+            value: 10.42.*.*
   volumeClaimTemplates:
     - metadata:
         name: data

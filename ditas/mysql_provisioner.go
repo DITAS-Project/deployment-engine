@@ -23,7 +23,9 @@ import (
 	"deployment-engine/model"
 	"deployment-engine/provision/ansible"
 	"encoding/base64"
+	"errors"
 	"fmt"
+	"strconv"
 
 	"go.mongodb.org/mongo-driver/bson"
 
@@ -58,8 +60,24 @@ func (p MySQLProvisioner) DeployProduct(inventoryPath, deploymentID string, infr
 		"infrastructure": infra.ID,
 	})
 
+	sizes, ok := args["size"]
+	if !ok || sizes == nil || len(sizes) == 0 {
+		return errors.New("Storage size is mandatory for this datasource")
+	}
+
+	_, err := strconv.ParseFloat(sizes[0], 32)
+	if err != nil {
+		return fmt.Errorf("Invalid size specified: %s", err.Error())
+	}
+
+	has, ok := args["ha"]
+	ha := false
+	if ok && has != nil && len(has) > 0 {
+		ha, _ = strconv.ParseBool(has[0])
+	}
+
 	var depInfo VDCInformation
-	err := p.collection.FindOne(context.Background(), bson.M{"deployment_id": deploymentID}).Decode(&depInfo)
+	err = p.collection.FindOne(context.Background(), bson.M{"deployment_id": deploymentID}).Decode(&depInfo)
 	if err != nil {
 		return err
 	}
@@ -85,6 +103,9 @@ func (p MySQLProvisioner) DeployProduct(inventoryPath, deploymentID string, infr
 	encodedPassword := base64.StdEncoding.EncodeToString([]byte(password))
 
 	storageclass := "rook-ceph-block-single"
+	if ha {
+		storageclass = "rook-ceph-block-ha"
+	}
 
 	err = ansible.ExecutePlaybook(logger, p.scriptsFolder+"/deploy_datasource.yml", inventoryPath, map[string]string{
 		"mysql_id":                dsId,
@@ -92,6 +113,7 @@ func (p MySQLProvisioner) DeployProduct(inventoryPath, deploymentID string, infr
 		"mysql_enconded_password": encodedPassword,
 		"storage_class":           storageclass,
 		"datasource":              "mysql",
+		"size":                    sizes[0],
 	})
 
 	if err != nil {

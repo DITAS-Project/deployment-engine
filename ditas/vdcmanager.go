@@ -326,14 +326,14 @@ func (m *VDCManager) writeBlueprint(logger *log.Entry, bp blueprint.BlueprintTyp
 
 func (m *VDCManager) DeployDatasource(blueprintId, infraId, datasourceType string, args map[string][]string) error {
 	var blueprintInfo VDCInformation
-	err := m.Collection.FindOne(context.Background(), bson.M{"_id": blueprintId}, nil).Decode(&blueprintInfo)
+	err := m.Collection.FindOne(context.Background(), bson.M{"_id": blueprintId}).Decode(&blueprintInfo)
 	if err != nil {
-		return err
+		return fmt.Errorf("Can't find information for blueprint %s: %s", blueprintId, err.Error())
 	}
 
 	infra, err := m.DeploymentController.Repository.FindInfrastructure(blueprintInfo.DeploymentID, infraId)
 	if err != nil {
-		return err
+		return fmt.Errorf("Can't finde infrastructure %s in deployment %s associated to blueprint %s: %s", infraId, blueprintInfo.DeploymentID, blueprintId, err.Error())
 	}
 
 	return m.Provisioner.Provision(blueprintInfo.DeploymentID, infra, datasourceType, args)

@@ -250,5 +250,30 @@ func (a *DitasFrontend) createDep(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *DitasFrontend) createDatasource(w http.ResponseWriter, r *http.Request) {
+	blueprintId, ok := a.DefaultFrontend.GetQueryParam("blueprintId", r)
+	if !ok {
+		restfrontend.RespondWithError(w, http.StatusBadRequest, "Blueprint identifier is mandatory")
+		return
+	}
 
+	infraId, ok := a.DefaultFrontend.GetQueryParam("infraId", r)
+	if !ok {
+		restfrontend.RespondWithError(w, http.StatusBadRequest, "Infrastructure identifier is mandatory")
+		return
+	}
+
+	datasource, ok := a.DefaultFrontend.GetQueryParam("datasource", r)
+	if !ok {
+		restfrontend.RespondWithError(w, http.StatusBadRequest, "Datasource type is mandatory")
+		return
+	}
+
+	err := a.VDCManagerInstance.DeployDatasource(blueprintId, infraId, datasource, r.URL.Query())
+	if err != nil {
+		restfrontend.RespondWithError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	restfrontend.RespondWithJSON(w, http.StatusNoContent, nil)
+	return
 }

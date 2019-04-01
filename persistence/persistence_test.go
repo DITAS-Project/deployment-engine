@@ -26,7 +26,12 @@ func TestMain(m *testing.M) {
 	productRepos = append(productRepos, memRepo)
 	vaults = append(vaults, memRepo)
 
+	os.Exit(m.Run())
+}
+
+func TestRepository(t *testing.T) {
 	if *integrationMongo {
+		t.Log("Running MongoDB integration tests")
 		viper.SetDefault(mongorepo.VaultPassphraseName, "my test passphrase")
 		repo, err := mongorepo.CreateRepositoryNative()
 		if err != nil {
@@ -40,14 +45,6 @@ func TestMain(m *testing.M) {
 		depRepos = append(depRepos, repo)
 		productRepos = append(productRepos, repo)
 		vaults = append(vaults, repo)
-	}
-
-	os.Exit(m.Run())
-}
-
-func TestRepository(t *testing.T) {
-	if *integrationMongo {
-		t.Log("Running MongoDB integration tests")
 	}
 	t.Run("Deployments", testDeployment)
 	t.Run("Vault", testVault)
@@ -78,6 +75,7 @@ func testStatus(repo DeploymentRepository, ID, status, infrastatus string, t *te
 }
 
 func testDeployment(t *testing.T) {
+	t.Logf("Testing %d deployment repositories", len(depRepos))
 
 	for _, repo := range depRepos {
 		dep := model.DeploymentInfo{
@@ -203,6 +201,8 @@ func testDeployment(t *testing.T) {
 }
 
 func testVault(t *testing.T) {
+
+	t.Logf("Testing %d vaults", len(vaults))
 	for _, repo := range vaults {
 		testSecret := model.Secret{
 			Description: "Test secret",
