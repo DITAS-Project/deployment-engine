@@ -51,6 +51,29 @@
           state: started
           enabled: yes
           daemon_reload: yes
+  
+  - hosts: [master]
+    become: no
+    gather_facts: no
+    tasks:
+      - name: Wait for kubernetes config file to be created
+        wait_for:
+          path: /etc/rancher/k3s/k3s.yaml
+      - name: Fetch config file
+        fetch:
+          src: /etc/rancher/k3s/k3s.yaml
+          dest: "{{ inventory_folder }}/config"
+          flat: yes
+
+  - hosts: localhost
+    connection: local
+    tasks:
+      - name: Set master IP in configuration file
+        replace:
+          path: "{{ inventory_folder }}/config"
+          regexp: "localhost"
+          replace: "{{ master_ip }}"
+
 
 
 

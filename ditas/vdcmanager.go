@@ -185,7 +185,7 @@ func (m *VDCManager) provisionKubernetes(deployment model.DeploymentInfo, vdcInf
 
 		err = m.Provisioner.WaitAndProvision(deployment.ID, infra, "rook", false, nil)
 		if err != nil {
-			log.WithError(err).Error("Error deploying glusterfs to master")
+			log.WithError(err).Error("Error deploying ceph cluster to master")
 			return result, err
 		}
 

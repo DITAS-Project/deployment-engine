@@ -21,14 +21,29 @@ package ditas
 import (
 	"deployment-engine/model"
 	"deployment-engine/provision/ansible"
+	"deployment-engine/utils"
+	"encoding/json"
+	"errors"
+	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/sirupsen/logrus"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 const (
 	DitasGitInstalledProperty = "ditas_git_installed"
 )
+
+type RookCluster struct {
+	Status struct {
+		State string `json:"state"`
+	} `json:"status"`
+}
 
 type RookProvisioner struct {
 	parent        *ansible.Provisioner
@@ -60,9 +75,78 @@ func (p RookProvisioner) DeployProduct(inventoryPath, deploymentID string, infra
 		numMons = 3
 	}
 
-	return ansible.ExecutePlaybook(logger, p.scriptsFolder+"/deploy_rook.yml", inventoryPath, map[string]string{
+	err := ansible.ExecutePlaybook(logger, p.scriptsFolder+"/deploy_rook.yml", inventoryPath, map[string]string{
 		"ha_available": string(strconv.AppendBool([]byte{}, haAvailable)),
 		"install_git":  string(strconv.AppendBool([]byte{}, installGit)),
 		"num_mons":     strconv.Itoa(numMons),
 	})
+
+	if err != nil {
+		return err
+	}
+
+	configPath := p.parent.GetInventoryFolder(deploymentID, infra.ID) + "/config"
+	config, err := clientcmd.BuildConfigFromFlags("", configPath)
+	if err != nil {
+		return err
+	}
+
+	client, err := dynamic.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+
+	resClient := client.Resource(schema.GroupVersionResource{
+		Group:    "ceph.rook.io",
+		Version:  "v1",
+		Resource: "cephclusters",
+	}).Namespace("rook-ceph")
+
+	logger.Info("Waiting for cluster to be ready")
+
+	finalStatus, timeout, err := utils.WaitForStatusChange("Creating", 5*time.Minute, func() (string, error) {
+		status, err := p.getClusterStatus(logger, resClient)
+		if err != nil {
+			return "", err
+		}
+		if status.Status.State == "" {
+			return "Creating", nil
+		}
+
+		return status.Status.State, nil
+	})
+
+	if timeout {
+		return errors.New("Timeout waiting for CEPH cluster to be ready")
+	}
+
+	if finalStatus != "Created" {
+		return fmt.Errorf("Invalid cluster status: %s", finalStatus)
+	}
+
+	return err
+}
+
+func (p RookProvisioner) getClusterStatus(logger *logrus.Entry, client dynamic.ResourceInterface) (RookCluster, error) {
+	var clusterStatus RookCluster
+
+	cluster, err := client.Get("rook-ceph", metav1.GetOptions{})
+	if err != nil {
+		logger.WithError(err).Error("Error getting CEPH cluster")
+		return clusterStatus, err
+	}
+
+	jsonDef, err := cluster.MarshalJSON()
+	if err != nil {
+		logger.WithError(err).Error("Error marshaling CEPH cluster to JSON")
+		return clusterStatus, err
+	}
+
+	err = json.Unmarshal(jsonDef, &clusterStatus)
+	if err != nil {
+		logger.WithError(err).Error("Error unmarshaling JSON cluster definition")
+		return clusterStatus, err
+	}
+
+	return clusterStatus, err
 }

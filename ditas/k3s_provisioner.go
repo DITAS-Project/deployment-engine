@@ -47,7 +47,13 @@ func (p K3sProvisioner) DeployProduct(inventoryPath, deploymentID string, infra 
 		"deployment":     deploymentID,
 		"infrastructure": infra.ID,
 	})
-	err := ansible.ExecutePlaybook(logger, p.scriptsFolder+"/deploy_k3s.yml", inventoryPath, nil)
+
+	inventoryFolder := p.parent.GetInventoryFolder(deploymentID, infra.ID)
+
+	err := ansible.ExecutePlaybook(logger, p.scriptsFolder+"/deploy_k3s.yml", inventoryPath, map[string]string{
+		"master_ip":        infra.Master.IP,
+		"inventory_folder": inventoryFolder,
+	})
 	if err != nil {
 		logger.WithError(err).Error("Error initializing master")
 		return err
