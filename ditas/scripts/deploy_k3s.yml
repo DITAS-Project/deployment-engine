@@ -1,0 +1,79 @@
+---
+  - hosts: all
+    become: yes
+    tasks:
+    - include_tasks: prepare-RedHat.yml
+      when: ansible_os_family == 'RedHat'
+
+  - hosts: [all]
+    become: yes
+    gather_facts: no
+    tasks:
+      - name: Install k3s binary
+        get_url:
+          url: https://github.com/rancher/k3s/releases/download/v0.2.0/k3s
+          dest: /usr/bin/k3s
+          checksum: sha256:a77f1830856ea4fb136f22cc930ab2eaf7635c1563089932630b4d2521a9fe31
+          mode: 755
+          owner: root
+          group: root
+          validate_certs: no
+
+      - name: Generate kubectl alias
+        file:
+          src: /usr/bin/k3s
+          dest: /usr/bin/kubectl
+          owner: root
+          group: root
+          state: link
+      - name: Generate crictl alias
+        file:
+          src: /usr/bin/k3s
+          dest: /usr/bin/crictl
+          owner: root
+          group: root
+          state: link
+
+  - hosts: [master]
+    become: yes
+    gather_facts: no
+    tasks:
+      - name: Set startup command
+        set_fact:
+          init_options: server
+      - name: Copy systemd unit
+        template: 
+          src: k3s.service
+          dest: /etc/systemd/system/k3s.service
+      - name: Enable k3s service
+        systemd:
+          name: k3s
+          state: started
+          enabled: yes
+          daemon_reload: yes
+  
+  - hosts: [master]
+    become: no
+    gather_facts: no
+    tasks:
+      - name: Wait for kubernetes config file to be created
+        wait_for:
+          path: /etc/rancher/k3s/k3s.yaml
+      - name: Fetch config file
+        fetch:
+          src: /etc/rancher/k3s/k3s.yaml
+          dest: "{{ inventory_folder }}/config"
+          flat: yes
+
+  - hosts: localhost
+    connection: local
+    tasks:
+      - name: Set master IP in configuration file
+        replace:
+          path: "{{ inventory_folder }}/config"
+          regexp: "localhost"
+          replace: "{{ master_ip }}"
+
+
+
+

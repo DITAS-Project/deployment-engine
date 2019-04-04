@@ -1,0 +1,65 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: "{{ mysql_id }}"
+spec:
+  type: ClusterIP
+  selector:
+    component: "{{ mysql_id }}"
+  ports:
+  - name: mysql
+    port: {{ mysql_service_port }}
+    targetPort: 3306
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: "{{ mysql_id }}pw"
+type: Opaque
+data:
+  password: {{ mysql_enconded_password }}
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: "{{ mysql_id }}"
+  labels:
+    component: "{{ mysql_id }}"
+spec:
+  selector:
+    matchLabels:
+      component: "{{ mysql_id }}"
+  serviceName: "{{ mysql_id }}"
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        component: "{{ mysql_id }}"
+    spec:
+      terminationGracePeriodSeconds: 10
+      containers:
+      - name: mysql
+        image: mysql/mysql-server
+        ports:
+        - containerPort: 3306
+        volumeMounts:
+        - name: data
+          mountPath: /var/lib/mysql
+        env:
+          - name: MYSQL_ROOT_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: "{{ mysql_id }}pw"
+                key: password
+          - name: MYSQL_ROOT_HOST
+            value: 10.42.*.*
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        storageClassName: "{{ storage_class }}"
+        resources:
+          requests:
+            storage: {{ size }}Gi

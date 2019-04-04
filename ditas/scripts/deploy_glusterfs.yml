@@ -1,0 +1,75 @@
+---
+  - hosts: [all]
+    become: true
+    roles:
+      - role: galexrt.kernel-modules
+        vars:
+          kernel_modules: 
+            - name: dm_snapshot
+            - name: dm_mirror
+            - name: dm_thin_pool
+    tasks:
+      - name: Install glusterfs + dependencies
+        package:
+          name: "{{ item }}"
+          state: present
+        with_items:
+          - glusterfs-client
+        when: install_client
+
+  - hosts: [master]
+    tasks:
+      - name: Install dependencies
+        become: true
+        package:
+          name: "{{ item }}"
+          state: present
+        with_items:
+          - git
+        when: install_client
+      
+      - name: Checkout glusterfs-kubernetes deployer
+        git:
+          repo: https://github.com/gluster/gluster-kubernetes.git
+          dest: gluster-kubernetes
+
+      - name: Copy topology file
+        template:
+          src: templates/topology.json.j2
+          dest: gluster-kubernetes/deploy/topology.json
+
+      - name: Fix wrong kubernetes deployment template
+        replace:
+          path: gluster-kubernetes/deploy/kube-templates/glusterfs-daemonset.yaml
+          regexp: "/usr/lib/modules"
+          replace: "/lib/modules"
+      
+      - name: Execute glusterfs cluster deployment
+        shell: "./gk-deploy -g -v -y {{ single_node }}"
+        args:
+          chdir: gluster-kubernetes/deploy
+      
+      - name: Get Heketi URL
+        shell: "kubectl describe svc/heketi | grep 'Endpoints:' | awk '{print $2}'"
+        register: heketi_url
+
+      - name: Copy non-HA storage class
+        template:
+          src: kubernetes/storageclass_glusterfs_single.yml
+          dest: storageclass_glusterfs_single.yml
+
+      - name: Deploy non-HA storage class
+        shell: kubectl create -f storageclass_glusterfs_single.yml
+
+      - name: Copy HA storage class
+        template:
+          src: kubernetes/storageclass_glusterfs_ha.yml
+          dest: storageclass_glusterfs_ha.yml
+        when: single_node == ""
+      
+      - name: Deploy HA storage class
+        shell: kubectl create -f storageclass_glusterfs_ha.yml
+        when: single_node == ""
+      
+    
+  

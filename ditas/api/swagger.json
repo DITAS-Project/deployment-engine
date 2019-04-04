@@ -123,10 +123,10 @@
           "x-go-name": "APIType",
           "example": "AWS"
         },
-        "keypair_id": {
-          "description": "Keypair to use to log in to the infrastructure manager",
-          "type": "string",
-          "x-go-name": "KeypairID"
+        "authentication": {
+          "description": "Authentication information to use on the provider.",
+          "type": "object",
+          "x-go-name": "Authentication"
         }
       },
       "x-go-package": "deployment-engine/vendor/github.com/DITAS-Project/blueprint-go"
@@ -193,7 +193,7 @@
       "type": "object",
       "required": [
         "name",
-        "infrastructure"
+        "infrastructures"
       ],
       "properties": {
         "description": {
@@ -201,13 +201,13 @@
           "type": "string",
           "x-go-name": "Description"
         },
-        "infrastructure": {
+        "infrastructures": {
           "description": "A list of infrastructures that should be initialized to deploy VDCs of this blueprint",
           "type": "array",
           "items": {
             "$ref": "#/definitions/InfrastructureType"
           },
-          "x-go-name": "Infrastructure"
+          "x-go-name": "Infrastructures"
         },
         "name": {
           "description": "Unique name of the deployment",
@@ -394,13 +394,13 @@
       "description": "GoalTreeType defines a goal tree",
       "type": "object",
       "properties": {
-        "DataUtility": {
+        "dataUtility": {
           "$ref": "#/definitions/TreeStructureType"
         },
-        "Privacy": {
+        "privacy": {
           "$ref": "#/definitions/TreeStructureType"
         },
-        "Security": {
+        "security": {
           "$ref": "#/definitions/TreeStructureType"
         }
       },
@@ -502,6 +502,41 @@
       },
       "x-go-package": "deployment-engine/vendor/github.com/go-openapi/spec"
     },
+    "ImageInfo": {
+      "description": "ImageInfo is the information about an image that will be deployed by the deployment engine",
+      "type": "object",
+      "required": [
+        "image"
+      ],
+      "properties": {
+        "external_port": {
+          "description": "Port in which this image must be exposed. It must be unique across all images in all the ImageSets defined in this blueprint. Due to limitations in k8s, the port range must be bewteen 30000 and 32767",
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "ExternalPort"
+        },
+        "image": {
+          "description": "Image is the image name in the standard format [group]/\u003cimage_name\u003e:[release]",
+          "type": "string",
+          "x-go-name": "Image"
+        },
+        "internal_port": {
+          "description": "Port in which the docker image is listening internally. Two images inside the same ImageSet can't have the same internal port.",
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "InternalPort"
+        }
+      },
+      "x-go-package": "deployment-engine/vendor/github.com/DITAS-Project/blueprint-go"
+    },
+    "ImageSet": {
+      "description": "ImageSet represents a set of docker images whose key is an identifier and value is a docker image name in the standard format [group]/\u003cimage_name\u003e:[release]",
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/definitions/ImageInfo"
+      },
+      "x-go-package": "deployment-engine/vendor/github.com/DITAS-Project/blueprint-go"
+    },
     "Info": {
       "description": "For more information: http://goo.gl/8us55a#infoObject",
       "type": "object",
@@ -580,6 +615,12 @@
           "uniqueItems": true,
           "x-go-name": "Name"
         },
+        "owner": {
+          "description": "Owner of the infrastructure",
+          "type": "string",
+          "pattern": "DataOwner|DataConsumer|",
+          "x-go-name": "Owner"
+        },
         "provider": {
           "$ref": "#/definitions/CloudProviderInfo"
         },
@@ -590,6 +631,14 @@
             "$ref": "#/definitions/ResourceType"
           },
           "x-go-name": "Resources"
+        },
+        "tags": {
+          "description": "List of tags to apply to this infrastructure",
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "x-go-name": "Tags"
         },
         "type": {
           "description": "Type of the infrastructure",
@@ -609,6 +658,14 @@
         "Data_Sources"
       ],
       "properties": {
+        "DAL_Images": {
+          "description": "Docker images that must be deployed in the DAL indexed by DAL name. It will be used to compose the service name and the DNS entry that other images in the cluster can access to.",
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/ImageSet"
+          },
+          "x-go-name": "DALImages"
+        },
         "Data_Sources": {
           "description": "The datasources description",
           "type": "array",
@@ -619,6 +676,9 @@
         },
         "Overview": {
           "$ref": "#/definitions/OverviewType"
+        },
+        "VDC_Images": {
+          "$ref": "#/definitions/ImageSet"
         }
       },
       "x-go-package": "deployment-engine/vendor/github.com/DITAS-Project/blueprint-go"
@@ -795,7 +855,7 @@
     "MetricPropertyType": {
       "description": "Either maximum, minimum or value is required.",
       "type": "object",
-      "title": "ConstraintType is the definition of a constraint threshold.",
+      "title": "MetricPropertyType is the definition of a constraint threshold.",
       "required": [
         "unit"
       ],
@@ -1032,6 +1092,11 @@
             "$ref": "#/definitions/Drive"
           },
           "x-go-name": "Drives"
+        },
+        "hostname": {
+          "description": "Assigned hostname after deployment. It's only resolvable from nodes inside the same infrastructure.",
+          "type": "string",
+          "x-go-name": "Hostname"
         },
         "image_id": {
           "description": "Boot image ID to use",

@@ -1,0 +1,8 @@
+- hosts: all
+  become: yes
+
+  vars:
+    docker_install_compose: false
+
+  roles:
+    - geerlingguy.docker
