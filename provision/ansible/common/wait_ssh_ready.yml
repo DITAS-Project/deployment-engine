@@ -16,6 +16,10 @@
       ssh_known_hosts: "{{ hostvars }}"
 
     tasks:
+    - name: Remove current hosts keys
+      shell: "ssh-keygen -R {{ hostvars[item].ansible_host }}"
+      with_items: "{{ ssh_known_hosts }}"
+      
     - name: For each host, scan for its ssh public key
       shell: "ssh-keyscan {{ hostvars[item].ansible_host }}"
       with_items: "{{ ssh_known_hosts }}"
