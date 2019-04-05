@@ -42,9 +42,12 @@ import (
 )
 
 const (
-	DitasScriptsFolderProperty   = "ditas.folders.scripts"
-	DitasConfigFolderProperty    = "ditas.folders.config"
-	DitasKubesprayFolderProperty = "ditas.folders.kubespray"
+	DitasScriptsFolderProperty    = "ditas.folders.scripts"
+	DitasConfigFolderProperty     = "ditas.folders.config"
+	DitasKubesprayFolderProperty  = "ditas.folders.kubespray"
+	DitasRegistryURLProperty      = "ditas.registry.url"
+	DitasRegistryUsernameProperty = "ditas.registry.username"
+	DitasRegistryPasswordProperty = "ditas.registry.password"
 
 	DitasScriptsFolderDefaultValue   = "ditas/scripts"
 	DitasConfigFolderDefaultValue    = "ditas/VDC-Shared-Config"
@@ -91,13 +94,18 @@ func NewVDCManager(provisioner *ansible.Provisioner, deployer *infrastructure.De
 	configVarsPath := configFolder + "/vars.yml"
 	ditasPodsConfigFolder := viper.GetString(DitasConfigFolderProperty)
 	vdcCollection := db.Collection("vdcs")
+	registry := Registry{
+		URL:      viper.GetString(DitasRegistryURLProperty),
+		Username: viper.GetString(DitasRegistryUsernameProperty),
+		Password: viper.GetString(DitasRegistryPasswordProperty),
+	}
 
 	provisioner.Provisioners["glusterfs"] = NewGlusterfsProvisioner(provisioner, scriptsFolder)
-	provisioner.Provisioners["k3s"] = NewK3sProvisioner(provisioner, scriptsFolder)
+	provisioner.Provisioners["k3s"] = NewK3sProvisioner(provisioner, scriptsFolder, registry)
 	provisioner.Provisioners["kubeadm"] = NewKubeadmProvisioner(provisioner, scriptsFolder)
 	provisioner.Provisioners["kubespray"] = NewKubesprayProvisioner(provisioner, kubesprayFolder)
 	provisioner.Provisioners["rook"] = NewRookProvisioner(provisioner, scriptsFolder)
-	provisioner.Provisioners["vdm"] = NewVDMProvisioner(provisioner, scriptsFolder, configVarsPath, configFolder)
+	provisioner.Provisioners["vdm"] = NewVDMProvisioner(provisioner, scriptsFolder, configVarsPath, ditasPodsConfigFolder, registry)
 	provisioner.Provisioners["mysql"] = NewMySQLProvisioner(provisioner, scriptsFolder, vdcCollection)
 
 	return &VDCManager{
@@ -183,11 +191,11 @@ func (m *VDCManager) provisionKubernetes(deployment model.DeploymentInfo, vdcInf
 			return result, err
 		}
 
-		err = m.Provisioner.WaitAndProvision(deployment.ID, infra, "rook", false, nil)
+		/*err = m.Provisioner.WaitAndProvision(deployment.ID, infra, "rook", false, nil)
 		if err != nil {
 			log.WithError(err).Error("Error deploying ceph cluster to master")
 			return result, err
-		}
+		}*/
 
 		vdcInfo.InfraVDCs[infra.ID] = initializeVDCInformation()
 	}
@@ -336,7 +344,13 @@ func (m *VDCManager) DeployDatasource(blueprintId, infraId, datasourceType strin
 		return fmt.Errorf("Can't finde infrastructure %s in deployment %s associated to blueprint %s: %s", infraId, blueprintInfo.DeploymentID, blueprintId, err.Error())
 	}
 
-	return m.Provisioner.Provision(blueprintInfo.DeploymentID, infra, datasourceType, args)
+	wait := true
+	waitList, ok := args["wait"]
+	if ok && len(waitList) > 0 {
+		wait, _ = strconv.ParseBool(waitList[0])
+	}
+
+	return m.Provisioner.WaitAndProvision(blueprintInfo.DeploymentID, infra, datasourceType, wait, args)
 }
 
 func initializeVDCInformation() InfraServicesInformation {

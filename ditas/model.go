@@ -35,6 +35,14 @@ type InfraServicesInformation struct {
 	Datasources        map[string]map[string]int `json:"datasources"` // DatasourceType -> DatasourceId -> Port
 }
 
+type Registry struct {
+	Name     string
+	URL      string
+	Username string
+	Password string
+	Email    string
+}
+
 // CreateDeploymentRequest is a request to create a deployment of a VDC of a given blueprint in a series of resources
 // swagger:model
 type CreateDeploymentRequest struct {

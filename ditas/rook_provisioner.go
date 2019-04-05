@@ -32,7 +32,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/tools/clientcmd"
 )
 
 const (
@@ -85,8 +84,7 @@ func (p RookProvisioner) DeployProduct(inventoryPath, deploymentID string, infra
 		return err
 	}
 
-	configPath := p.parent.GetInventoryFolder(deploymentID, infra.ID) + "/config"
-	config, err := clientcmd.BuildConfigFromFlags("", configPath)
+	config, err := GetKubernetesConfigFile(p.parent, deploymentID, infra.ID)
 	if err != nil {
 		return err
 	}

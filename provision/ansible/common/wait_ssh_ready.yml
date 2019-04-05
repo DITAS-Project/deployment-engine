@@ -21,15 +21,11 @@
       with_items: "{{ ssh_known_hosts }}"
       
     - name: For each host, scan for its ssh public key
-      shell: "ssh-keyscan {{ hostvars[item].ansible_host }}"
+      shell: "ssh-keyscan -trsa {{ hostvars[item].ansible_host }}"
       with_items: "{{ ssh_known_hosts }}"
       register: ssh_known_host_results
-      ignore_errors: yes
-    
-    - name: Debug ssh-keyscan output
-      debug: 
-        msg: "{{ item }}"
-      with_items: "{{ ssh_known_host_results.results }}"
+      retries: 10
+      delay: 5
 
     - name: Add/update the public key in the '{{ ssh_known_hosts_file }}'
       known_hosts:
