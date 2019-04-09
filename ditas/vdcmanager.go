@@ -118,8 +118,6 @@ func NewVDCManager(provisioner *ansible.Provisioner, deployer *infrastructure.De
 		DeploymentController:  deployer,
 		ProvisionerController: provisionerController,
 	}, nil
-
-	return nil, err
 }
 
 func (m *VDCManager) DeployBlueprint(request CreateDeploymentRequest) error {

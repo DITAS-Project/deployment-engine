@@ -25,10 +25,15 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"strconv"
 
 	"github.com/sirupsen/logrus"
 	apiv1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+const (
+	K3sCurlInstalled = "k3s_curl_installed"
 )
 
 type K3sProvisioner struct {
@@ -72,17 +77,10 @@ func (p K3sProvisioner) DeployProduct(inventoryPath, deploymentID string, infra 
 	err := ansible.ExecutePlaybook(logger, p.scriptsFolder+"/deploy_k3s.yml", inventoryPath, map[string]string{
 		"master_ip":        infra.Master.IP,
 		"inventory_folder": inventoryFolder,
+		"install_curl":     strconv.FormatBool(!infra.ExtraProperties.GetBool(K3sCurlInstalled)),
 	})
 	if err != nil {
 		logger.WithError(err).Error("Error initializing master")
-		return err
-	}
-
-	err = ansible.ExecutePlaybook(logger, p.scriptsFolder+"/join_k3s_nodes.yml", inventoryPath, map[string]string{
-		"master_ip": infra.Master.IP,
-	})
-	if err != nil {
-		logger.WithError(err).Error("Error joining workers to cluster")
 		return err
 	}
 
@@ -110,9 +108,7 @@ func (p K3sProvisioner) DeployProduct(inventoryPath, deploymentID string, infra 
 			logger.WithError(err).Error("Error getting kubernetes client")
 			return err
 		}
-
-		kubeclient.AppsV1().Deployments(apiv1.NamespaceDefault)
-		_, err = kubeclient.CoreV1().Secrets("default").Create(&apiv1.Secret{
+		_, err = kubeclient.CoreV1().Secrets(apiv1.NamespaceDefault).Create(&apiv1.Secret{
 			Type: apiv1.SecretTypeDockerConfigJson,
 			Data: map[string][]byte{
 				".dockerconfigjson": []byte(encodedDockerAuth),

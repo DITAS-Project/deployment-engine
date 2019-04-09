@@ -4,58 +4,25 @@
     tasks:
     - include_tasks: prepare-RedHat.yml
       when: ansible_os_family == 'RedHat'
-
-  - hosts: [all]
+    
+  - hosts: all
     become: yes
-    gather_facts: no
     tasks:
-      - name: Install k3s binary
-        get_url:
-          url: https://github.com/rancher/k3s/releases/download/v0.2.0/k3s
-          dest: /usr/bin/k3s
-          checksum: sha256:a77f1830856ea4fb136f22cc930ab2eaf7635c1563089932630b4d2521a9fe31
-          mode: 755
-          owner: root
-          group: root
-          validate_certs: no
-
-      - name: Generate kubectl alias
-        file:
-          src: /usr/bin/k3s
-          dest: /usr/bin/kubectl
-          owner: root
-          group: root
-          state: link
-      - name: Generate crictl alias
-        file:
-          src: /usr/bin/k3s
-          dest: /usr/bin/crictl
-          owner: root
-          group: root
-          state: link
+      - name: Install dependencies
+        become: true
+        package:
+          name: "{{ item }}"
+          state: present
+        with_items:
+          - curl
+        when: install_curl
 
   - hosts: [master]
     become: yes
     gather_facts: no
     tasks:
-      - name: Set startup command
-        set_fact:
-          init_options: server
-      - name: Copy systemd unit
-        template: 
-          src: k3s.service
-          dest: /etc/systemd/system/k3s.service
-      - name: Enable k3s service
-        systemd:
-          name: k3s
-          state: started
-          enabled: yes
-          daemon_reload: yes
-  
-  - hosts: [master]
-    become: no
-    gather_facts: no
-    tasks:
+      - name: Install k3s master binary
+        shell: "curl -sfL https://get.k3s.io | sh -"
       - name: Wait for kubernetes config file to be created
         wait_for:
           path: /etc/rancher/k3s/k3s.yaml
@@ -64,6 +31,23 @@
           src: /etc/rancher/k3s/k3s.yaml
           dest: "{{ inventory_folder }}/config"
           flat: yes
+      - name: Wait until token file is ready
+        wait_for:
+          path: /var/lib/rancher/k3s/server/node-token
+      - name: Get join token
+        shell: cat /var/lib/rancher/k3s/server/node-token
+        register: join_token_out
+
+      - name: Setting variable to join other nodes
+        set_fact: 
+          join_token: "{{ join_token_out.stdout }}"
+
+  - hosts: [slaves]
+    become: yes
+    gather_facts: no
+    tasks:
+      - name: Install k3s workers binary
+        shell: "curl -sfL https://get.k3s.io | K3S_URL=https://{{ master_ip }}:6443 K3S_TOKEN={{ hostvars[groups['master'][0]]['join_token'] }} sh -"
 
   - hosts: localhost
     connection: local
@@ -73,6 +57,8 @@
           path: "{{ inventory_folder }}/config"
           regexp: "localhost"
           replace: "{{ master_ip }}"
+  
+
 
 
 

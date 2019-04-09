@@ -18,6 +18,7 @@ package utils
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"time"
 
@@ -30,10 +31,28 @@ const (
 )
 
 func ExecuteCommand(logger *log.Entry, name string, args ...string) error {
-	cmd := exec.Command(name, args...)
-	cmd.Stdout = logger.Writer()
-	cmd.Stderr = logger.Writer()
-	return cmd.Run()
+	return CreateCommand(logger, nil, true, name, args...).Run()
+}
+
+func CreateCommand(logger *log.Entry, envVars map[string]string, preserveEnv bool, command string, args ...string) *exec.Cmd {
+	cmd := exec.Command(command, args...)
+	if logger != nil {
+		cmd.Stdout = logger.Writer()
+		cmd.Stderr = logger.Writer()
+	}
+
+	if envVars != nil {
+		if preserveEnv {
+			cmd.Env = os.Environ()
+		} else {
+			cmd.Env = make([]string, 0, len(envVars))
+		}
+		for k, v := range envVars {
+			cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
+		}
+	}
+
+	return cmd
 }
 
 func WaitForStatusChange(status string, timeout time.Duration, getter func() (string, error)) (string, bool, error) {

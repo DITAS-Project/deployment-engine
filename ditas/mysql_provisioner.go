@@ -22,7 +22,6 @@ import (
 	"context"
 	"deployment-engine/model"
 	"deployment-engine/provision/ansible"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"strconv"
@@ -31,8 +30,13 @@ import (
 
 	"go.mongodb.org/mongo-driver/mongo"
 
+	blueprint "github.com/DITAS-Project/blueprint-go"
 	"github.com/sethvargo/go-password/password"
 	"github.com/sirupsen/logrus"
+	apiv1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 type MySQLProvisioner struct {
@@ -65,11 +69,6 @@ func (p MySQLProvisioner) DeployProduct(inventoryPath, deploymentID string, infr
 		return errors.New("Storage size is mandatory for this datasource")
 	}
 
-	_, err := strconv.ParseFloat(sizes[0], 32)
-	if err != nil {
-		return fmt.Errorf("Invalid size specified: %s", err.Error())
-	}
-
 	has, ok := args["ha"]
 	ha := false
 	if ok && has != nil && len(has) > 0 {
@@ -77,7 +76,7 @@ func (p MySQLProvisioner) DeployProduct(inventoryPath, deploymentID string, infr
 	}
 
 	var depInfo VDCInformation
-	err = p.collection.FindOne(context.Background(), bson.M{"deployment_id": deploymentID}).Decode(&depInfo)
+	err := p.collection.FindOne(context.Background(), bson.M{"deployment_id": deploymentID}).Decode(&depInfo)
 	if err != nil {
 		return err
 	}
@@ -93,6 +92,8 @@ func (p MySQLProvisioner) DeployProduct(inventoryPath, deploymentID string, infr
 	}
 
 	dsId := fmt.Sprintf("mysql%d", len(mysqlDatasources))
+	secretId := dsId + "pw"
+	volumeId := dsId + "data"
 	servicePort := infraInformation.LastDatasourcePort
 	password, err := password.Generate(10, 3, 2, false, false)
 
@@ -100,25 +101,120 @@ func (p MySQLProvisioner) DeployProduct(inventoryPath, deploymentID string, infr
 		return err
 	}
 
-	encodedPassword := base64.StdEncoding.EncodeToString([]byte(password))
-
 	storageclass := "rook-ceph-block-single"
 	if ha {
 		storageclass = "rook-ceph-block-ha"
 	}
 
-	err = ansible.ExecutePlaybook(logger, p.scriptsFolder+"/deploy_datasource.yml", inventoryPath, map[string]string{
-		"mysql_id":                dsId,
-		"mysql_service_port":      fmt.Sprintf("%d", servicePort),
-		"mysql_enconded_password": encodedPassword,
-		"storage_class":           storageclass,
-		"datasource":              "mysql",
-		"size":                    sizes[0],
-	})
+	secretData := SecretData{
+		SecretId: secretId,
+		EnvVars: map[string]string{
+			"MYSQL_ROOT_PASSWORD": "password",
+		},
+		Data: map[string]string{
+			"password": password,
+		},
+	}
+
+	volume := VolumeData{
+		Name:         volumeId,
+		MountPoint:   "/var/lib/mysql",
+		StorageClass: storageclass,
+		Size:         sizes[0],
+	}
+
+	image := blueprint.ImageInfo{
+		InternalPort: 3306,
+		Image:        "mysql/mysql-server",
+		Environment: map[string]string{
+			"MYSQL_ROOT_HOST": "10.42.*.*",
+		},
+	}
+
+	labels := map[string]string{"component": dsId}
+
+	kubernetesClient, err := GetKubernetesClient(p.parent, deploymentID, infra.ID)
+	if err != nil {
+		logger.WithError(err).Error("Error getting kubernetes client")
+		return err
+	}
+
+	secretClient := kubernetesClient.CoreV1().Secrets(apiv1.NamespaceDefault)
+
+	secret := GetSecretDescription(secretData)
+
+	logger.Info("Creating Secret")
+	err = CreateOrUpdateResource(logger, secretData.SecretId, func(name string) (bool, error) {
+		existing, err := secretClient.Get(name, metav1.GetOptions{})
+		return err == nil && existing != nil && existing.Name == DitasVDMConfigMapName, err
+	},
+		secretClient.Delete,
+		func(string) error {
+			_, err = secretClient.Create(&secret)
+			return err
+		})
 
 	if err != nil {
 		return err
 	}
+	logger.Info("Secret successfully created")
+
+	podClient := kubernetesClient.AppsV1().StatefulSets(apiv1.NamespaceDefault)
+
+	podDescription := GetDatasourceDescription(dsId, 1, 30, labels, image, []SecretData{secretData}, []VolumeData{volume})
+
+	logger.Info("Creating datasource pod")
+	err = CreateOrUpdateResource(logger, dsId, func(name string) (bool, error) {
+		existing, err := podClient.Get(name, metav1.GetOptions{})
+		return err == nil && existing != nil && existing.Name == DitasVDMConfigMapName, err
+	},
+		podClient.Delete,
+		func(string) error {
+			_, err = podClient.Create(&podDescription)
+			return err
+		})
+
+	if err != nil {
+		return err
+	}
+	logger.Info("Datasource successfully created")
+
+	dsService := corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: dsId,
+		},
+		Spec: corev1.ServiceSpec{
+			Type:     corev1.ServiceTypeClusterIP,
+			Selector: labels,
+			Ports: []corev1.ServicePort{
+				corev1.ServicePort{
+					Name: dsId,
+					Port: int32(servicePort),
+					TargetPort: intstr.IntOrString{
+						IntVal: int32(3306),
+					},
+				},
+			},
+		},
+	}
+
+	serviceClient := kubernetesClient.CoreV1().Services(apiv1.NamespaceDefault)
+
+	logger.Info("Creating datasource service")
+	err = CreateOrUpdateResource(logger, dsId, func(name string) (bool, error) {
+		existing, err := serviceClient.Get(name, metav1.GetOptions{})
+		return err == nil && existing != nil && existing.Name == DitasVDMConfigMapName, err
+	},
+		serviceClient.Delete,
+		func(string) error {
+			_, err = serviceClient.Create(&dsService)
+			return err
+		})
+
+	if err != nil {
+		return err
+	}
+	logger.Info("Datasource service successfully created")
 
 	mysqlDatasources[dsId] = servicePort
 	infraInformation.Datasources["mysql"] = mysqlDatasources

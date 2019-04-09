@@ -23,6 +23,7 @@ import (
 	"deployment-engine/provision/ansible"
 	"errors"
 	"io/ioutil"
+	"os/exec"
 	"time"
 
 	"text/template"
@@ -35,15 +36,32 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
+type SecretData struct {
+	EnvVars  map[string]string
+	SecretId string
+	Data     map[string]string
+}
+
+type VolumeData struct {
+	Name         string
+	MountPoint   string
+	StorageClass string
+	Size         string
+}
+
+func GetKubernetesConfigPath(provisioner *ansible.Provisioner, deploymentID, infraID string) string {
+	return provisioner.GetInventoryFolder(deploymentID, infraID) + "/config"
+}
+
 func GetKubernetesConfigFile(provisioner *ansible.Provisioner, deploymentID, infraID string) (*rest.Config, error) {
-	configPath := provisioner.GetInventoryFolder(deploymentID, infraID) + "/config"
-	return clientcmd.BuildConfigFromFlags("", configPath)
+	return clientcmd.BuildConfigFromFlags("", GetKubernetesConfigPath(provisioner, deploymentID, infraID))
 }
 
 func GetKubernetesClient(provisioner *ansible.Provisioner, deploymentID, infraID string) (*kubernetes.Clientset, error) {
@@ -107,23 +125,52 @@ func GetConfigMapFromFolder(configFolder, name string) (corev1.ConfigMap, error)
 	}, nil
 }
 
-func GetContainersDescription(images blueprint.ImageSet, configName string) []corev1.Container {
+func GetSecretDescription(secret SecretData) corev1.Secret {
+	return corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: secret.SecretId,
+		},
+		Type:       corev1.SecretTypeOpaque,
+		StringData: secret.Data,
+	}
+}
+
+func GetContainersDescription(images blueprint.ImageSet, secrets []SecretData, volumes []VolumeData) []corev1.Container {
 
 	containers := make([]corev1.Container, 0, len(images))
 
-	configMount := corev1.VolumeMount{
-		Name:      configName,
-		MountPath: "/etc/ditas",
-	}
-
 	for containerId, containerInfo := range images {
 
-		env := make([]corev1.EnvVar, 0, len(containerInfo.Environment))
+		env := make([]corev1.EnvVar, 0, len(containerInfo.Environment)+len(secrets))
 		for k, v := range containerInfo.Environment {
 			env = append(env, corev1.EnvVar{
 				Name:  k,
 				Value: v,
 			})
+		}
+
+		for _, secret := range secrets {
+			for envVar, key := range secret.EnvVars {
+				env = append(env, corev1.EnvVar{
+					Name: envVar,
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: secret.SecretId,
+							},
+							Key: key,
+						},
+					},
+				})
+			}
+		}
+
+		volumeMounts := make([]corev1.VolumeMount, len(volumes))
+		for i, volume := range volumes {
+			volumeMounts[i] = corev1.VolumeMount{
+				Name:      volume.Name,
+				MountPath: volume.MountPoint,
+			}
 		}
 
 		containers = append(containers, corev1.Container{
@@ -135,11 +182,23 @@ func GetContainersDescription(images blueprint.ImageSet, configName string) []co
 				},
 			},
 			Env:          env,
-			VolumeMounts: []corev1.VolumeMount{configMount},
+			VolumeMounts: volumeMounts,
 		})
 	}
 
 	return containers
+}
+
+func GetPodSpecDescrition(labels map[string]string, terminationPeriod int64, images blueprint.ImageSet, secrets []SecretData, volumes []VolumeData) corev1.PodTemplateSpec {
+	return corev1.PodTemplateSpec{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels: labels,
+		},
+		Spec: corev1.PodSpec{
+			TerminationGracePeriodSeconds: &terminationPeriod,
+			Containers:                    GetContainersDescription(images, secrets, volumes),
+		},
+	}
 }
 
 func GetPodDescription(name string, replicas int32, terminationPeriod int64, labels map[string]string, images blueprint.ImageSet, configMap string) appsv1.Deployment {
@@ -155,6 +214,9 @@ func GetPodDescription(name string, replicas int32, terminationPeriod int64, lab
 		},
 	}
 
+	podTemplate := GetPodSpecDescrition(labels, terminationPeriod, images, nil, []VolumeData{VolumeData{Name: "config", MountPoint: "/etc/ditas"}})
+	podTemplate.Spec.Volumes = []corev1.Volume{configVolume}
+
 	return appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   name,
@@ -165,19 +227,53 @@ func GetPodDescription(name string, replicas int32, terminationPeriod int64, lab
 				MatchLabels: labels,
 			},
 			Replicas: &replicas,
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: labels,
-				},
-				Spec: corev1.PodSpec{
-					TerminationGracePeriodSeconds: &terminationPeriod,
-					Containers:                    GetContainersDescription(images, "config"),
-					Volumes:                       []corev1.Volume{configVolume},
-				},
-			},
+			Template: podTemplate,
 		},
 	}
 
+}
+
+func GetDatasourceDescription(name string, replicas int32, terminationPeriod int64, labels map[string]string, image blueprint.ImageInfo, secrets []SecretData, volumes []VolumeData) appsv1.StatefulSet {
+
+	volumesClaims := make([]corev1.PersistentVolumeClaim, 0)
+	for _, volume := range volumes {
+		if volume.StorageClass != "" && volume.Size != "" {
+			quantitySize, err := resource.ParseQuantity(volume.Size)
+			if err == nil {
+				volumesClaims = append(volumesClaims, corev1.PersistentVolumeClaim{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: volume.Name,
+					},
+					Spec: corev1.PersistentVolumeClaimSpec{
+						AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+						StorageClassName: &volume.StorageClass,
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceStorage: quantitySize,
+							},
+						},
+					},
+				})
+			} else {
+				logrus.WithError(err).Errorf("Invalid size %s of volume %s", volume.Size, volume.Name)
+			}
+		}
+	}
+
+	return appsv1.StatefulSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   name,
+			Labels: labels,
+		},
+		Spec: appsv1.StatefulSetSpec{
+			Replicas: &replicas,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: labels,
+			},
+			Template:             GetPodSpecDescrition(labels, terminationPeriod, blueprint.ImageSet{name: image}, secrets, volumes),
+			VolumeClaimTemplates: volumesClaims,
+		},
+	}
 }
 
 func CreateOrUpdateResource(logger *logrus.Entry, name string, getter func(string) (bool, error), deleter func(string, *metav1.DeleteOptions) error, creater func(string) error) error {
@@ -215,4 +311,19 @@ func CreateOrUpdateResource(logger *logrus.Entry, name string, getter func(strin
 	}
 
 	return creater(name)
+}
+
+func CreateKubectlCommand(logger *logrus.Entry, configFile, action string, args ...string) *exec.Cmd {
+	finalArgs := append([]string{action}, args...)
+	return utils.CreateCommand(logger, map[string]string{
+		"KUBECONFIG": configFile,
+	}, true, "kubectl", finalArgs...)
+}
+
+func ExecuteKubectlCommand(logger *logrus.Entry, configFile, action string, args ...string) error {
+	return CreateKubectlCommand(logger, configFile, action, args...).Run()
+}
+
+func ExecuteDeployScript(logger *logrus.Entry, configFile, script string) error {
+	return ExecuteKubectlCommand(logger, configFile, "create", "-f", script)
 }
