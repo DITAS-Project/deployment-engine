@@ -35,6 +35,7 @@ import (
 	"github.com/sirupsen/logrus"
 	apiv1 "k8s.io/api/core/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
@@ -66,6 +67,10 @@ func (p MySQLProvisioner) DeployProduct(inventoryPath, deploymentID string, infr
 
 	sizes, ok := args["size"]
 	if !ok || sizes == nil || len(sizes) == 0 {
+		_, err := resource.ParseQuantity(sizes[0])
+		if err != nil {
+			return fmt.Errorf("Storage size %s is invalid: %s", sizes[0], err.Error())
+		}
 		return errors.New("Storage size is mandatory for this datasource")
 	}
 
@@ -139,40 +144,20 @@ func (p MySQLProvisioner) DeployProduct(inventoryPath, deploymentID string, infr
 		return err
 	}
 
-	secretClient := kubernetesClient.CoreV1().Secrets(apiv1.NamespaceDefault)
-
 	secret := GetSecretDescription(secretData)
 
 	logger.Info("Creating Secret")
-	err = CreateOrUpdateResource(logger, secretData.SecretId, func(name string) (bool, error) {
-		existing, err := secretClient.Get(name, metav1.GetOptions{})
-		return err == nil && existing != nil && existing.Name == DitasVDMConfigMapName, err
-	},
-		secretClient.Delete,
-		func(string) error {
-			_, err = secretClient.Create(&secret)
-			return err
-		})
+	_, err = CreateOrUpdateSecret(logger, kubernetesClient, apiv1.NamespaceDefault, &secret)
 
 	if err != nil {
 		return err
 	}
 	logger.Info("Secret successfully created")
 
-	podClient := kubernetesClient.AppsV1().StatefulSets(apiv1.NamespaceDefault)
-
 	podDescription := GetDatasourceDescription(dsId, 1, 30, labels, image, []SecretData{secretData}, []VolumeData{volume})
 
 	logger.Info("Creating datasource pod")
-	err = CreateOrUpdateResource(logger, dsId, func(name string) (bool, error) {
-		existing, err := podClient.Get(name, metav1.GetOptions{})
-		return err == nil && existing != nil && existing.Name == DitasVDMConfigMapName, err
-	},
-		podClient.Delete,
-		func(string) error {
-			_, err = podClient.Create(&podDescription)
-			return err
-		})
+	_, err = CreateOrUpdateStatefulSet(logger, kubernetesClient, apiv1.NamespaceDefault, &podDescription)
 
 	if err != nil {
 		return err
@@ -198,18 +183,8 @@ func (p MySQLProvisioner) DeployProduct(inventoryPath, deploymentID string, infr
 		},
 	}
 
-	serviceClient := kubernetesClient.CoreV1().Services(apiv1.NamespaceDefault)
-
 	logger.Info("Creating datasource service")
-	err = CreateOrUpdateResource(logger, dsId, func(name string) (bool, error) {
-		existing, err := serviceClient.Get(name, metav1.GetOptions{})
-		return err == nil && existing != nil && existing.Name == DitasVDMConfigMapName, err
-	},
-		serviceClient.Delete,
-		func(string) error {
-			_, err = serviceClient.Create(&dsService)
-			return err
-		})
+	_, err = CreateOrUpdateService(logger, kubernetesClient, apiv1.NamespaceDefault, &dsService)
 
 	if err != nil {
 		return err

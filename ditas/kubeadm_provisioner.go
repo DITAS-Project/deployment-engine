@@ -73,8 +73,12 @@ func (p KubeadmProvisioner) DeployProduct(inventoryPath, deploymentID string, in
 		"infrastructure": infra.ID,
 	})
 
+	inventoryFolder := p.parent.GetInventoryFolder(deploymentID, infra.ID)
+
 	if infra.ExtraProperties.GetBool(KubeadmPreinstalledProperty) {
-		return ansible.ExecutePlaybook(logger, p.scriptsFolder+"/kubeadm.yml", inventoryPath, nil)
+		return ansible.ExecutePlaybook(logger, p.scriptsFolder+"/kubeadm.yml", inventoryPath, map[string]string{
+			"inventory_folder": inventoryFolder,
+		})
 	}
 	return p.parent.Provisioners["kubernetes"].DeployProduct(inventoryPath, deploymentID, infra, args)
 }

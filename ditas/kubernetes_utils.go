@@ -276,23 +276,23 @@ func GetDatasourceDescription(name string, replicas int32, terminationPeriod int
 	}
 }
 
-func CreateOrUpdateResource(logger *logrus.Entry, name string, getter func(string) (bool, error), deleter func(string, *metav1.DeleteOptions) error, creater func(string) error) error {
+func CreateOrUpdateResource(logger *logrus.Entry, name string, getter func() (interface{}, error), deleter func(string, *metav1.DeleteOptions) error, creater func() (interface{}, error)) (interface{}, error) {
 	log := logger
-	existing, err := getter(name)
+	existing, err := getter()
 	if err != nil && !k8serrors.IsNotFound(err) {
 		logger.WithError(err).Error("Error getting resource information")
-		return err
+		return existing, err
 	}
-	if existing {
+	if existing != nil {
 		log.Info("Resource exists. Deleting")
 		deleter(name, &metav1.DeleteOptions{})
 		log.Info("Waiting for resource to be deleted")
 		_, timeout, err := utils.WaitForStatusChange("Deleting", 2*time.Minute, func() (string, error) {
-			exist, err := getter(name)
+			exist, err := getter()
 			if err != nil && k8serrors.IsNotFound(err) {
 				return "Deleted", nil
 			}
-			if exist {
+			if exist != nil {
 				return "Deleting", err
 			}
 			return "Deleted", err
@@ -300,17 +300,97 @@ func CreateOrUpdateResource(logger *logrus.Entry, name string, getter func(strin
 
 		if err != nil {
 			log.WithError(err).Error("Error deleting resource")
-			return err
+			return existing, err
 		}
 
 		if timeout {
 			log.Error("Timeout waiting for resource to be deleted")
-			return errors.New("Timeout waiting for resource to be deleted")
+			return existing, errors.New("Timeout waiting for resource to be deleted")
 		}
 
 	}
 
-	return creater(name)
+	result, err := creater()
+	if err != nil {
+		log.WithError(err).Error("Error creating resource")
+		return result, err
+	}
+	if result == nil {
+		log.Error("Empty resource created")
+		return result, errors.New("No resource created on server")
+	}
+
+	return result, nil
+}
+
+func CreateOrUpdateDeployment(logger *logrus.Entry, client *kubernetes.Clientset, namespace string, deployment *appsv1.Deployment) (*appsv1.Deployment, error) {
+	depClient := client.AppsV1().Deployments(namespace)
+	name := deployment.ObjectMeta.Name
+	result, err := CreateOrUpdateResource(logger.WithField("resource", "Deployment").WithField("name", name), name,
+		func() (interface{}, error) {
+			return depClient.Get(name, metav1.GetOptions{})
+		},
+		depClient.Delete,
+		func() (interface{}, error) {
+			return depClient.Create(deployment)
+		})
+	return result.(*appsv1.Deployment), err
+}
+
+func CreateOrUpdateConfigMap(logger *logrus.Entry, client *kubernetes.Clientset, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error) {
+	depClient := client.CoreV1().ConfigMaps(namespace)
+	name := configMap.ObjectMeta.Name
+	result, err := CreateOrUpdateResource(logger.WithField("resource", "ConfigMap").WithField("name", name), name,
+		func() (interface{}, error) {
+			return depClient.Get(name, metav1.GetOptions{})
+		},
+		depClient.Delete,
+		func() (interface{}, error) {
+			return depClient.Create(configMap)
+		})
+	return result.(*corev1.ConfigMap), err
+}
+
+func CreateOrUpdateService(logger *logrus.Entry, client *kubernetes.Clientset, namespace string, service *corev1.Service) (*corev1.Service, error) {
+	depClient := client.CoreV1().Services(namespace)
+	name := service.ObjectMeta.Name
+	result, err := CreateOrUpdateResource(logger.WithField("resource", "Service").WithField("name", name), name,
+		func() (interface{}, error) {
+			return depClient.Get(name, metav1.GetOptions{})
+		},
+		depClient.Delete,
+		func() (interface{}, error) {
+			return depClient.Create(service)
+		})
+	return result.(*corev1.Service), err
+}
+
+func CreateOrUpdateSecret(logger *logrus.Entry, client *kubernetes.Clientset, namespace string, secret *corev1.Secret) (*corev1.Secret, error) {
+	depClient := client.CoreV1().Secrets(namespace)
+	name := secret.ObjectMeta.Name
+	result, err := CreateOrUpdateResource(logger.WithField("resource", "Secret").WithField("name", name), name,
+		func() (interface{}, error) {
+			return depClient.Get(name, metav1.GetOptions{})
+		},
+		depClient.Delete,
+		func() (interface{}, error) {
+			return depClient.Create(secret)
+		})
+	return result.(*corev1.Secret), err
+}
+
+func CreateOrUpdateStatefulSet(logger *logrus.Entry, client *kubernetes.Clientset, namespace string, set *appsv1.StatefulSet) (*appsv1.StatefulSet, error) {
+	depClient := client.AppsV1().StatefulSets(namespace)
+	name := set.ObjectMeta.Name
+	result, err := CreateOrUpdateResource(logger.WithField("resource", "StatefulSet").WithField("name", name), name,
+		func() (interface{}, error) {
+			return depClient.Get(name, metav1.GetOptions{})
+		},
+		depClient.Delete,
+		func() (interface{}, error) {
+			return depClient.Create(set)
+		})
+	return result.(*appsv1.StatefulSet), err
 }
 
 func CreateKubectlCommand(logger *logrus.Entry, configFile, action string, args ...string) *exec.Cmd {

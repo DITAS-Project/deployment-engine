@@ -74,22 +74,8 @@ func (p VDMProvisioner) DeployProduct(inventoryPath, deploymentID string, infra 
 		return err
 	}
 
-	configMapsClient := kubernetesClient.CoreV1().ConfigMaps(DitasNamespace)
-
 	logger.Info("Creating or updating VDM config map")
-	err = CreateOrUpdateResource(logger.WithFields(logrus.Fields{
-		"resource": "ConfigMap",
-		"name":     "vdm",
-	}), DitasVDMConfigMapName,
-		func(name string) (bool, error) {
-			existing, err := configMapsClient.Get(name, metav1.GetOptions{})
-			return err == nil && existing != nil && existing.Name == DitasVDMConfigMapName, err
-		},
-		configMapsClient.Delete,
-		func(name string) error {
-			_, err = configMapsClient.Create(&configMap)
-			return err
-		})
+	_, err = CreateOrUpdateConfigMap(logger, kubernetesClient, DitasNamespace, &configMap)
 
 	if err != nil {
 		return err
@@ -107,22 +93,8 @@ func (p VDMProvisioner) DeployProduct(inventoryPath, deploymentID string, infra 
 
 	vdmDeployment := GetPodDescription("vdm", int32(1), int64(30), vdmLabels, imageSet, DitasVDMConfigMapName)
 
-	podClient := kubernetesClient.AppsV1().Deployments(DitasNamespace)
-
 	logger.Info("Creating or updating VDM pod")
-	err = CreateOrUpdateResource(logger.WithFields(logrus.Fields{
-		"resource": "Pod",
-		"name":     "vdm",
-	}), "vdm",
-		func(name string) (bool, error) {
-			existing, err := podClient.Get(name, metav1.GetOptions{})
-			return err == nil && existing != nil && existing.Name == DitasVDMConfigMapName, err
-		},
-		podClient.Delete,
-		func(string) error {
-			_, err = podClient.Create(&vdmDeployment)
-			return err
-		})
+	_, err = CreateOrUpdateDeployment(logger, kubernetesClient, DitasNamespace, &vdmDeployment)
 
 	if err != nil {
 		return err
@@ -144,22 +116,8 @@ func (p VDMProvisioner) DeployProduct(inventoryPath, deploymentID string, infra 
 		},
 	}
 
-	serviceClient := kubernetesClient.CoreV1().Services(DitasNamespace)
-
 	logger.Info("Creating or updating VDM service")
-	err = CreateOrUpdateResource(logger.WithFields(logrus.Fields{
-		"resource": "Service",
-		"name":     "vdm",
-	}), "vdm", func(name string) (bool, error) {
-		existing, err := serviceClient.Get(name, metav1.GetOptions{})
-		return err == nil && existing != nil && existing.Name == DitasVDMConfigMapName, err
-	},
-		serviceClient.Delete,
-		func(string) error {
-			_, err = serviceClient.Create(&vdmService)
-			return err
-		})
-
+	_, err = CreateOrUpdateService(logger, kubernetesClient, DitasNamespace, &vdmService)
 	if err != nil {
 		return err
 	}

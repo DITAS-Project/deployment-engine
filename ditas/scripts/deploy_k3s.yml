@@ -22,7 +22,7 @@
     gather_facts: no
     tasks:
       - name: Install k3s master binary
-        shell: "curl -sfL https://get.k3s.io | sh -"
+        shell: "curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC=\"--no-deploy traefik\" sh -"
       - name: Wait for kubernetes config file to be created
         wait_for:
           path: /etc/rancher/k3s/k3s.yaml
