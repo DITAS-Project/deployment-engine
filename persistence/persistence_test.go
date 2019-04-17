@@ -16,17 +16,20 @@ import (
 var integrationMongo = flag.Bool("mongo", false, "run MongoDB integration tests")
 
 var depRepos []DeploymentRepository
-var productRepos []ProductRepository
 var vaults []Vault
 
 func TestMain(m *testing.M) {
 
 	memRepo := memoryrepo.CreateMemoryRepository()
 	depRepos = append(depRepos, memRepo)
-	productRepos = append(productRepos, memRepo)
 	vaults = append(vaults, memRepo)
 
+	os.Exit(m.Run())
+}
+
+func TestRepository(t *testing.T) {
 	if *integrationMongo {
+		t.Log("Running MongoDB integration tests")
 		viper.SetDefault(mongorepo.VaultPassphraseName, "my test passphrase")
 		repo, err := mongorepo.CreateRepositoryNative()
 		if err != nil {
@@ -38,22 +41,13 @@ func TestMain(m *testing.M) {
 			log.Fatalf("Error clearing database")
 		}
 		depRepos = append(depRepos, repo)
-		productRepos = append(productRepos, repo)
 		vaults = append(vaults, repo)
-	}
-
-	os.Exit(m.Run())
-}
-
-func TestRepository(t *testing.T) {
-	if *integrationMongo {
-		t.Log("Running MongoDB integration tests")
 	}
 	t.Run("Deployments", testDeployment)
 	t.Run("Vault", testVault)
 }
 
-func testStatus(repo DeploymentRepository, ID, status, infrastatus string, t *testing.T) {
+func testStatus(repo DeploymentRepository, ID, status, infraID, infrastatus string, t *testing.T) {
 	resGet, errGet := repo.GetDeployment(ID)
 
 	if errGet != nil {
@@ -68,22 +62,31 @@ func testStatus(repo DeploymentRepository, ID, status, infrastatus string, t *te
 		t.Fatalf("Unexpected status: %s vs expected %s", resGet.Status, status)
 	}
 
-	if len(resGet.Infrastructures) < 1 {
-		t.Fatalf("Infrastructures is empty")
-	}
+	if infraID != "" {
 
-	if resGet.Infrastructures[0].Status != infrastatus {
-		t.Fatalf("Unexpected infrastructure status: %s vs expected %s", resGet.Infrastructures[0].Status, infrastatus)
+		if resGet.Infrastructures == nil || len(resGet.Infrastructures) == 0 {
+			t.Fatalf("Infrastructures is empty")
+		}
+
+		infra, ok := resGet.Infrastructures[infraID]
+		if !ok {
+			t.Fatalf("Can't find infrastructure %s in deployment %s", infraID, ID)
+		}
+
+		if infra.Status != infrastatus {
+			t.Fatalf("Unexpected infrastructure status: %s vs expected %s", infra.Status, infrastatus)
+		}
 	}
 }
 
 func testDeployment(t *testing.T) {
 
 	for _, repo := range depRepos {
+		infraId := "infra1"
 		dep := model.DeploymentInfo{
-			Infrastructures: []model.InfrastructureDeploymentInfo{
-				model.InfrastructureDeploymentInfo{
-					ID:     "infra1",
+			Infrastructures: map[string]model.InfrastructureDeploymentInfo{
+				infraId: model.InfrastructureDeploymentInfo{
+					ID:     infraId,
 					Status: "creating",
 				}},
 		}
@@ -115,19 +118,19 @@ func testDeployment(t *testing.T) {
 			t.Fatalf("Error updating deployment: %s", err.Error())
 		}
 
-		testStatus(repo, res.ID, "running", "creating", t)
+		testStatus(repo, res.ID, "running", infraId, "creating", t)
 
 		res, err = repo.UpdateDeploymentStatus(res.ID, "failed")
 		if err != nil {
 			t.Fatalf("Error updating deployment status: %s", err.Error())
 		}
 
-		res, err = repo.UpdateInfrastructureStatus(res.ID, res.Infrastructures[0].ID, "created")
+		res, err = repo.UpdateInfrastructureStatus(res.ID, infraId, "created")
 		if err != nil {
 			t.Fatalf("Error updating infrastructure status: %s", err.Error())
 		}
 
-		testStatus(repo, res.ID, "failed", "created", t)
+		testStatus(repo, res.ID, "failed", infraId, "created", t)
 
 		total, err := repo.ListDeployment()
 		if err != nil {
@@ -138,8 +141,10 @@ func testDeployment(t *testing.T) {
 			t.Fatalf("Got empty list of deployments")
 		}
 
+		extraInfraId := "infra2"
+
 		res, err = repo.AddInfrastructure(res.ID, model.InfrastructureDeploymentInfo{
-			ID:     "infra2",
+			ID:     extraInfraId,
 			Status: "creating",
 		})
 
@@ -151,43 +156,32 @@ func testDeployment(t *testing.T) {
 			t.Fatalf("After adding new infrastructure found %d infrastructures but expected 2", len(resGet.Infrastructures))
 		}
 
-		infra, err := repo.FindInfrastructure(res.ID, "infra2")
+		infra, err := repo.FindInfrastructure(res.ID, extraInfraId)
 
 		if err != nil {
 			t.Fatalf("Error finding infrastructure: %s", err.Error())
 		}
 
-		if infra.ID != "infra2" {
-			t.Fatalf("Found wrong infrastructure. Expected %s but found %s", "infra2", infra.ID)
+		if infra.ID != extraInfraId {
+			t.Fatalf("Found wrong infrastructure. Expected %s but found %s", extraInfraId, infra.ID)
 		}
 
-		res, err = repo.AddProductToInfrastructure(res.ID, "infra2", "kubernetes")
+		res, err = repo.AddProductToInfrastructure(res.ID, extraInfraId, "kubernetes", make(map[string]string))
 		if err != nil {
 			t.Fatalf("Error adding product to infrastructure: %s", err.Error())
 		}
 
-		found := false
-		for _, infra = range res.Infrastructures {
-			for _, product := range infra.Products {
-				if product == "kubernetes" {
-					found = true
-				}
-			}
-		}
-
-		if !found {
+		if _, ok := res.Infrastructures[extraInfraId].Products["kubernetes"]; !ok {
 			t.Fatal("Product not found in response")
 		}
 
-		res, err = repo.DeleteInfrastructure(res.ID, "infra2")
+		res, err = repo.DeleteInfrastructure(res.ID, extraInfraId)
 		if err != nil {
 			t.Fatalf("Error deleting infrastructure: %s", err.Error())
 		}
 
-		for _, infra := range res.Infrastructures {
-			if infra.ID == "infra2" {
-				t.Fatalf("Deleted infrastructure but then found in deployment")
-			}
+		if _, ok := res.Infrastructures[extraInfraId]; ok {
+			t.Fatalf("Deleted infrastructure but then found in deployment")
 		}
 
 		err = repo.DeleteDeployment(res.ID)

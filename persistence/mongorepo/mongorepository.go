@@ -40,7 +40,6 @@ const (
 	VaultPassphraseName = "mongodb.vault.passphrase"
 
 	deploymentCollection = "deployments"
-	productCollection    = "products"
 )
 
 type MongoRepository struct {
@@ -71,7 +70,7 @@ func CreateRepositoryNative() (*MongoRepository, error) {
 	}
 
 	repo := MongoRepository{
-		client: client,
+		client:                      client,
 		defaultFindAndUpdateOptions: options.FindOneAndUpdate().SetReturnDocument(options.After),
 	}
 	repo.SetDatabase("deployment_engine")
@@ -155,7 +154,7 @@ func (m *MongoRepository) delete(collection, ID string) error {
 func (m *MongoRepository) SaveDeployment(deployment model.DeploymentInfo) (model.DeploymentInfo, error) {
 	deployment.ID = uuid.New().String()
 	if deployment.Infrastructures == nil {
-		deployment.Infrastructures = make([]model.InfrastructureDeploymentInfo, 0)
+		deployment.Infrastructures = make(map[string]model.InfrastructureDeploymentInfo)
 	}
 	err := m.insert(deploymentCollection, deployment)
 	return deployment, err
@@ -166,7 +165,7 @@ func (m *MongoRepository) UpdateDeployment(deployment model.DeploymentInfo) (mod
 	var dep model.DeploymentInfo
 	dep.ID = deployment.ID
 	if deployment.Infrastructures == nil {
-		deployment.Infrastructures = make([]model.InfrastructureDeploymentInfo, 0)
+		deployment.Infrastructures = make(map[string]model.InfrastructureDeploymentInfo)
 	}
 	err := m.replace(deploymentCollection, deployment.ID, deployment, &dep)
 	return dep, err
@@ -198,13 +197,18 @@ func (m *MongoRepository) DeleteDeployment(deploymentID string) error {
 
 //AddInfrastructure adds a new infrastructure to an existing deployment
 func (m *MongoRepository) AddInfrastructure(deploymentID string, infra model.InfrastructureDeploymentInfo) (model.DeploymentInfo, error) {
+	return m.UpdateInfrastructure(deploymentID, infra)
+}
+
+//UpdateInfrastructure updates as a whole an existing infrastructure in a deployment
+func (m *MongoRepository) UpdateInfrastructure(deploymentID string, infra model.InfrastructureDeploymentInfo) (model.DeploymentInfo, error) {
 	var updated model.DeploymentInfo
 	if infra.Products == nil {
-		infra.Products = make([]string, 0)
+		infra.Products = make(map[string]interface{})
 	}
 	err := m.update(deploymentCollection, deploymentID, bson.M{
-		"$push": bson.M{
-			"infrastructures": infra,
+		"$set": bson.M{
+			fmt.Sprintf("infrastructures.%s", infra.ID): infra,
 		},
 	}, &updated)
 	return updated, err
@@ -216,12 +220,9 @@ func (m *MongoRepository) FindInfrastructure(depoloymentID, infraID string) (mod
 	err := m.database.Collection(deploymentCollection).FindOne(
 		context.Background(), bson.M{
 			"_id": depoloymentID,
-			"infrastructures.id": bson.M{
-				"$eq": infraID,
-			},
 		}, &options.FindOneOptions{
 			Projection: bson.M{
-				"infrastructures.$": 1,
+				fmt.Sprintf("infrastructures.%s", infraID): 1,
 			},
 		}).Decode(&dep)
 
@@ -229,21 +230,24 @@ func (m *MongoRepository) FindInfrastructure(depoloymentID, infraID string) (mod
 		return model.InfrastructureDeploymentInfo{}, err
 	}
 
-	if len(dep.Infrastructures) < 1 || dep.Infrastructures[0].ID != infraID {
+	if dep.Infrastructures == nil {
 		return model.InfrastructureDeploymentInfo{}, fmt.Errorf("Can't find infrastructure %s in deployment %s", depoloymentID, infraID)
 	}
 
-	return dep.Infrastructures[0], nil
+	infra, ok := dep.Infrastructures[infraID]
+	if !ok {
+		return infra, fmt.Errorf("Can't find infrastructure %s in deployment %s", depoloymentID, infraID)
+	}
+
+	return infra, nil
 }
 
 //DeleteInfrastructure will delete an infrastructure from a deployment given their identifiers
 func (m *MongoRepository) DeleteInfrastructure(deploymentID, infraID string) (model.DeploymentInfo, error) {
 	var dep model.DeploymentInfo
 	err := m.update(deploymentCollection, deploymentID, bson.M{
-		"$pull": bson.M{
-			"infrastructures": bson.M{
-				"id": infraID,
-			},
+		"$unset": bson.M{
+			fmt.Sprintf("infrastructures.%s", infraID): "",
 		},
 	}, &dep)
 
@@ -267,65 +271,30 @@ func (m *MongoRepository) UpdateInfrastructureStatus(deploymentID, infrastructur
 	err := m.database.Collection(deploymentCollection).FindOneAndUpdate(
 		context.Background(),
 		bson.M{
-			"_id":                deploymentID,
-			"infrastructures.id": infrastructureID,
+			"_id": deploymentID,
+			fmt.Sprintf("infrastructures.%s", infrastructureID): bson.M{"$exists": true},
 		},
 		bson.M{
 			"$set": bson.M{
-				"infrastructures.$.status": status,
+				fmt.Sprintf("infrastructures.%s.status", infrastructureID): status,
 			},
 		}).Decode(&updated)
 	return updated, err
 }
 
 // AddProductToInfrastructure adds a new product to an existing infrastructure
-func (m *MongoRepository) AddProductToInfrastructure(deploymentID, infrastructureID, product string) (model.DeploymentInfo, error) {
+func (m *MongoRepository) AddProductToInfrastructure(deploymentID, infrastructureID, product string, config interface{}) (model.DeploymentInfo, error) {
 	var updated model.DeploymentInfo
 	err := m.database.Collection(deploymentCollection).FindOneAndUpdate(
 		context.Background(),
 		bson.M{
-			"_id":                deploymentID,
-			"infrastructures.id": infrastructureID,
+			"_id": deploymentID,
+			fmt.Sprintf("infrastructures.%s", infrastructureID): bson.M{"$exists": true},
 		},
 		bson.M{
-			"$push": bson.M{
-				"infrastructures.$.products": product,
+			"$set": bson.M{
+				fmt.Sprintf("infrastructures.%s.products.%s", infrastructureID, product): config,
 			},
 		}, m.defaultFindAndUpdateOptions).Decode(&updated)
 	return updated, err
-}
-
-//SaveProduct a new product information and return the created product from the underlying database
-func (m *MongoRepository) SaveProduct(product model.Product) (model.Product, error) {
-	product.ID = uuid.New().String()
-	return product, m.insert(productCollection, product)
-}
-
-//GetProduct the product information given its ID
-func (m *MongoRepository) GetProduct(productID string) (model.Product, error) {
-	var result model.Product
-	err := m.get(productCollection, productID, &result)
-	return result, err
-}
-
-//ListProducts all available products
-func (m *MongoRepository) ListProducts() ([]model.Product, error) {
-	products := make([]model.Product, 0)
-	var product model.Product
-	err := m.list(productCollection, func(prod interface{}) {
-		products = append(products, *prod.(*model.Product))
-	}, &product)
-	return products, err
-}
-
-//UpdateProduct a product replacing its old contents
-func (m *MongoRepository) UpdateProduct(product model.Product) (model.Product, error) {
-	var result model.Product
-	err := m.replace(productCollection, product.ID, product, &result)
-	return result, err
-}
-
-//DeleteProduct a product given its ID
-func (m *MongoRepository) DeleteProduct(productID string) error {
-	return m.delete(productCollection, productID)
 }

@@ -1,0 +1,59 @@
+---
+  - hosts: all
+    become: yes
+    tasks:
+    - include_tasks: prepare-RedHat.yml
+      when: ansible_os_family == 'RedHat'
+    
+  - hosts: all
+    become: yes
+    tasks:
+      - name: Install dependencies
+        become: true
+        package:
+          name: "{{ item }}"
+          state: present
+        with_items:
+          - curl
+        when: install_curl
+
+  - hosts: [master]
+    become: yes
+    gather_facts: no
+    tasks:
+      - name: Install k3s master binary
+        shell: "curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC=\"--no-deploy traefik\" sh -"
+      - name: Wait for kubernetes config file to be created
+        wait_for:
+          path: /etc/rancher/k3s/k3s.yaml
+      - name: Fetch config file
+        fetch:
+          src: /etc/rancher/k3s/k3s.yaml
+          dest: "{{ inventory_folder }}/config"
+          flat: yes
+      - name: Wait until token file is ready
+        wait_for:
+          path: /var/lib/rancher/k3s/server/node-token
+      - name: Get join token
+        shell: cat /var/lib/rancher/k3s/server/node-token
+        register: join_token_out
+
+      - name: Setting variable to join other nodes
+        set_fact: 
+          join_token: "{{ join_token_out.stdout }}"
+
+  - hosts: [slaves]
+    become: yes
+    gather_facts: no
+    tasks:
+      - name: Install k3s workers binary
+        shell: "curl -sfL https://get.k3s.io | K3S_URL=https://{{ master_ip }}:6443 K3S_TOKEN={{ hostvars[groups['master'][0]]['join_token'] }} sh -"
+
+  - hosts: localhost
+    connection: local
+    tasks:
+      - name: Set master IP in configuration file
+        replace:
+          path: "{{ inventory_folder }}/config"
+          regexp: "localhost"
+          replace: "{{ master_ip }}"

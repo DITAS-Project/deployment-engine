@@ -1,0 +1,46 @@
+{
+  "swagger": "2.0",
+  "paths": {
+    "/deployment": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json",
+          "text/plain"
+        ],
+        "tags": [
+          "deployment"
+        ],
+        "summary": "Creates a Deployment with the by instantiating the infrastructures passed as parameter.",
+        "operationId": "createDeployment",
+        "parameters": [
+          {
+            "description": "The deployment description",
+            "name": "request",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/Deployment"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Deployment successfully created",
+            "schema": {
+              "$ref": "#/definitions/DeploymentInfo"
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "500": {
+            "description": "Internal error"
+          }
+        }
+      }
+    }
+  }
+}
