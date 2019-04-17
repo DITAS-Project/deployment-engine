@@ -18,6 +18,8 @@ package ansible
 
 import (
 	"deployment-engine/model"
+	"deployment-engine/utils"
+	"strconv"
 	"fmt"
 	"os"
 
@@ -28,9 +30,11 @@ import (
 const (
 	InventoryFolderProperty = "ansible.folders.inventory"
 	ScriptsFolderProperty   = "ansible.folders.scripts"
+	KubesprayFolderProperty  = "ansible.folders.kubespray"
 
 	InventoryFolderDefaultValue = "/tmp/ansible_inventories"
 	ScriptsFolderDefaultValue   = "provision/ansible"
+	KubesprayFolderDefaultValue = "provision/ansible/kubespray"
 )
 
 type Provisioner struct {
@@ -63,9 +67,11 @@ type ProductProvisioner interface {
 func New() (*Provisioner, error) {
 	viper.SetDefault(InventoryFolderProperty, InventoryFolderDefaultValue)
 	viper.SetDefault(ScriptsFolderProperty, ScriptsFolderDefaultValue)
+	viper.SetDefault(KubesprayFolderProperty, KubesprayFolderDefaultValue)
 
 	inventoryFolder := viper.GetString(InventoryFolderProperty)
 	scriptsFolder := viper.GetString(ScriptsFolderProperty)
+	kubesprayFolder := viper.GetString(KubesprayFolderProperty)
 
 	err := os.MkdirAll(inventoryFolder, os.ModePerm)
 	if err != nil {
@@ -84,6 +90,7 @@ func New() (*Provisioner, error) {
 		"kubeadm":            NewKubeadmProvisioner(&result),
 		"gluster-kubernetes": NewGlusterfsProvisioner(&result),
 		"k3s":                NewK3sProvisioner(&result),
+		"kubespray":  NewKubesprayProvisioner(&result, kubesprayFolder),
 	}
 
 	return &result, nil
@@ -213,6 +220,16 @@ func (p Provisioner) Provision(deploymentId string, infra *model.InfrastructureD
 	provisioner := p.Provisioners[product]
 	if provisioner == nil {
 		return fmt.Errorf("Product %s not supported by this deployer", product)
+	}
+
+	waitStr, ok := utils.GetSingleValue(args, "wait")
+	if !ok {
+		waitStr = "true"
+	}
+
+	wait, err := strconv.ParseBool(waitStr)
+	if err != nil {
+		wait = true
 	}
 
 	if wait {

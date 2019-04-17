@@ -3,7 +3,7 @@ module deployment-engine
 go 1.12
 
 require (
-	github.com/DITAS-Project/blueprint-go v0.0.0-20190311145452-d2d2b094b09c // indirect
+	github.com/DITAS-Project/blueprint-go v0.0.0-20190311145452-d2d2b094b09c
 	github.com/go-openapi/spec v0.19.0 // indirect
 	github.com/go-stack/stack v1.8.0 // indirect
 	github.com/gogo/protobuf v1.2.1 // indirect
@@ -29,6 +29,7 @@ require (
 	golang.org/x/sync v0.0.0-20190227155943-e225da77a7e6 // indirect
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
+	gopkg.in/mgo.v2 v2.0.0-20180705113604-9856a29383ce
 	gopkg.in/resty.v1 v1.12.0
 	k8s.io/api v0.0.0-20190409021203-6e4e0e4f393b
 	k8s.io/apimachinery v0.0.0-20190404173353-6a84e37a896d

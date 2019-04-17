@@ -57,12 +57,9 @@ func NewDitasFrontend() (*DitasFrontend, error) {
 		Repository: repository,
 	}
 
-	controller := &provision.ProvisionerController{
-		Repository:  repository,
-		Provisioner: provisioner,
-	}
+	controller := provision.NewProvisionerController(provisioner, repository)
 
-	vdcManager, err := NewVDCManager(provisioner, deployer, controller)
+	vdcManager, err := NewVDCManager(deployer, controller)
 	if err != nil {
 		return nil, err
 	}

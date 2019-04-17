@@ -20,10 +20,11 @@ package ditas
 
 import (
 	"deployment-engine/model"
-	"deployment-engine/provision/ansible"
+	"deployment-engine/provision/kubernetes"
+	"deployment-engine/utils"
 
-	blueprint "github.com/DITAS-Project/blueprint-go"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -34,16 +35,14 @@ const (
 )
 
 type VDMProvisioner struct {
-	parent              *ansible.Provisioner
 	scriptsFolder       string
 	configVariablesPath string
 	configFolder        string
 	registry            Registry
 }
 
-func NewVDMProvisioner(parent *ansible.Provisioner, scriptsFolder, configVariablesPath, configFolder string, registry Registry) VDMProvisioner {
+func NewVDMProvisioner(scriptsFolder, configVariablesPath, configFolder string, registry Registry) VDMProvisioner {
 	return VDMProvisioner{
-		parent:              parent,
 		scriptsFolder:       scriptsFolder,
 		configVariablesPath: configVariablesPath,
 		configFolder:        configFolder,
@@ -51,31 +50,45 @@ func NewVDMProvisioner(parent *ansible.Provisioner, scriptsFolder, configVariabl
 	}
 }
 
-func (p VDMProvisioner) BuildInventory(deploymentID string, infra model.InfrastructureDeploymentInfo, args map[string][]string) (ansible.Inventory, error) {
-	return p.parent.Provisioners["kubeadm"].BuildInventory(deploymentID, infra, args)
+func (p VDMProvisioner) getVarsFromConfigFolder() (map[string]interface{}, error) {
+	generalConfigFolder, err := utils.ConfigurationFolder()
+	if err != nil {
+		logrus.WithError(err).Errorf("Error getting DITAS configuration folder")
+		return nil, err
+	}
+	reader := viper.New()
+	reader.SetConfigName("vars")
+	reader.AddConfigPath(generalConfigFolder)
+	reader.ReadInConfig()
+	return reader.AllSettings(), nil
 }
 
-func (p VDMProvisioner) DeployProduct(inventoryPath, deploymentID string, infra model.InfrastructureDeploymentInfo, args map[string][]string) error {
+func (p VDMProvisioner) Provision(config *kubernetes.KubernetesConfiguration, deploymentID string, infra *model.InfrastructureDeploymentInfo, args map[string][]string) error {
 
 	logger := logrus.WithFields(logrus.Fields{
 		"deployment":     deploymentID,
 		"infrastructure": infra.ID,
 	})
 
-	configMap, err := GetConfigMapFromFolder(p.configFolder+"/vdm", DitasVDMConfigMapName)
+	vars, err := p.getVarsFromConfigFolder()
+	if err != nil {
+		return err
+	}
+
+	configMap, err := kubernetes.GetConfigMapFromFolder(p.configFolder+"/vdm", DitasVDMConfigMapName, vars)
 	if err != nil {
 		logger.WithError(err).Error("Error reading configuration map")
 		return err
 	}
 
-	kubernetesClient, err := GetKubernetesClient(p.parent, deploymentID, infra.ID)
+	kubeClient, err := kubernetes.NewClient(config.ConfigurationFile)
 	if err != nil {
 		logger.WithError(err).Error("Error getting kubernetes client")
 		return err
 	}
 
 	logger.Info("Creating or updating VDM config map")
-	_, err = CreateOrUpdateConfigMap(logger, kubernetesClient, DitasNamespace, &configMap)
+	_, err = kubeClient.CreateOrUpdateConfigMap(logger, DitasNamespace, &configMap)
 
 	if err != nil {
 		return err
@@ -85,16 +98,16 @@ func (p VDMProvisioner) DeployProduct(inventoryPath, deploymentID string, infra 
 		"component": "vdm",
 	}
 
-	imageSet := make(blueprint.ImageSet)
-	imageSet["ds4m"] = blueprint.ImageInfo{
+	imageSet := make(kubernetes.ImageSet)
+	imageSet["ds4m"] = kubernetes.ImageInfo{
 		Image:        "ditas/decision-system-for-data-and-computation-movement",
 		InternalPort: 8080,
 	}
 
-	vdmDeployment := GetPodDescription("vdm", int32(1), int64(30), vdmLabels, imageSet, DitasVDMConfigMapName)
+	vdmDeployment := kubernetes.GetDeploymentDescription("vdm", int32(1), int64(30), vdmLabels, imageSet, DitasVDMConfigMapName, "/etc/ditas")
 
 	logger.Info("Creating or updating VDM pod")
-	_, err = CreateOrUpdateDeployment(logger, kubernetesClient, DitasNamespace, &vdmDeployment)
+	_, err = kubeClient.CreateOrUpdateDeployment(logger, DitasNamespace, &vdmDeployment)
 
 	if err != nil {
 		return err
@@ -117,16 +130,12 @@ func (p VDMProvisioner) DeployProduct(inventoryPath, deploymentID string, infra 
 	}
 
 	logger.Info("Creating or updating VDM service")
-	_, err = CreateOrUpdateService(logger, kubernetesClient, DitasNamespace, &vdmService)
+	_, err = kubeClient.CreateOrUpdateService(logger, DitasNamespace, &vdmService)
 	if err != nil {
 		return err
 	}
 
 	logger.Info("VDM successfully deployed")
-	/*return ansible.ExecutePlaybook(logger, p.scriptsFolder+"/deploy_vdm.yml", inventoryPath, map[string]string{
-		"vars_file":     p.configVariablesPath,
-		"config_folder": p.configFolder,
-	})*/
 
 	return err
 }

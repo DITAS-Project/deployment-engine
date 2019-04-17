@@ -1,9 +1,0 @@
----
-  - hosts: [master]
-    tasks:
-      - name: Copy deployment descriptor
-        template:
-          src: kubernetes/{{ datasource }}.yaml.j2
-          dest: /home/{{ hostvars[inventory_hostname].ansible_user }}/{{ datasource }}_{{ mysql_id }}.yaml
-      - name: Deploy MySQL datasource
-        shell: kubectl create -f {{ datasource }}_{{ mysql_id }}.yaml

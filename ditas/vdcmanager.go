@@ -23,13 +23,11 @@ import (
 	"deployment-engine/model"
 	"deployment-engine/persistence/mongorepo"
 	"deployment-engine/provision"
-	"deployment-engine/provision/ansible"
+	"deployment-engine/provision/kubernetes"
 	"deployment-engine/utils"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
-	"strconv"
 
 	"go.mongodb.org/mongo-driver/mongo/options"
 
@@ -44,14 +42,12 @@ import (
 const (
 	DitasScriptsFolderProperty    = "ditas.folders.scripts"
 	DitasConfigFolderProperty     = "ditas.folders.config"
-	DitasKubesprayFolderProperty  = "ditas.folders.kubespray"
 	DitasRegistryURLProperty      = "ditas.registry.url"
 	DitasRegistryUsernameProperty = "ditas.registry.username"
 	DitasRegistryPasswordProperty = "ditas.registry.password"
 
-	DitasScriptsFolderDefaultValue   = "ditas/scripts"
-	DitasConfigFolderDefaultValue    = "ditas/VDC-Shared-Config"
-	DitasKubesprayFolderDefaultValue = "ditas/kubespray"
+	DitasScriptsFolderDefaultValue = "ditas/scripts"
+	DitasConfigFolderDefaultValue  = "ditas/VDC-Shared-Config"
 )
 
 type VDCManager struct {
@@ -59,13 +55,11 @@ type VDCManager struct {
 	ScriptsFolder         string
 	ConfigFolder          string
 	ConfigVariablesPath   string
-	KubesprayFolder       string
 	DeploymentController  *infrastructure.Deployer
 	ProvisionerController *provision.ProvisionerController
-	Provisioner           *ansible.Provisioner
 }
 
-func NewVDCManager(provisioner *ansible.Provisioner, deployer *infrastructure.Deployer, provisionerController *provision.ProvisionerController) (*VDCManager, error) {
+func NewVDCManager(deployer *infrastructure.Deployer, provisionerController *provision.ProvisionerController) (*VDCManager, error) {
 	viper.SetDefault(mongorepo.MongoDBURLName, mongorepo.MongoDBURLDefault)
 	viper.SetDefault(DitasScriptsFolderProperty, DitasScriptsFolderDefaultValue)
 	viper.SetDefault(DitasConfigFolderProperty, DitasConfigFolderDefaultValue)
@@ -90,7 +84,6 @@ func NewVDCManager(provisioner *ansible.Provisioner, deployer *infrastructure.De
 	}
 
 	scriptsFolder := viper.GetString(DitasScriptsFolderProperty)
-	kubesprayFolder := viper.GetString(DitasKubesprayFolderProperty)
 	configVarsPath := configFolder + "/vars.yml"
 	ditasPodsConfigFolder := viper.GetString(DitasConfigFolderProperty)
 	vdcCollection := db.Collection("vdcs")
@@ -100,21 +93,16 @@ func NewVDCManager(provisioner *ansible.Provisioner, deployer *infrastructure.De
 		Password: viper.GetString(DitasRegistryPasswordProperty),
 	}
 
-	provisioner.Provisioners["glusterfs"] = NewGlusterfsProvisioner(provisioner, scriptsFolder)
-	provisioner.Provisioners["k3s"] = NewK3sProvisioner(provisioner, scriptsFolder, registry)
-	provisioner.Provisioners["kubeadm"] = NewKubeadmProvisioner(provisioner, scriptsFolder)
-	provisioner.Provisioners["kubespray"] = NewKubesprayProvisioner(provisioner, kubesprayFolder)
-	provisioner.Provisioners["rook"] = NewRookProvisioner(provisioner, scriptsFolder)
-	provisioner.Provisioners["vdm"] = NewVDMProvisioner(provisioner, scriptsFolder, configVarsPath, ditasPodsConfigFolder, registry)
-	provisioner.Provisioners["mysql"] = NewMySQLProvisioner(provisioner, scriptsFolder, vdcCollection)
+	kubeProvisioner := kubernetes.NewKubernetesController()
+	kubeProvisioner.ProductProvisioners["vdm"] = NewVDMProvisioner(scriptsFolder, configVarsPath, ditasPodsConfigFolder, registry)
+
+	provisionerController.Provisioners["kubernetes"] = kubeProvisioner
 
 	return &VDCManager{
 		Collection:            vdcCollection,
 		ScriptsFolder:         scriptsFolder,
 		ConfigFolder:          ditasPodsConfigFolder,
-		KubesprayFolder:       kubesprayFolder,
 		ConfigVariablesPath:   configVarsPath,
-		Provisioner:           provisioner,
 		DeploymentController:  deployer,
 		ProvisionerController: provisionerController,
 	}, nil
@@ -176,20 +164,26 @@ func (m *VDCManager) DeployBlueprint(request CreateDeploymentRequest) error {
 		}
 	}
 
-	return m.DeployVDC(vdcInfo, bp, deploymentInfo.ID, deploymentInfo.Infrastructures[0])
+	var infra model.InfrastructureDeploymentInfo
+	for _, i := range deploymentInfo.Infrastructures {
+		infra = i
+		break
+	}
+
+	return m.DeployVDC(vdcInfo, bp, deploymentInfo.ID, infra)
 }
 
 func (m *VDCManager) provisionKubernetes(deployment model.DeploymentInfo, vdcInfo *VDCInformation) (model.DeploymentInfo, error) {
 	result := deployment
 	for _, infra := range deployment.Infrastructures {
-		err := m.Provisioner.Provision(deployment.ID, infra, "kubeadm", nil)
+		_, err := m.ProvisionerController.Provision(deployment.ID, infra.ID, "kubeadm", nil, "")
 		//err := m.provisionKubernetesWithKubespray(deployment.ID, infra)
 		if err != nil {
 			log.WithError(err).Errorf("Error deploying kubernetes on infrastructure %s. Trying to clean up deployment.", infra.ID)
 			return result, err
 		}
 
-		err = m.Provisioner.WaitAndProvision(deployment.ID, infra, "rook", false, nil)
+		_, err = m.ProvisionerController.Provision(deployment.ID, infra.ID, "rook", nil, "kubernetes")
 		if err != nil {
 			log.WithError(err).Error("Error deploying ceph cluster to master")
 			return result, err
@@ -239,7 +233,7 @@ func (m *VDCManager) DeployVDC(vdcInfo VDCInformation, blueprint blueprint.Bluep
 	}
 
 	if !infraVdcs.Initialized {
-		err = m.Provisioner.WaitAndProvision(deploymentID, infra, "vdm", false, nil)
+		_, err = m.ProvisionerController.Provision(deploymentID, infra.ID, "vdm", nil, "kubernetes")
 		if err != nil {
 			log.WithError(err).Errorf("Error initializing infrastructure %s in deployment %s to host VDCs", infra.ID, vdcInfo.DeploymentID)
 			return err
@@ -278,13 +272,15 @@ func (m *VDCManager) DeployVDC(vdcInfo VDCInformation, blueprint blueprint.Bluep
 
 func (m *VDCManager) doDeployVDC(deploymentID string, infra model.InfrastructureDeploymentInfo, bp blueprint.BlueprintType, vdcID string, port int) error {
 	logger := log.WithField("blueprint", *bp.InternalStructure.Overview.Name)
-	blueprintPath, err := m.writeBlueprint(logger, bp, vdcID, deploymentID, infra.ID)
+	_, err := m.writeBlueprint(logger, bp, vdcID, deploymentID, infra.ID)
 	if err != nil {
 		logger.WithError(err).Error("Error writing blueprint")
 		return err
 	}
 
-	return m.executePlaybook(deploymentID, infra, "deploy_vdc.yml", map[string]string{
+	//TODO: Create the vdc deployer
+
+	/*return m.executePlaybook(deploymentID, infra, "deploy_vdc.yml", map[string]string{
 		"vdcId":          vdcID,
 		"vars_file":      m.ConfigVariablesPath,
 		"blueprint_path": blueprintPath,
@@ -292,16 +288,12 @@ func (m *VDCManager) doDeployVDC(deploymentID string, infra model.Infrastructure
 		"master_ip":      infra.Master.IP,
 		"internalPort":   strconv.Itoa(port + 20000),
 		"vdcPort":        strconv.Itoa(port),
-	})
-}
-
-func (m *VDCManager) executePlaybook(deploymentID string, infra model.InfrastructureDeploymentInfo, playbook string, extravars map[string]string) error {
-	inventory := m.Provisioner.GetInventoryPath(deploymentID, infra.ID)
-	return ansible.ExecutePlaybook(log.WithField("deployment", deploymentID).WithField("infrastructure", infra.ID), m.ScriptsFolder+"/"+playbook, inventory, extravars)
+	})*/
+	return nil
 }
 
 func (m *VDCManager) writeBlueprint(logger *log.Entry, bp blueprint.BlueprintType, vdcID, deploymentID, infraID string) (string, error) {
-	path := m.Provisioner.GetInventoryFolder(deploymentID, infraID) + "/" + vdcID
+	/*path := ansible.GetInventoryFolder(deploymentID, infraID) + "/" + vdcID
 
 	err := os.MkdirAll(path, os.ModePerm)
 	if err != nil {
@@ -327,7 +319,9 @@ func (m *VDCManager) writeBlueprint(logger *log.Entry, bp blueprint.BlueprintTyp
 
 	logger.Info("Blueprint copied")
 
-	return name, nil
+	return name, nil*/
+	// TODO: This should be done by the VDC provisioner
+	return "", nil
 }
 
 func (m *VDCManager) DeployDatasource(blueprintId, infraId, datasourceType string, args map[string][]string) error {
@@ -342,13 +336,8 @@ func (m *VDCManager) DeployDatasource(blueprintId, infraId, datasourceType strin
 		return fmt.Errorf("Can't finde infrastructure %s in deployment %s associated to blueprint %s: %s", infraId, blueprintInfo.DeploymentID, blueprintId, err.Error())
 	}
 
-	wait := true
-	waitList, ok := args["wait"]
-	if ok && len(waitList) > 0 {
-		wait, _ = strconv.ParseBool(waitList[0])
-	}
-
-	return m.Provisioner.WaitAndProvision(blueprintInfo.DeploymentID, infra, datasourceType, wait, args)
+	_, err = m.ProvisionerController.Provision(blueprintInfo.DeploymentID, infra.ID, datasourceType, args, "kubernetes")
+	return err
 }
 
 func initializeVDCInformation() InfraServicesInformation {

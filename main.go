@@ -18,13 +18,7 @@ package main
 
 import (
 	"deployment-engine/ditas"
-	"deployment-engine/model"
-	"deployment-engine/persistence"
-	"deployment-engine/persistence/memoryrepo"
-	"deployment-engine/persistence/mongorepo"
-	"deployment-engine/restfrontend"
 	"deployment-engine/utils"
-	"fmt"
 
 	"github.com/spf13/viper"
 
@@ -83,36 +77,4 @@ func main() {
 	}
 
 	log.Fatal(frontend.Run(":" + viper.GetString(FrontendPortProperty)))
-}
-
-func getRepository(repoType string) (persistence.DeploymentRepository, error) {
-	switch repoType {
-	case "mongo":
-		return mongorepo.CreateRepositoryNative()
-	}
-	return nil, fmt.Errorf("Unrecognized repository type %s", repoType)
-}
-
-func getVault(vaultType, repoType string, repo persistence.DeploymentRepository) (persistence.Vault, error) {
-	switch vaultType {
-	case "mongo":
-		if repoType == "mongo" {
-			return repo.(*mongorepo.MongoRepository), nil
-		}
-		return mongorepo.CreateRepositoryNative()
-	case "memory":
-		if repoType == "memory" {
-			return repo.(*memoryrepo.MemoryRepository), nil
-		}
-		return memoryrepo.CreateMemoryRepository(), nil
-	}
-	return nil, fmt.Errorf("Unrecognized vault type %s", vaultType)
-}
-
-func getFrontend(frontendType string, repo persistence.DeploymentRepository, vault persistence.Vault) (model.Frontend, error) {
-	switch frontendType {
-	case "default":
-		return restfrontend.New(repo, vault)
-	}
-	return nil, fmt.Errorf("Unrecognized frontend type %s", frontendType)
 }
