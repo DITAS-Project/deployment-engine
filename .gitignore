@@ -141,3 +141,6 @@ fabric.properties
 
 #Build output
 deployment-engine
+
+#Now that we use modules, ignore possible vendor folders
+vendor/

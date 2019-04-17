@@ -20,6 +20,7 @@ import (
 	"deployment-engine/model"
 	"deployment-engine/persistence"
 	"deployment-engine/provision"
+	"deployment-engine/provision/ansible"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -35,21 +36,23 @@ type App struct {
 	Vault                 persistence.Vault
 }
 
-func New(repository persistence.DeploymentRepository, vault persistence.Vault, provisioner model.Provisioner) *App {
+func New(repository persistence.DeploymentRepository, vault persistence.Vault) (*App, error) {
+	ansibleProvisioner, err := ansible.New()
+	if err != nil {
+		return nil, err
+	}
+
 	result := App{
 		Router: mux.NewRouter(),
 		DeploymentController: &infrastructure.Deployer{
 			Repository: repository,
 			Vault:      vault,
 		},
-		ProvisionerController: &provision.ProvisionerController{
-			Repository:  repository,
-			Provisioner: provisioner,
-		},
-		Vault: vault,
+		ProvisionerController: provision.NewProvisionerController(ansibleProvisioner, repository),
+		Vault:                 vault,
 	}
 	result.initializeRoutes()
-	return &result
+	return &result, nil
 }
 
 func (a App) Run(addr string) error {
@@ -60,7 +63,8 @@ func (a *App) initializeRoutes() {
 	a.Router.HandleFunc("/deployment", a.CreateDep).Methods("POST")
 	a.Router.HandleFunc("/deployment/{depId}", a.DeleteDeployment).Methods("DELETE")
 	a.Router.HandleFunc("/deployment/{depId}/{infraId}", a.DeleteInfra).Methods("DELETE")
-	a.Router.HandleFunc("/deployment/{depId}/{infraId}/{product}", a.DeployProduct).Methods("PUT")
+	a.Router.HandleFunc("/deployment/{depId}/{infraId}/{product}", a.DeployProduct).Methods("POST")
+	a.Router.HandleFunc("/deployment/{depId}/{infraId}/{framework}/{product}", a.DeployProduct).Methods("POST")
 	a.Router.HandleFunc("/secrets", a.CreateSecret).Methods("POST")
 }
 
@@ -83,7 +87,37 @@ func (a *App) ReadBody(r *http.Request, result interface{}) error {
 	return nil
 }
 
+// CreateDep creates a new deployment
 func (a *App) CreateDep(w http.ResponseWriter, r *http.Request) {
+	// swagger:operation POST /deployment deployment createDeployment
+	//
+	// Creates a Deployment with the by instantiating the infrastructures passed as parameter.
+	//
+	// ---
+	// consumes:
+	// - application/json
+	//
+	// produces:
+	// - application/json
+	// - text/plain
+	//
+	// parameters:
+	// - name: request
+	//   in: body
+	//   description: The deployment description
+	//   required: true
+	//   schema:
+	//     $ref: "#/definitions/Deployment"
+	//
+	// responses:
+	//   201:
+	//     description: Deployment successfully created
+	//     schema:
+	//       $ref: "#/definitions/DeploymentInfo"
+	//   400:
+	//     description: Bad request
+	//   500:
+	//     description: Internal error
 	defer r.Body.Close()
 
 	var deployment model.Deployment
@@ -100,11 +134,35 @@ func (a *App) CreateDep(w http.ResponseWriter, r *http.Request) {
 	}
 
 	RespondWithJSON(w, http.StatusCreated, result)
-
-	//RespondWithJSON(w, http.StatusOK, map[string]string{"result": "success"})
+	return
 }
 
+// DeleteDeployment deletes an existing deployment
 func (a *App) DeleteDeployment(w http.ResponseWriter, r *http.Request) {
+	// swagger:operation DELETE /deployment/{deploymentId} deployment deleteDeployment
+	//
+	// Deletes a Deployment by destroying all its infrastructures
+	//
+	// ---
+	// consumes:
+	// - application/json
+	//
+	// produces:
+	// - application/json
+	// - text/plain
+	//
+	// parameters:
+	// - name: deploymentId
+	//   in: path
+	//   description: The deployment identifier to delete
+	//
+	// responses:
+	//   204:
+	//     description: Deployment successfully deleted
+	//   400:
+	//     description: Bad request
+	//   500:
+	//     description: Internal error
 	depId, ok := a.GetQueryParam("depId", r)
 	if !ok {
 		RespondWithError(w, http.StatusBadRequest, "Can't find deployment ID parameter")
@@ -121,7 +179,37 @@ func (a *App) DeleteDeployment(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
+// DeleteInfra deletes an existing infrastructure
 func (a *App) DeleteInfra(w http.ResponseWriter, r *http.Request) {
+	// swagger:operation DELETE /deployment/{deploymentId}/{infraId} deployment deleteInfrastructure
+	//
+	// Deletes an infrastructure in a deployment
+	//
+	// ---
+	// consumes:
+	// - application/json
+	//
+	// produces:
+	// - application/json
+	// - text/plain
+	//
+	// parameters:
+	// - name: deploymentId
+	//   in: path
+	//   description: The deployment containing the infrastructure to delete
+	// - name: infraId
+	//   in: path
+	//   description: The infrastructure identifier to delete
+	//
+	// responses:
+	//   200:
+	//     description: Infrastructure successfully deleted. Returns the updated deployment
+	//     schema:
+	//       $ref: "#/definitions/DeploymentInfo"
+	//   400:
+	//     description: Bad request
+	//   500:
+	//     description: Internal error
 	depId, ok := a.GetQueryParam("depId", r)
 	if !ok {
 		RespondWithError(w, http.StatusBadRequest, "Can't find deployment ID parameter")
@@ -144,7 +232,43 @@ func (a *App) DeleteInfra(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
+// DeployProduct deploys a new product in an infrastructure
 func (a *App) DeployProduct(w http.ResponseWriter, r *http.Request) {
+	// swagger:operation POST "/deployment/{deploymentId}/{infrastructureId}/{framework}/{product}" deployment createProduct
+	//
+	// Creates a Deployment with the by instantiating the infrastructures passed as parameter.
+	//
+	// ---
+	// consumes:
+	// - application/json
+	//
+	// produces:
+	// - application/json
+	// - text/plain
+	//
+	// parameters:
+	// - name: deploymentId
+	//   in: path
+	//   description: The deployment in which deploy the product
+	// - name: infraId
+	//   in: path
+	//   description: The infrastructure inside the deployment in which to deploy the product
+	// - name: framework
+	//   in: path
+	//   description: Optional element. If present, the product will be deployed over an existing orchestration framework such as kubernetes, mesos, etc. If not, it will be deployed over the instances directly.
+	// - name: product
+	//   in: path
+	//   description: The software product to deploy
+	//
+	// responses:
+	//   200:
+	//     description: The product has been successfully deployed and the updated deployment is returned.
+	//     schema:
+	//       $ref: "#/definitions/DeploymentInfo"
+	//   400:
+	//     description: Bad request
+	//   500:
+	//     description: Internal error
 	depId, ok := a.GetQueryParam("depId", r)
 	if !ok {
 		RespondWithError(w, http.StatusBadRequest, "Can't find deployment ID parameter")
@@ -163,9 +287,11 @@ func (a *App) DeployProduct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	framework, _ := a.GetQueryParam("framework", r)
+
 	params := r.URL.Query()
 
-	deployment, err := a.ProvisionerController.Provision(depId, infraId, product, params)
+	deployment, err := a.ProvisionerController.Provision(depId, infraId, product, params, framework)
 	if err != nil {
 		RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Error deploying product: %s", err.Error()))
 		return
@@ -175,7 +301,37 @@ func (a *App) DeployProduct(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
+// CreateSecret creates a secret in the configured vault
 func (a *App) CreateSecret(w http.ResponseWriter, r *http.Request) {
+	// swagger:operation POST "/secrets" deployment createProduct
+	//
+	// Stores a new secret in the configured vault
+	//
+	// ---
+	// consumes:
+	// - application/json
+	//
+	// produces:
+	// - application/json
+	// - text/plain
+	//
+	// parameters:
+	// - name: secret
+	//   in: body
+	//   description: The secret description
+	//   required: true
+	//   schema:
+	//     $ref: "#/definitions/Secret"
+	//
+	// responses:
+	//   201:
+	//     description: The secret has been saved. Returns the secret Identifier
+	//     schema:
+	//       type: string
+	//   400:
+	//     description: Bad request
+	//   500:
+	//     description: Internal error
 	defer r.Body.Close()
 
 	var secret model.Secret

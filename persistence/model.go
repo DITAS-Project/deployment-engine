@@ -41,6 +41,9 @@ type DeploymentRepository interface {
 	//AddInfrastructure adds a new infrastructure to an existing deployment
 	AddInfrastructure(deploymentID string, infra model.InfrastructureDeploymentInfo) (model.DeploymentInfo, error)
 
+	//UpdateInfrastructure updates as a whole an existing infrastructure in a deployment
+	UpdateInfrastructure(deploymentID string, infra model.InfrastructureDeploymentInfo) (model.DeploymentInfo, error)
+
 	//FindInfrastructure finds an infrastructure in a deployment given their identifiers
 	FindInfrastructure(depoloymentID, infraID string) (model.InfrastructureDeploymentInfo, error)
 
@@ -54,25 +57,7 @@ type DeploymentRepository interface {
 	UpdateInfrastructureStatus(deploymentID, infrastructureID, status string) (model.DeploymentInfo, error)
 
 	// AddProductToInfrastructure adds a new product to an existing infrastructure
-	AddProductToInfrastructure(deploymentID, infrastructureID, product string) (model.DeploymentInfo, error)
-}
-
-// ProductRepository is the interface that repositories dealing with products must comply with
-type ProductRepository interface {
-	//Save a new product information and return the created product from the underlying database
-	SaveProduct(product model.Product) (model.Product, error)
-
-	//Get the product information given its ID
-	GetProduct(productID string) (model.Product, error)
-
-	//List all available products
-	ListProducts() ([]model.Product, error)
-
-	//Update a product replacing its old contents
-	UpdateProduct(product model.Product) (model.Product, error)
-
-	//Delete a product given its ID
-	DeleteProduct(productID string) error
+	AddProductToInfrastructure(deploymentID, infrastructureID, product string, configuration interface{}) (model.DeploymentInfo, error)
 }
 
 // Vault will be implemented by components that store authentication information. They can do so locally or they can be remote vaults like Hashicorp Vault.

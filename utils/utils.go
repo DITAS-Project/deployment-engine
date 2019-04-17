@@ -17,6 +17,7 @@
 package utils
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -75,4 +76,20 @@ func ConfigurationFolder() (string, error) {
 	}
 
 	return fmt.Sprintf("%s/%s", home, ConfigurationFolderName), nil
+}
+
+func TransformObject(input interface{}, output interface{}) error {
+	strInput, err := json.Marshal(input)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(strInput, output)
+}
+
+func GetSingleValue(values map[string][]string, key string) (string, bool) {
+	vals, ok := values[key]
+	if !ok || vals == nil || len(vals) == 0 {
+		return "", false
+	}
+	return vals[0], ok
 }

@@ -31,6 +31,10 @@ type KubernetesProvisioner struct {
 	parent *Provisioner
 }
 
+type KubernetesConfiguration struct {
+	ConfigurationFile string
+}
+
 func NewKubernetesProvisioner(parent *Provisioner) *KubernetesProvisioner {
 	return &KubernetesProvisioner{
 		parent: parent,
@@ -55,20 +59,19 @@ func (p KubernetesProvisioner) buildHost(host model.NodeInfo) InventoryHost {
 	}
 }
 
-func (p KubernetesProvisioner) BuildInventory(deploymentID string, infra model.InfrastructureDeploymentInfo, args map[string][]string) (Inventory, error) {
+func (p KubernetesProvisioner) BuildInventory(deploymentID string, infra *model.InfrastructureDeploymentInfo, args map[string][]string) (Inventory, error) {
 	result := Inventory{
-		Hosts: make([]InventoryHost, len(infra.Slaves)+1),
+		Hosts: make([]InventoryHost, 0),
 	}
 
-	result.Hosts = append(result.Hosts, p.buildHost(infra.Master))
-	for _, slave := range infra.Slaves {
-		result.Hosts = append(result.Hosts, p.buildHost(slave))
-	}
+	infra.ForEachNode(func(node model.NodeInfo) {
+		result.Hosts = append(result.Hosts, p.buildHost(node))
+	})
 
 	return result, nil
 }
 
-func (p KubernetesProvisioner) DeployProduct(inventoryPath, deploymentID string, infra model.InfrastructureDeploymentInfo, args map[string][]string) error {
+func (p KubernetesProvisioner) DeployProduct(inventoryPath, deploymentID string, infra *model.InfrastructureDeploymentInfo, args map[string][]string) error {
 
 	if !infra.ExtraProperties.GetBool(DockerPresentProperty) {
 		err := p.parent.WaitAndProvision(deploymentID, infra, "docker", false, args)
@@ -83,5 +86,18 @@ func (p KubernetesProvisioner) DeployProduct(inventoryPath, deploymentID string,
 		return err
 	}
 
-	return ExecutePlaybook(logger, p.parent.ScriptsFolder+"/kubernetes/main.yml", inventoryPath, nil)
+	inventoryFolder := p.parent.GetInventoryFolder(deploymentID, infra.ID)
+
+	err = ExecutePlaybook(logger, p.parent.ScriptsFolder+"/kubernetes/main.yml", inventoryPath, map[string]string{
+		"inventory_folder": inventoryFolder,
+	})
+	if err != nil {
+		return err
+	}
+
+	infra.Products["kubernetes"] = KubernetesConfiguration{
+		ConfigurationFile: inventoryFolder + "/config",
+	}
+
+	return nil
 }
