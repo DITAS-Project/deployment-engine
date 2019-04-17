@@ -56,8 +56,8 @@ type Inventory struct {
 }
 
 type ProductProvisioner interface {
-	BuildInventory(deploymentID string, infra model.InfrastructureDeploymentInfo, args map[string][]string) (Inventory, error)
-	DeployProduct(inventory, deploymentID string, infra model.InfrastructureDeploymentInfo, args map[string][]string) error
+	BuildInventory(deploymentID string, infra *model.InfrastructureDeploymentInfo, args map[string][]string) (Inventory, error)
+	DeployProduct(inventory, deploymentID string, infra *model.InfrastructureDeploymentInfo, args map[string][]string) error
 }
 
 func New() (*Provisioner, error) {
@@ -79,14 +79,17 @@ func New() (*Provisioner, error) {
 	}
 
 	result.Provisioners = map[string]ProductProvisioner{
-		"docker":     NewDockerProvisioner(&result),
-		"kubernetes": NewKubernetesProvisioner(&result),
+		"docker":             NewDockerProvisioner(&result),
+		"kubernetes":         NewKubernetesProvisioner(&result),
+		"kubeadm":            NewKubeadmProvisioner(&result),
+		"gluster-kubernetes": NewGlusterfsProvisioner(&result),
+		"k3s":                NewK3sProvisioner(&result),
 	}
 
 	return &result, nil
 }
 
-func (p *Provisioner) WaitForSSHPortReady(deploymentID string, infra model.InfrastructureDeploymentInfo, args map[string][]string) error {
+func (p *Provisioner) WaitForSSHPortReady(deploymentID string, infra *model.InfrastructureDeploymentInfo, args map[string][]string) error {
 	logger := log.WithField("deployment", deploymentID).WithField("infrastructure", infra.ID)
 	logger.Info("Waiting for port 22 to be ready")
 
@@ -205,7 +208,7 @@ func (p Provisioner) WriteInventory(deploymentID, infraID, product string, inven
 	return filePath, nil
 }
 
-func (p Provisioner) Provision(deploymentId string, infra model.InfrastructureDeploymentInfo, product string, args map[string][]string) error {
+func (p Provisioner) Provision(deploymentId string, infra *model.InfrastructureDeploymentInfo, product string, args map[string][]string) error {
 
 	provisioner := p.Provisioners[product]
 	if provisioner == nil {
@@ -231,6 +234,14 @@ func (p Provisioner) Provision(deploymentId string, infra model.InfrastructureDe
 	}
 
 	return provisioner.DeployProduct(inventoryPath, deploymentId, infra, args)
+}
+
+func (p Provisioner) GetProducts() []string {
+	result := make([]string, 0, len(p.Provisioners))
+	for k, _ := range p.Provisioners {
+		result = append(result, k)
+	}
+	return result
 }
 
 func (p *Provisioner) GetInventoryFolder(deploymentID, infraID string) string {

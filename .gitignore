@@ -139,3 +139,6 @@ fabric.properties
 #Ansible failed runs
 **/**/*.retry
 deployment-engine
+
+#Now that we use modules, ignore possible vendor folders
+vendor/
