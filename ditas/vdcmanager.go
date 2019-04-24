@@ -94,7 +94,7 @@ func NewVDCManager(deployer *infrastructure.Deployer, provisionerController *pro
 	}
 
 	kubeProvisioner := kubernetes.NewKubernetesController()
-	kubeProvisioner.ProductProvisioners["vdm"] = NewVDMProvisioner(scriptsFolder, configVarsPath, ditasPodsConfigFolder, registry)
+	kubeProvisioner.AddProvisioner("vdm", NewVDMProvisioner(scriptsFolder, configVarsPath, ditasPodsConfigFolder, registry))
 
 	provisionerController.Provisioners["kubernetes"] = kubeProvisioner
 

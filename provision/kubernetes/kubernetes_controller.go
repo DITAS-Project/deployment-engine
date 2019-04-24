@@ -73,7 +73,7 @@ type KubernetesProvisioner interface {
 
 type KubernetesController struct {
 	ScriptsFolder       string
-	ProductProvisioners map[string]KubernetesProvisioner
+	productProvisioners map[string]KubernetesProvisioner
 }
 
 func NewKubernetesController() *KubernetesController {
@@ -81,13 +81,17 @@ func NewKubernetesController() *KubernetesController {
 	scriptsFolder := viper.GetString(ScriptsFolderProperty)
 	return &KubernetesController{
 		ScriptsFolder: scriptsFolder,
-		ProductProvisioners: map[string]KubernetesProvisioner{
+		productProvisioners: map[string]KubernetesProvisioner{
 			"rook": RookProvisioner{
 				scriptsFolder: scriptsFolder,
 			},
 			"mysql": MySQLProvisioner{},
 		},
 	}
+}
+
+func (p *KubernetesController) AddProvisioner(name string, provisioner KubernetesProvisioner) {
+	p.productProvisioners[name] = provisioner
 }
 
 func (p KubernetesController) initializeConfig(config *KubernetesConfiguration) {
@@ -110,7 +114,11 @@ func (p KubernetesController) Provision(deploymentId string, infra *model.Infras
 		return fmt.Errorf("Kubernetes is not installed in infrastructure %s of deployment %s", infra.ID, deploymentId)
 	}
 
-	provisioner, ok := p.ProductProvisioners[product]
+	if args == nil {
+		args = make(map[string][]string)
+	}
+
+	provisioner, ok := p.productProvisioners[product]
 	if !ok {
 		return fmt.Errorf("Can't find kubernetes provisioner for product %s", product)
 	}

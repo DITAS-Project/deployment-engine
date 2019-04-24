@@ -101,5 +101,5 @@ func (p KubeadmProvisioner) DeployProduct(inventoryPath, deploymentID string, in
 		return nil
 	}
 
-	return p.parent.Provisioners["kubernetes"].DeployProduct(inventoryPath, deploymentID, infra, args)
+	return p.parent.Provision(deploymentID, infra, "kubernetes", args)
 }

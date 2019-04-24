@@ -96,6 +96,10 @@ func New() (*Provisioner, error) {
 	return &result, nil
 }
 
+func (p *Provisioner) AddProvisioner(name string, provisioner ProductProvisioner) {
+	p.Provisioners[name] = provisioner
+}
+
 func (p *Provisioner) WaitForSSHPortReady(deploymentID string, infra *model.InfrastructureDeploymentInfo, args map[string][]string) error {
 	logger := log.WithField("deployment", deploymentID).WithField("infrastructure", infra.ID)
 	logger.Info("Waiting for port 22 to be ready")
@@ -216,6 +220,10 @@ func (p Provisioner) WriteInventory(deploymentID, infraID, product string, inven
 }
 
 func (p Provisioner) Provision(deploymentId string, infra *model.InfrastructureDeploymentInfo, product string, args map[string][]string) error {
+
+	if args == nil {
+		args = make(map[string][]string)
+	}
 
 	provisioner := p.Provisioners[product]
 	if provisioner == nil {
