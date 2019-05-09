@@ -17,6 +17,7 @@
 package utils
 
 import (
+	"deployment-engine/model"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -25,6 +26,7 @@ import (
 
 	homedir "github.com/mitchellh/go-homedir"
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 )
 
 const (
@@ -92,4 +94,24 @@ func GetSingleValue(values map[string][]string, key string) (string, bool) {
 		return "", false
 	}
 	return vals[0], ok
+}
+
+func IndexOf(slice []int, elem int) int {
+	for i, num := range slice {
+		if num == elem {
+			return i
+		}
+	}
+	return -1
+}
+
+// GetDockerRepositories returns a map of Docker repositories from the configuration
+func GetDockerRepositories() map[string]model.DockerRegistry {
+	registries := make([]model.DockerRegistry, 0)
+	result := make(map[string]model.DockerRegistry)
+	viper.UnmarshalKey("kubernetes.registries", &registries)
+	for _, registry := range registries {
+		result[registry.Name] = registry
+	}
+	return result
 }

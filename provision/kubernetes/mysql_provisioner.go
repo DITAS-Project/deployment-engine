@@ -184,7 +184,7 @@ func (p MySQLProvisioner) Provision(config *KubernetesConfiguration, deploymentI
 
 	}
 
-	podDescription := GetStatefulSetDescription(dsId, 1, 30, labels, ImageSet{"mysql": image}, secrets, []VolumeData{volume})
+	podDescription := GetStatefulSetDescription(dsId, 1, 30, labels, ImageSet{"mysql": image}, secrets, []VolumeData{volume}, nil)
 
 	logger.Info("Creating MySQL pod")
 	podOut, err := kubernetesClient.CreateOrUpdateStatefulSet(logger, apiv1.NamespaceDefault, &podDescription)

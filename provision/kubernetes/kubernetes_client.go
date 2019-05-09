@@ -18,7 +18,10 @@ package kubernetes
 
 import (
 	"bytes"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"os/exec"
 	"time"
@@ -26,6 +29,8 @@ import (
 	"text/template"
 
 	"deployment-engine/utils"
+
+	"deployment-engine/model"
 
 	"github.com/sirupsen/logrus"
 	appsv1 "k8s.io/api/apps/v1"
@@ -50,6 +55,17 @@ type VolumeData struct {
 	MountPoint   string
 	StorageClass string
 	Size         string
+}
+
+type RegistrySecretData struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+	Email    string `json:"email"`
+	Auth     string `json:"auth"`
+}
+
+type RegistryAuthSecretData struct {
+	Auths map[string]RegistrySecretData `json:"auths"`
 }
 
 // ImageInfo is the information about an image that will be deployed by the deployment engine
@@ -145,6 +161,38 @@ func GetSecretDescription(secret SecretData) corev1.Secret {
 	}
 }
 
+func GetDockerRegistrySecret(repos map[string]model.DockerRegistry, name string) (corev1.Secret, error) {
+
+	auths := RegistryAuthSecretData{
+		Auths: make(map[string]RegistrySecretData, len(repos)),
+	}
+
+	for name, repo := range repos {
+		auth := fmt.Sprintf("%s:%s", repo.Username, repo.Password)
+		auths.Auths[name] = RegistrySecretData{
+			Username: repo.Username,
+			Password: repo.Password,
+			Email:    repo.Email,
+			Auth:     base64.StdEncoding.EncodeToString([]byte(auth)),
+		}
+	}
+
+	jsonAuths, err := json.Marshal(auths)
+	if err != nil {
+		return corev1.Secret{}, fmt.Errorf("Error marshaling docker registry secret data: %s", err.Error())
+	}
+	encoded := base64.StdEncoding.EncodeToString(jsonAuths)
+	return corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+		Type: corev1.SecretTypeDockerConfigJson,
+		Data: map[string][]byte{
+			".dockerconfigjson": []byte(encoded),
+		},
+	}, nil
+}
+
 func GetContainersDescription(images ImageSet, secrets []SecretData, volumes []VolumeData) []corev1.Container {
 
 	containers := make([]corev1.Container, 0, len(images))
@@ -199,8 +247,8 @@ func GetContainersDescription(images ImageSet, secrets []SecretData, volumes []V
 	return containers
 }
 
-func GetPodSpecDescrition(labels map[string]string, terminationPeriod int64, images ImageSet, secrets []SecretData, volumes []VolumeData) corev1.PodTemplateSpec {
-	return corev1.PodTemplateSpec{
+func GetPodSpecDescrition(labels map[string]string, terminationPeriod int64, images ImageSet, secrets []SecretData, volumes []VolumeData, repositorySecrets []string) corev1.PodTemplateSpec {
+	result := corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: labels,
 		},
@@ -209,23 +257,43 @@ func GetPodSpecDescrition(labels map[string]string, terminationPeriod int64, ima
 			Containers:                    GetContainersDescription(images, secrets, volumes),
 		},
 	}
+
+	if repositorySecrets != nil && len(repositorySecrets) > 0 {
+		secrets := make([]corev1.LocalObjectReference, len(repositorySecrets))
+		for i := range repositorySecrets {
+			secrets[i] = corev1.LocalObjectReference{
+				Name: repositorySecrets[i],
+			}
+		}
+		result.Spec.ImagePullSecrets = secrets
+	}
+	return result
 }
 
-func GetDeploymentDescription(name string, replicas int32, terminationPeriod int64, labels map[string]string, images ImageSet, configMap, configMountPoint string) appsv1.Deployment {
+func GetDeploymentDescription(name string, replicas int32, terminationPeriod int64, labels map[string]string, images ImageSet, configMap, configMountPoint string, repositorySecrets []string) appsv1.Deployment {
 
-	configVolume := corev1.Volume{
-		Name: "config",
-		VolumeSource: corev1.VolumeSource{
-			ConfigMap: &corev1.ConfigMapVolumeSource{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: configMap,
-				},
-			},
-		},
+	var volumeData []VolumeData
+	hasConfig := false
+	if configMap != "" && configMountPoint != "" {
+		hasConfig = true
+		volumeData = []VolumeData{VolumeData{Name: "config", MountPoint: configMountPoint}}
 	}
 
-	podTemplate := GetPodSpecDescrition(labels, terminationPeriod, images, nil, []VolumeData{VolumeData{Name: "config", MountPoint: configMountPoint}})
-	podTemplate.Spec.Volumes = []corev1.Volume{configVolume}
+	podTemplate := GetPodSpecDescrition(labels, terminationPeriod, images, nil, volumeData, repositorySecrets)
+
+	if hasConfig {
+		configVolume := corev1.Volume{
+			Name: "config",
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: configMap,
+					},
+				},
+			},
+		}
+		podTemplate.Spec.Volumes = []corev1.Volume{configVolume}
+	}
 
 	return appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -243,7 +311,7 @@ func GetDeploymentDescription(name string, replicas int32, terminationPeriod int
 
 }
 
-func GetStatefulSetDescription(name string, replicas int32, terminationPeriod int64, labels map[string]string, images ImageSet, secrets []SecretData, volumes []VolumeData) appsv1.StatefulSet {
+func GetStatefulSetDescription(name string, replicas int32, terminationPeriod int64, labels map[string]string, images ImageSet, secrets []SecretData, volumes []VolumeData, repositorySecrets []string) appsv1.StatefulSet {
 
 	volumesClaims := make([]corev1.PersistentVolumeClaim, 0)
 	for _, volume := range volumes {
@@ -280,7 +348,7 @@ func GetStatefulSetDescription(name string, replicas int32, terminationPeriod in
 			Selector: &metav1.LabelSelector{
 				MatchLabels: labels,
 			},
-			Template:             GetPodSpecDescrition(labels, terminationPeriod, images, secrets, volumes),
+			Template:             GetPodSpecDescrition(labels, terminationPeriod, images, secrets, volumes, repositorySecrets),
 			VolumeClaimTemplates: volumesClaims,
 		},
 	}
