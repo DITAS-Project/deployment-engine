@@ -32,8 +32,10 @@ const (
 
 type KubernetesConfiguration struct {
 	ConfigurationFile        string
+	RegistriesSecret         string
 	LastNodePort             int
 	FreedNodePorts           []int
+	RegistriesSecrets        map[string]string
 	DeploymentsConfiguration map[string]interface{}
 }
 
@@ -85,7 +87,8 @@ func NewKubernetesController() *KubernetesController {
 			"rook": RookProvisioner{
 				scriptsFolder: scriptsFolder,
 			},
-			"mysql": MySQLProvisioner{},
+			"mysql":    MySQLProvisioner{},
+			"services": GenericServiceProvisioner{},
 		},
 	}
 }
@@ -105,6 +108,10 @@ func (p KubernetesController) initializeConfig(config *KubernetesConfiguration) 
 
 	if config.FreedNodePorts == nil {
 		config.FreedNodePorts = make([]int, 0)
+	}
+
+	if config.RegistriesSecrets == nil {
+		config.RegistriesSecrets = make(map[string]string)
 	}
 }
 

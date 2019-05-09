@@ -33,6 +33,7 @@ type KubernetesProvisioner struct {
 
 type KubernetesConfiguration struct {
 	ConfigurationFile string
+	RegistriesSecret  string
 }
 
 func NewKubernetesProvisioner(parent *Provisioner) *KubernetesProvisioner {
