@@ -18,8 +18,10 @@ package ansible
 
 import (
 	"deployment-engine/model"
+	"deployment-engine/utils"
 	"fmt"
 	"os"
+	"strconv"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -31,6 +33,8 @@ const (
 
 	InventoryFolderDefaultValue = "/tmp/ansible_inventories"
 	ScriptsFolderDefaultValue   = "provision/ansible"
+
+	AnsibleWaitForSSHReadyProperty = "wait_for_ssh_ready"
 )
 
 type Provisioner struct {
@@ -84,6 +88,7 @@ func New() (*Provisioner, error) {
 		"kubeadm":            NewKubeadmProvisioner(&result),
 		"gluster-kubernetes": NewGlusterfsProvisioner(&result),
 		"k3s":                NewK3sProvisioner(&result),
+		"private_registries": NewRegistryProvisioner(&result),
 	}
 
 	return &result, nil
@@ -208,6 +213,20 @@ func (p Provisioner) WriteInventory(deploymentID, infraID, product string, inven
 	return filePath, nil
 }
 
+func (p Provisioner) mustWaitForSSHReady(args map[string][]string) bool {
+	waitStr, ok := utils.GetSingleValue(args, AnsibleWaitForSSHReadyProperty)
+	if !ok {
+		return true
+	}
+
+	wait, err := strconv.ParseBool(waitStr)
+	if err != nil {
+		return true
+	}
+
+	return wait
+}
+
 func (p Provisioner) Provision(deploymentId string, infra *model.InfrastructureDeploymentInfo, product string, args map[string][]string) error {
 
 	provisioner := p.Provisioners[product]
@@ -215,10 +234,12 @@ func (p Provisioner) Provision(deploymentId string, infra *model.InfrastructureD
 		return fmt.Errorf("Product %s not supported by this deployer", product)
 	}
 
-	err := p.WaitForSSHPortReady(deploymentId, infra, args)
-	if err != nil {
-		log.WithError(err).Error("Error waiting for infrastructure to be ready")
-		return err
+	if p.mustWaitForSSHReady(args) {
+		err := p.WaitForSSHPortReady(deploymentId, infra, args)
+		if err != nil {
+			log.WithError(err).Error("Error waiting for infrastructure to be ready")
+			return err
+		}
 	}
 
 	inventory, err := provisioner.BuildInventory(deploymentId, infra, args)

@@ -256,6 +256,15 @@ type PKISecret struct {
 	PublicKey  string `json:"public_key"`
 }
 
+// DockerRegistry is the information to pull images from a private docker registry
+type DockerRegistry struct {
+	Name        string
+	Username    string
+	Password    string
+	Email       string
+	Certificate string
+}
+
 // Deployer is the interface that a module that can deploy virtual resources in a cloud provider must implement.
 type Deployer interface {
 	DeployInfrastructure(deploymentID string, infra InfrastructureType) (InfrastructureDeploymentInfo, error)

@@ -18,6 +18,7 @@ package ansible
 
 import (
 	"deployment-engine/model"
+	"deployment-engine/utils"
 	"fmt"
 	"strings"
 
@@ -97,6 +98,14 @@ func (p KubeadmProvisioner) DeployProduct(inventoryPath, deploymentID string, in
 
 		infra.Products["kubernetes"] = KubernetesConfiguration{
 			ConfigurationFile: inventoryFolder + "/config",
+		}
+		repos := utils.GetDockerRepositories()
+		if repos != nil && len(repos) > 0 {
+			args[AnsibleWaitForSSHReadyProperty] = []string{"false"}
+			err = p.parent.Provision(deploymentID, infra, "private_registries", args)
+			if err != nil {
+				return err
+			}
 		}
 		return nil
 	}
