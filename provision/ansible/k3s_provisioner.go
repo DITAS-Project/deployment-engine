@@ -40,11 +40,11 @@ func NewK3sProvisioner(parent *Provisioner) K3sProvisioner {
 	}
 }
 
-func (p K3sProvisioner) BuildInventory(deploymentID string, infra *model.InfrastructureDeploymentInfo, args map[string][]string) (Inventory, error) {
+func (p K3sProvisioner) BuildInventory(deploymentID string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) (Inventory, error) {
 	return p.parent.Provisioners["kubeadm"].BuildInventory(deploymentID, infra, args)
 }
 
-func (p K3sProvisioner) DeployProduct(inventoryPath, deploymentID string, infra *model.InfrastructureDeploymentInfo, args map[string][]string) error {
+func (p K3sProvisioner) DeployProduct(inventoryPath, deploymentID string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error {
 
 	logger := logrus.WithFields(logrus.Fields{
 		"deployment":     deploymentID,

@@ -45,7 +45,7 @@ func NewProvisionerController(defaultProvisioner model.Provisioner, repo persist
 	return &result
 }
 
-func (p *ProvisionerController) Provision(deploymentID, infraID, product string, args map[string][]string, framework string) (model.DeploymentInfo, error) {
+func (p *ProvisionerController) Provision(deploymentID, infraID, product string, args model.Parameters, framework string) (model.DeploymentInfo, error) {
 	deployment, err := p.Repository.GetDeployment(deploymentID)
 	if err != nil {
 		log.WithError(err).Errorf("Error getting deployment %s", deploymentID)

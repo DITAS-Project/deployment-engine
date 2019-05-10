@@ -26,7 +26,6 @@ import (
 	"github.com/sirupsen/logrus"
 	apiv1 "k8s.io/api/core/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
@@ -45,7 +44,7 @@ type MySQLConfig struct {
 type MySQLProvisioner struct {
 }
 
-func (p MySQLProvisioner) Provision(config *KubernetesConfiguration, deploymentID string, infra *model.InfrastructureDeploymentInfo, args map[string][]string) error {
+func (p MySQLProvisioner) Provision(config *KubernetesConfiguration, deploymentID string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error {
 
 	logger := logrus.WithFields(logrus.Fields{
 		"deployment":     deploymentID,
@@ -54,14 +53,7 @@ func (p MySQLProvisioner) Provision(config *KubernetesConfiguration, deploymentI
 	})
 
 	var err error
-	sizes, ok := args["size"]
-	if !ok || sizes == nil || len(sizes) == 0 {
-		_, err := resource.ParseQuantity(sizes[0])
-		if err != nil {
-			return fmt.Errorf("Storage size %s is invalid: %s", sizes[0], err.Error())
-		}
-		return errors.New("Storage size is mandatory for this datasource")
-	}
+	size, ok := args.GetString("size")
 
 	var mySqlConfig MySQLConfig
 	rawConfig, ok := config.DeploymentsConfiguration["mysql"]
@@ -86,14 +78,14 @@ func (p MySQLProvisioner) Provision(config *KubernetesConfiguration, deploymentI
 	rootPassword, err := password.Generate(10, 3, 2, false, false)
 	var userPassword string
 	var databaseName string
-	username, ok := utils.GetSingleValue(args, "username")
+	username, ok := args.GetString("username")
 	if ok {
-		databaseName, ok = utils.GetSingleValue(args, "database")
+		databaseName, ok = args.GetString("database")
 		if !ok {
 			return errors.New("Database query parameter is mandatory when username is specified")
 		}
 
-		userPassword, ok = utils.GetSingleValue(args, "user_password")
+		userPassword, ok = args.GetString("user_password")
 		if !ok {
 			userPassword, err = password.Generate(10, 3, 2, false, false)
 			if err != nil {
@@ -106,11 +98,10 @@ func (p MySQLProvisioner) Provision(config *KubernetesConfiguration, deploymentI
 		return err
 	}
 
-	storageclassses, ok := args["storage_class"]
+	storageclass, ok := args.GetString("storage_class")
 	if !ok {
 		return errors.New("No storage class specified for persistence")
 	}
-	storageclass := storageclassses[0]
 
 	secrets := []SecretData{
 		SecretData{
@@ -140,7 +131,7 @@ func (p MySQLProvisioner) Provision(config *KubernetesConfiguration, deploymentI
 		Name:         volumeId,
 		MountPoint:   "/var/lib/mysql",
 		StorageClass: storageclass,
-		Size:         sizes[0],
+		Size:         size,
 	}
 
 	imageEnv := make(map[string]string)

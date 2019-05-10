@@ -40,11 +40,11 @@ func NewRegistryProvisioner(parent *Provisioner) RegistryProvisioner {
 	}
 }
 
-func (p RegistryProvisioner) BuildInventory(deploymentID string, infra *model.InfrastructureDeploymentInfo, args map[string][]string) (Inventory, error) {
+func (p RegistryProvisioner) BuildInventory(deploymentID string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) (Inventory, error) {
 	return p.parent.Provisioners["kubeadm"].BuildInventory(deploymentID, infra, args)
 }
 
-func (p RegistryProvisioner) DeployProduct(inventoryPath, deploymentID string, infra *model.InfrastructureDeploymentInfo, args map[string][]string) error {
+func (p RegistryProvisioner) DeployProduct(inventoryPath, deploymentID string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error {
 
 	logger := logrus.WithFields(map[string]interface{}{
 		"deployment":     deploymentID,
