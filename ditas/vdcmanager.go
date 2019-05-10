@@ -183,11 +183,15 @@ func (m *VDCManager) provisionKubernetes(deployment model.DeploymentInfo, vdcInf
 			return result, err
 		}
 
-		_, err = m.ProvisionerController.Provision(deployment.ID, infra.ID, "rook", nil, "kubernetes")
+		/*args := map[string][]string{
+			ansible.AnsibleWaitForSSHReadyProperty: []string{"false"},
+		}
+
+		_, err = m.ProvisionerController.Provision(deployment.ID, infra.ID, "rook", args, "kubernetes")
 		if err != nil {
 			log.WithError(err).Error("Error deploying ceph cluster to master")
 			return result, err
-		}
+		}*/
 
 		vdcInfo.InfraVDCs[infra.ID] = initializeVDCInformation()
 	}

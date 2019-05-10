@@ -30,13 +30,13 @@ import (
 const (
 	InventoryFolderProperty = "ansible.folders.inventory"
 	ScriptsFolderProperty   = "ansible.folders.scripts"
-	KubesprayFolderProperty  = "ansible.folders.kubespray"
+	KubesprayFolderProperty = "ansible.folders.kubespray"
 
 	InventoryFolderDefaultValue = "/tmp/ansible_inventories"
 	ScriptsFolderDefaultValue   = "provision/ansible"
 
 	AnsibleWaitForSSHReadyProperty = "wait_for_ssh_ready"
-	KubesprayFolderDefaultValue = "provision/ansible/kubespray"
+	KubesprayFolderDefaultValue    = "provision/ansible/kubespray"
 )
 
 type Provisioner struct {
@@ -93,7 +93,7 @@ func New() (*Provisioner, error) {
 		"gluster-kubernetes": NewGlusterfsProvisioner(&result),
 		"k3s":                NewK3sProvisioner(&result),
 		"private_registries": NewRegistryProvisioner(&result),
-		"kubespray":  NewKubesprayProvisioner(&result, kubesprayFolder),
+		"kubespray":          NewKubesprayProvisioner(&result, kubesprayFolder),
 	}
 
 	return &result, nil
@@ -248,14 +248,6 @@ func (p Provisioner) Provision(deploymentId string, infra *model.InfrastructureD
 	}
 
 	if p.mustWaitForSSHReady(args) {
-		err := p.WaitForSSHPortReady(deploymentId, infra, args)
-		if err != nil {
-			log.WithError(err).Error("Error waiting for infrastructure to be ready")
-			return err
-		}
-	}
-
-	if wait {
 		err := p.WaitForSSHPortReady(deploymentId, infra, args)
 		if err != nil {
 			log.WithError(err).Error("Error waiting for infrastructure to be ready")

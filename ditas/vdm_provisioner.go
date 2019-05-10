@@ -104,7 +104,12 @@ func (p VDMProvisioner) Provision(config *kubernetes.KubernetesConfiguration, de
 		InternalPort: 8080,
 	}
 
-	vdmDeployment := kubernetes.GetDeploymentDescription("vdm", int32(1), int64(30), vdmLabels, imageSet, DitasVDMConfigMapName, "/etc/ditas")
+	var repSecrets []string
+	if config.RegistriesSecret != "" {
+		repSecrets = []string{config.RegistriesSecret}
+	}
+
+	vdmDeployment := kubernetes.GetDeploymentDescription("vdm", int32(1), int64(30), vdmLabels, imageSet, DitasVDMConfigMapName, "/etc/ditas", repSecrets)
 
 	logger.Info("Creating or updating VDM pod")
 	_, err = kubeClient.CreateOrUpdateDeployment(logger, DitasNamespace, &vdmDeployment)
