@@ -72,7 +72,7 @@ func (p GenericServiceProvisioner) Provision(config *KubernetesConfiguration, de
 
 	_, ok = servicesConfig.Ports[name]
 	if ok {
-		return fmt.Errorf("Service %s already exists")
+		return fmt.Errorf("Service %s already exists", name)
 	}
 
 	client, err := NewClient(config.ConfigurationFile)

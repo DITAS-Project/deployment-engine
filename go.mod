@@ -3,7 +3,6 @@ module deployment-engine
 go 1.12
 
 require (
-	github.com/DITAS-Project/blueprint-go v0.0.0-20190311145452-d2d2b094b09c // indirect
 	github.com/go-openapi/spec v0.19.0 // indirect
 	github.com/go-stack/stack v1.8.0 // indirect
 	github.com/gogo/protobuf v1.2.1 // indirect
