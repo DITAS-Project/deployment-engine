@@ -61,7 +61,7 @@ func (p KubernetesProvisioner) buildHost(host model.NodeInfo) InventoryHost {
 	}
 }
 
-func (p KubernetesProvisioner) BuildInventory(deploymentID string, infra *model.InfrastructureDeploymentInfo, args map[string][]string) (Inventory, error) {
+func (p KubernetesProvisioner) BuildInventory(deploymentID string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) (Inventory, error) {
 	result := Inventory{
 		Hosts: make([]InventoryHost, 0),
 	}
@@ -73,7 +73,7 @@ func (p KubernetesProvisioner) BuildInventory(deploymentID string, infra *model.
 	return result, nil
 }
 
-func (p KubernetesProvisioner) DeployProduct(inventoryPath, deploymentID string, infra *model.InfrastructureDeploymentInfo, args map[string][]string) error {
+func (p KubernetesProvisioner) DeployProduct(inventoryPath, deploymentID string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error {
 
 	installDocker := true
 	if infra.ExtraProperties != nil {

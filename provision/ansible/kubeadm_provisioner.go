@@ -41,7 +41,7 @@ func NewKubeadmProvisioner(parent *Provisioner) KubeadmProvisioner {
 	}
 }
 
-func (p KubeadmProvisioner) BuildInventory(deploymentID string, infra *model.InfrastructureDeploymentInfo, args map[string][]string) (Inventory, error) {
+func (p KubeadmProvisioner) BuildInventory(deploymentID string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) (Inventory, error) {
 	inventory, err := p.parent.Provisioners["kubernetes"].BuildInventory(deploymentID, infra, args)
 	if err != nil {
 		return inventory, err
@@ -79,7 +79,7 @@ func (p KubeadmProvisioner) BuildInventory(deploymentID string, infra *model.Inf
 	return inventory, err
 }
 
-func (p KubeadmProvisioner) DeployProduct(inventoryPath, deploymentID string, infra *model.InfrastructureDeploymentInfo, args map[string][]string) error {
+func (p KubeadmProvisioner) DeployProduct(inventoryPath, deploymentID string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error {
 
 	logger := logrus.WithFields(map[string]interface{}{
 		"deployment":     deploymentID,

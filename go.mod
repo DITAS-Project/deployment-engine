@@ -20,6 +20,7 @@ require (
 	github.com/modern-go/reflect2 v1.0.1 // indirect
 	github.com/sethvargo/go-password v0.1.2
 	github.com/sirupsen/logrus v1.4.1
+	github.com/spf13/cast v1.3.0
 	github.com/spf13/viper v1.3.2
 	github.com/tidwall/pretty v0.0.0-20190325153808-1166b9ac2b65 // indirect
 	github.com/xdg/scram v0.0.0-20180814205039-7eeb5667e42c // indirect

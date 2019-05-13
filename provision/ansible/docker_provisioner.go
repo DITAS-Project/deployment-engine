@@ -43,7 +43,7 @@ func (p DockerProvisioner) buildHost(host model.NodeInfo) InventoryHost {
 	}
 }
 
-func (p DockerProvisioner) BuildInventory(deploymentID string, infra *model.InfrastructureDeploymentInfo, args map[string][]string) (Inventory, error) {
+func (p DockerProvisioner) BuildInventory(deploymentID string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) (Inventory, error) {
 
 	result := Inventory{
 		Hosts: make([]InventoryHost, 0),
@@ -56,7 +56,7 @@ func (p DockerProvisioner) BuildInventory(deploymentID string, infra *model.Infr
 	return result, nil
 }
 
-func (p DockerProvisioner) DeployProduct(inventoryPath, deploymentID string, infra *model.InfrastructureDeploymentInfo, args map[string][]string) error {
+func (p DockerProvisioner) DeployProduct(inventoryPath, deploymentID string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error {
 
 	logger := logrus.WithField("product", "docker")
 	err := utils.ExecuteCommand(logger, "ansible-galaxy", "install", "geerlingguy.docker")

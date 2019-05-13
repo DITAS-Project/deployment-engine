@@ -21,7 +21,6 @@ import (
 	"deployment-engine/utils"
 	"errors"
 	"fmt"
-	"strconv"
 
 	"github.com/sirupsen/logrus"
 	apiv1 "k8s.io/api/core/v1"
@@ -41,38 +40,27 @@ func (p GenericServiceProvisioner) ValidateExternalPort(port int, config *Kubern
 
 }
 
-func (p GenericServiceProvisioner) Provision(config *KubernetesConfiguration, deploymentID string, infra *model.InfrastructureDeploymentInfo, args map[string][]string) error {
+func (p GenericServiceProvisioner) Provision(config *KubernetesConfiguration, deploymentID string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error {
 
-	name, ok := utils.GetSingleValue(args, "name")
+	name, ok := args.GetString("name")
 	if !ok {
 		return errors.New("name parameter is mandatory")
 	}
 
-	image, ok := utils.GetSingleValue(args, "image")
+	image, ok := args.GetString("image")
 	if !ok {
 		return errors.New("image parameter is mandatory")
 	}
 
-	internalPortStr, ok := utils.GetSingleValue(args, "internal_port")
+	internalPort, ok := args.GetInt("internal_port")
 	if !ok {
 		return errors.New("internal_port parameter is mandatory")
 	}
 
-	internalPort, err := strconv.Atoi(internalPortStr)
-	if err != nil {
-		return fmt.Errorf("Internal port is not a valid number: %s", err.Error())
-	}
-
-	strReplicas, ok := utils.GetSingleValue(args, "replicas")
+	replicas, ok := args.GetInt("replicas")
 	if !ok {
-		strReplicas = "1"
+		replicas = 1
 	}
-
-	intReplicas, err := strconv.ParseInt(strReplicas, 10, 32)
-	if err != nil {
-		return fmt.Errorf("Number of replicas is not a valid number: %s", err.Error())
-	}
-	replicas := int32(intReplicas)
 
 	var servicesConfig ServicesConfiguration
 	servicesConfigIface, ok := config.DeploymentsConfiguration["services"]
@@ -124,7 +112,7 @@ func (p GenericServiceProvisioner) Provision(config *KubernetesConfiguration, de
 		repoSecrets = []string{config.RegistriesSecret}
 	}
 
-	pod := GetDeploymentDescription(fmt.Sprintf("%s-deployment", name), replicas, terminationPeriod, labels, images, "", "", repoSecrets)
+	pod := GetDeploymentDescription(fmt.Sprintf("%s-deployment", name), int32(replicas), terminationPeriod, labels, images, "", "", repoSecrets)
 
 	_, err = client.CreateOrUpdateDeployment(logger, apiv1.NamespaceDefault, &pod)
 	if err != nil {

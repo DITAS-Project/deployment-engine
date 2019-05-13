@@ -19,6 +19,8 @@ package model
 import (
 	"fmt"
 	"strconv"
+
+	"github.com/spf13/cast"
 )
 
 const (
@@ -265,6 +267,8 @@ type DockerRegistry struct {
 	Certificate string
 }
 
+type Parameters map[string]interface{}
+
 // Deployer is the interface that a module that can deploy virtual resources in a cloud provider must implement.
 type Deployer interface {
 	DeployInfrastructure(deploymentID string, infra InfrastructureType) (InfrastructureDeploymentInfo, error)
@@ -273,7 +277,7 @@ type Deployer interface {
 
 //Provisioner is the interface that must implement custom provisioners such as ansible, etc. If some configuration needs to be passed to other provisioners or saved in the database, it should be done by setting them in the Products field of the passed infrastructure
 type Provisioner interface {
-	Provision(deployment string, infra *InfrastructureDeploymentInfo, product string, args map[string][]string) error
+	Provision(deployment string, infra *InfrastructureDeploymentInfo, product string, args Parameters) error
 }
 
 // Frontend is the interface that must be implemented for any frontend that will serve an API around the functionality of the deployment engine
@@ -326,4 +330,28 @@ func (i InfrastructureDeploymentInfo) GetFirstNodeOfRole(role string) (NodeInfo,
 	}
 
 	return nodes[0], nil
+}
+
+func (p Parameters) GetString(key string) (string, bool) {
+	elem, ok := p[key]
+	if !ok {
+		return "", ok
+	}
+	return cast.ToString(elem), ok
+}
+
+func (p Parameters) GetBool(key string) (bool, bool) {
+	elem, ok := p[key]
+	if !ok {
+		return false, ok
+	}
+	return cast.ToBool(elem), ok
+}
+
+func (p Parameters) GetInt(key string) (int, bool) {
+	elem, ok := p[key]
+	if !ok {
+		return 0, ok
+	}
+	return cast.ToInt(elem), ok
 }

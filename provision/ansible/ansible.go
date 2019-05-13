@@ -18,10 +18,8 @@ package ansible
 
 import (
 	"deployment-engine/model"
-	"deployment-engine/utils"
 	"fmt"
 	"os"
-	"strconv"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -30,11 +28,13 @@ import (
 const (
 	InventoryFolderProperty = "ansible.folders.inventory"
 	ScriptsFolderProperty   = "ansible.folders.scripts"
+	KubesprayFolderProperty = "ansible.folders.kubespray"
 
 	InventoryFolderDefaultValue = "/tmp/ansible_inventories"
 	ScriptsFolderDefaultValue   = "provision/ansible"
 
 	AnsibleWaitForSSHReadyProperty = "wait_for_ssh_ready"
+	KubesprayFolderDefaultValue    = "provision/ansible/kubespray"
 )
 
 type Provisioner struct {
@@ -60,16 +60,18 @@ type Inventory struct {
 }
 
 type ProductProvisioner interface {
-	BuildInventory(deploymentID string, infra *model.InfrastructureDeploymentInfo, args map[string][]string) (Inventory, error)
-	DeployProduct(inventory, deploymentID string, infra *model.InfrastructureDeploymentInfo, args map[string][]string) error
+	BuildInventory(deploymentID string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) (Inventory, error)
+	DeployProduct(inventory, deploymentID string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error
 }
 
 func New() (*Provisioner, error) {
 	viper.SetDefault(InventoryFolderProperty, InventoryFolderDefaultValue)
 	viper.SetDefault(ScriptsFolderProperty, ScriptsFolderDefaultValue)
+	viper.SetDefault(KubesprayFolderProperty, KubesprayFolderDefaultValue)
 
 	inventoryFolder := viper.GetString(InventoryFolderProperty)
 	scriptsFolder := viper.GetString(ScriptsFolderProperty)
+	kubesprayFolder := viper.GetString(KubesprayFolderProperty)
 
 	err := os.MkdirAll(inventoryFolder, os.ModePerm)
 	if err != nil {
@@ -89,12 +91,17 @@ func New() (*Provisioner, error) {
 		"gluster-kubernetes": NewGlusterfsProvisioner(&result),
 		"k3s":                NewK3sProvisioner(&result),
 		"private_registries": NewRegistryProvisioner(&result),
+		"kubespray":          NewKubesprayProvisioner(&result, kubesprayFolder),
 	}
 
 	return &result, nil
 }
 
-func (p *Provisioner) WaitForSSHPortReady(deploymentID string, infra *model.InfrastructureDeploymentInfo, args map[string][]string) error {
+func (p *Provisioner) AddProvisioner(name string, provisioner ProductProvisioner) {
+	p.Provisioners[name] = provisioner
+}
+
+func (p *Provisioner) WaitForSSHPortReady(deploymentID string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error {
 	logger := log.WithField("deployment", deploymentID).WithField("infrastructure", infra.ID)
 	logger.Info("Waiting for port 22 to be ready")
 
@@ -213,28 +220,19 @@ func (p Provisioner) WriteInventory(deploymentID, infraID, product string, inven
 	return filePath, nil
 }
 
-func (p Provisioner) mustWaitForSSHReady(args map[string][]string) bool {
-	waitStr, ok := utils.GetSingleValue(args, AnsibleWaitForSSHReadyProperty)
-	if !ok {
-		return true
+func (p Provisioner) Provision(deploymentId string, infra *model.InfrastructureDeploymentInfo, product string, args model.Parameters) error {
+
+	if args == nil {
+		args = make(model.Parameters)
 	}
-
-	wait, err := strconv.ParseBool(waitStr)
-	if err != nil {
-		return true
-	}
-
-	return wait
-}
-
-func (p Provisioner) Provision(deploymentId string, infra *model.InfrastructureDeploymentInfo, product string, args map[string][]string) error {
 
 	provisioner := p.Provisioners[product]
 	if provisioner == nil {
 		return fmt.Errorf("Product %s not supported by this deployer", product)
 	}
 
-	if p.mustWaitForSSHReady(args) {
+	wait, ok := args.GetBool(AnsibleWaitForSSHReadyProperty)
+	if ok && wait {
 		err := p.WaitForSSHPortReady(deploymentId, infra, args)
 		if err != nil {
 			log.WithError(err).Error("Error waiting for infrastructure to be ready")

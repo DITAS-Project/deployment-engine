@@ -291,7 +291,7 @@ func (a *App) DeployProduct(w http.ResponseWriter, r *http.Request) {
 
 	params := r.URL.Query()
 
-	deployment, err := a.ProvisionerController.Provision(depId, infraId, product, params, framework)
+	deployment, err := a.ProvisionerController.Provision(depId, infraId, product, GetParameters(params), framework)
 	if err != nil {
 		RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Error deploying product: %s", err.Error()))
 		return
@@ -349,6 +349,22 @@ func (a *App) CreateSecret(w http.ResponseWriter, r *http.Request) {
 	Respond(w, http.StatusCreated, []byte(secretID), "plain/text")
 	return
 
+}
+
+func GetParameters(args map[string][]string) model.Parameters {
+	result := make(model.Parameters)
+	for k, v := range args {
+		if v != nil {
+			if len(v) == 1 {
+				result[k] = v[0]
+			}
+
+			if len(v) > 1 {
+				result[k] = v
+			}
+		}
+	}
+	return result
 }
 
 func RespondWithError(w http.ResponseWriter, code int, message string) {
