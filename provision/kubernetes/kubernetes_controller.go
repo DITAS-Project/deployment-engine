@@ -34,26 +34,43 @@ type KubernetesConfiguration struct {
 	ConfigurationFile        string
 	RegistriesSecret         string
 	LastNodePort             int
-	FreedNodePorts           []int
+	UsedPorts                map[int]bool
 	RegistriesSecrets        map[string]string
 	DeploymentsConfiguration map[string]interface{}
 }
 
 func (c *KubernetesConfiguration) GetNewFreePort() int {
-	port := 0
+
 	if c.LastNodePort == 0 {
 		c.LastNodePort = 30000
 	}
 
-	if c.FreedNodePorts == nil || len(c.FreedNodePorts) == 0 {
-		port = c.LastNodePort
+	_, ok := c.UsedPorts[c.LastNodePort]
+	for ok {
 		c.LastNodePort++
-	} else {
-		port = c.FreedNodePorts[len(c.FreedNodePorts)-1]
-		c.FreedNodePorts = c.FreedNodePorts[:len(c.FreedNodePorts)-1]
+		_, ok = c.UsedPorts[c.LastNodePort]
 	}
 
-	return port
+	if c.portInRange(c.LastNodePort) {
+		c.UsedPorts[c.LastNodePort] = true
+		return c.LastNodePort
+	}
+
+	return -1
+}
+
+func (c *KubernetesConfiguration) ClaimPort(port int) error {
+	if !c.portInRange(port) {
+		return fmt.Errorf("Port %d is outside of the NodePort range", port)
+	}
+
+	_, ok := c.UsedPorts[port]
+	if ok {
+		return fmt.Errorf("Port %d is already in use", port)
+	}
+
+	c.UsedPorts[port] = true
+	return nil
 }
 
 func (c KubernetesConfiguration) portInRange(port int) bool {
@@ -61,11 +78,13 @@ func (c KubernetesConfiguration) portInRange(port int) bool {
 }
 
 func (c *KubernetesConfiguration) LiberatePort(port int) {
-	if c.portInRange(port) {
-		if c.FreedNodePorts == nil {
-			c.FreedNodePorts = make([]int, 0)
-		}
-		c.FreedNodePorts = append(c.FreedNodePorts, port)
+	_, ok := c.UsedPorts[port]
+	if ok {
+		delete(c.UsedPorts, port)
+	}
+
+	if port < c.LastNodePort {
+		c.LastNodePort = port
 	}
 }
 
@@ -106,8 +125,8 @@ func (p KubernetesController) initializeConfig(config *KubernetesConfiguration) 
 		config.LastNodePort = 30000
 	}
 
-	if config.FreedNodePorts == nil {
-		config.FreedNodePorts = make([]int, 0)
+	if config.UsedPorts == nil {
+		config.UsedPorts = make(map[int]bool)
 	}
 
 	if config.RegistriesSecrets == nil {

@@ -171,7 +171,7 @@ func (p MySQLProvisioner) Provision(config *KubernetesConfiguration, deploymentI
 		} else {
 			instanceConfig.UserSecretID = secretData.SecretID
 		}
-		logger.Info("Secret %s successfully created", secretData.SecretID)
+		logger.Infof("Secret %s successfully created", secretData.SecretID)
 
 	}
 
