@@ -70,7 +70,7 @@ func (c *KubernetesConfiguration) LiberatePort(port int) {
 }
 
 type KubernetesProvisioner interface {
-	Provision(config *KubernetesConfiguration, deploymentID string, infra *model.InfrastructureDeploymentInfo, args map[string][]string) error
+	Provision(config *KubernetesConfiguration, deploymentID string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error
 }
 
 type KubernetesController struct {
@@ -115,7 +115,7 @@ func (p KubernetesController) initializeConfig(config *KubernetesConfiguration) 
 	}
 }
 
-func (p KubernetesController) Provision(deploymentId string, infra *model.InfrastructureDeploymentInfo, product string, args map[string][]string) error {
+func (p KubernetesController) Provision(deploymentId string, infra *model.InfrastructureDeploymentInfo, product string, args model.Parameters) error {
 	rawKubeConfig, ok := infra.Products["kubernetes"]
 	if !ok {
 		return fmt.Errorf("Kubernetes is not installed in infrastructure %s of deployment %s", infra.ID, deploymentId)
