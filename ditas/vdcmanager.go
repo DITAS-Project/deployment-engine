@@ -87,14 +87,10 @@ func NewVDCManager(deployer *infrastructure.Deployer, provisionerController *pro
 	configVarsPath := configFolder + "/vars.yml"
 	ditasPodsConfigFolder := viper.GetString(DitasConfigFolderProperty)
 	vdcCollection := db.Collection("vdcs")
-	registry := Registry{
-		URL:      viper.GetString(DitasRegistryURLProperty),
-		Username: viper.GetString(DitasRegistryUsernameProperty),
-		Password: viper.GetString(DitasRegistryPasswordProperty),
-	}
 
 	kubeProvisioner := kubernetes.NewKubernetesController()
-	kubeProvisioner.AddProvisioner("vdm", NewVDMProvisioner(scriptsFolder, configVarsPath, ditasPodsConfigFolder, registry))
+	kubeProvisioner.AddProvisioner("vdm", NewVDMProvisioner(scriptsFolder, configVarsPath, ditasPodsConfigFolder))
+	kubeProvisioner.AddProvisioner("vdc", NewVDCProvisioner(ditasPodsConfigFolder))
 
 	provisionerController.Provisioners["kubernetes"] = kubeProvisioner
 
@@ -275,60 +271,16 @@ func (m *VDCManager) DeployVDC(vdcInfo VDCInformation, blueprint blueprint.Bluep
 }
 
 func (m *VDCManager) doDeployVDC(deploymentID string, infra model.InfrastructureDeploymentInfo, bp blueprint.BlueprintType, vdcID string, port int) error {
-	logger := log.WithField("blueprint", *bp.InternalStructure.Overview.Name)
-	_, err := m.writeBlueprint(logger, bp, vdcID, deploymentID, infra.ID)
-	if err != nil {
-		logger.WithError(err).Error("Error writing blueprint")
-		return err
-	}
 
-	//TODO: Create the vdc deployer
+	args := make(model.Parameters)
+	args["blueprint"] = bp
+	args["vdcId"] = vdcID
 
-	/*return m.executePlaybook(deploymentID, infra, "deploy_vdc.yml", map[string]string{
-		"vdcId":          vdcID,
-		"vars_file":      m.ConfigVariablesPath,
-		"blueprint_path": blueprintPath,
-		"config_folder":  m.ConfigFolder,
-		"master_ip":      infra.Master.IP,
-		"internalPort":   strconv.Itoa(port + 20000),
-		"vdcPort":        strconv.Itoa(port),
-	})*/
-	return nil
+	_, err := m.ProvisionerController.Provision(deploymentID, infra.ID, "vdc", args, "kubernetes")
+	return err
 }
 
-func (m *VDCManager) writeBlueprint(logger *log.Entry, bp blueprint.BlueprintType, vdcID, deploymentID, infraID string) (string, error) {
-	/*path := ansible.GetInventoryFolder(deploymentID, infraID) + "/" + vdcID
-
-	err := os.MkdirAll(path, os.ModePerm)
-	if err != nil {
-		logger.WithError(err).Errorf("Error creating infrastructure blueprints folder %s", path)
-		return "", err
-	}
-
-	name := path + "/blueprint.json"
-	logger.Infof("Copying blueprint to %s", name)
-
-	jsonData, err := json.Marshal(bp)
-	jsonFile, err := os.Create(name)
-	if err != nil {
-		logger.WithError(err).Errorf("Error creating blueprint file %s", name)
-		return name, err
-	}
-	defer jsonFile.Close()
-	_, err = jsonFile.Write(jsonData)
-	if err != nil {
-		logger.WithError(err).Errorf("Error writing blueprint file %s", name)
-		return name, err
-	}
-
-	logger.Info("Blueprint copied")
-
-	return name, nil*/
-	// TODO: This should be done by the VDC provisioner
-	return "", nil
-}
-
-func (m *VDCManager) DeployDatasource(blueprintId, infraId, datasourceType string, args map[string][]string) error {
+func (m *VDCManager) DeployDatasource(blueprintId, infraId, datasourceType string, args model.Parameters) error {
 	var blueprintInfo VDCInformation
 	err := m.Collection.FindOne(context.Background(), bson.M{"_id": blueprintId}).Decode(&blueprintInfo)
 	if err != nil {

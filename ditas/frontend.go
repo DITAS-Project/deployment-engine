@@ -280,7 +280,7 @@ func (a *DitasFrontend) createDatasource(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	err := a.VDCManagerInstance.DeployDatasource(blueprintId, infraId, datasource, r.URL.Query())
+	err := a.VDCManagerInstance.DeployDatasource(blueprintId, infraId, datasource, restfrontend.GetParameters(r.URL.Query()))
 	if err != nil {
 		restfrontend.RespondWithError(w, http.StatusInternalServerError, err.Error())
 		return

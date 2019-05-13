@@ -122,7 +122,7 @@ func (p KubernetesController) Provision(deploymentId string, infra *model.Infras
 	}
 
 	if args == nil {
-		args = make(map[string][]string)
+		args = make(model.Parameters)
 	}
 
 	provisioner, ok := p.productProvisioners[product]

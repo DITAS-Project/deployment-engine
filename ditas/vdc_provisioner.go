@@ -22,25 +22,132 @@ import (
 	"deployment-engine/model"
 	"deployment-engine/provision/kubernetes"
 	"deployment-engine/utils"
+	"encoding/json"
 	"fmt"
 
+	blueprint "github.com/DITAS-Project/blueprint-go"
 	"github.com/sirupsen/logrus"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 type VDCProvisioner struct {
+	configFolder string
 }
 
-func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, deploymentID string, infra *model.InfrastructureDeploymentInfo, args map[string][]string) error {
+func NewVDCProvisioner(configFolder string) *VDCProvisioner {
+	return &VDCProvisioner{
+		configFolder: configFolder,
+	}
+}
+
+func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, deploymentID string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error {
 
 	logger := logrus.WithFields(logrus.Fields{
 		"deployment":     deploymentID,
 		"infrastructure": infra.ID,
 	})
 
-	blueprint, ok := utils.GetSingleValue(args, "blueprint")
+	blueprintRaw, ok := args["blueprint"]
 	if !ok {
 		return fmt.Errorf("Can't find blueprint in parameters")
 	}
 
-	return nil
+	bp := blueprintRaw.(blueprint.BlueprintType)
+	vdcId, ok := args.GetString("vdcId")
+	if !ok {
+		return fmt.Errorf("Can't find VDC identifier in parameters")
+	}
+	logger = logger.WithField("VDC", vdcId)
+
+	vars, err := utils.GetVarsFromConfigFolder()
+	if err != nil {
+		return err
+	}
+
+	configMapName := fmt.Sprintf("%s-configmap", vdcId)
+
+	configMap, err := kubernetes.GetConfigMapFromFolder(p.configFolder+"/vdc", configMapName, vars)
+	if err != nil {
+		logger.WithError(err).Error("Error reading configuration map")
+		return err
+	}
+
+	strBp, err := json.Marshal(bp)
+	if err != nil {
+		return fmt.Errorf("Error marshalling blueprint: %s\n", err.Error())
+	}
+
+	configMap.Data["blueprint.json"] = string(strBp)
+
+	kubeClient, err := kubernetes.NewClient(config.ConfigurationFile)
+	if err != nil {
+		logger.WithError(err).Error("Error getting kubernetes client")
+		return err
+	}
+
+	logger.Info("Creating or updating VDC config map")
+	_, err = kubeClient.CreateOrUpdateConfigMap(logger, DitasNamespace, &configMap)
+
+	if err != nil {
+		return err
+	}
+
+	vdcLabels := map[string]string{
+		"component": vdcId,
+	}
+
+	var imageSet kubernetes.ImageSet
+	utils.TransformObject(bp.InternalStructure.VDCImages, &imageSet)
+	imageSet["sla-manager"] = kubernetes.ImageInfo{
+		Image: "ditas/slalite",
+	}
+
+	var repoSecrets []string
+	if config.RegistriesSecret != "" {
+		repoSecrets = []string{config.RegistriesSecret}
+	}
+
+	vdcDeployment := kubernetes.GetDeploymentDescription(vdcId, int32(1), int64(30), vdcLabels, imageSet, configMapName, "/etc/ditas", repoSecrets)
+
+	logger.Info("Creating or updating VDC pod")
+	_, err = kubeClient.CreateOrUpdateDeployment(logger, DitasNamespace, &vdcDeployment)
+
+	if err != nil {
+		return err
+	}
+
+	ports := make([]corev1.ServicePort, 0)
+
+	for _, image := range imageSet {
+		if image.ExternalPort != 0 {
+			ports = append(ports, corev1.ServicePort{
+				Port:       int32(image.ExternalPort),
+				NodePort:   int32(image.ExternalPort),
+				TargetPort: intstr.FromInt(image.InternalPort),
+			})
+		}
+	}
+
+	vdcService := corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: vdcId,
+		},
+		Spec: corev1.ServiceSpec{
+			Type:     corev1.ServiceTypeClusterIP,
+			Selector: vdcLabels,
+			Ports:    ports,
+		},
+	}
+
+	logger.Info("Creating or updating VDC service")
+	_, err = kubeClient.CreateOrUpdateService(logger, DitasNamespace, &vdcService)
+	if err != nil {
+		return err
+	}
+
+	logger.Info("VDC successfully deployed")
+
+	return err
 }

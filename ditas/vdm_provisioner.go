@@ -24,7 +24,6 @@ import (
 	"deployment-engine/utils"
 
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -38,39 +37,24 @@ type VDMProvisioner struct {
 	scriptsFolder       string
 	configVariablesPath string
 	configFolder        string
-	registry            Registry
 }
 
-func NewVDMProvisioner(scriptsFolder, configVariablesPath, configFolder string, registry Registry) VDMProvisioner {
+func NewVDMProvisioner(scriptsFolder, configVariablesPath, configFolder string) VDMProvisioner {
 	return VDMProvisioner{
 		scriptsFolder:       scriptsFolder,
 		configVariablesPath: configVariablesPath,
 		configFolder:        configFolder,
-		registry:            registry,
 	}
 }
 
-func (p VDMProvisioner) getVarsFromConfigFolder() (map[string]interface{}, error) {
-	generalConfigFolder, err := utils.ConfigurationFolder()
-	if err != nil {
-		logrus.WithError(err).Errorf("Error getting DITAS configuration folder")
-		return nil, err
-	}
-	reader := viper.New()
-	reader.SetConfigName("vars")
-	reader.AddConfigPath(generalConfigFolder)
-	reader.ReadInConfig()
-	return reader.AllSettings(), nil
-}
-
-func (p VDMProvisioner) Provision(config *kubernetes.KubernetesConfiguration, deploymentID string, infra *model.InfrastructureDeploymentInfo, args map[string][]string) error {
+func (p VDMProvisioner) Provision(config *kubernetes.KubernetesConfiguration, deploymentID string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error {
 
 	logger := logrus.WithFields(logrus.Fields{
 		"deployment":     deploymentID,
 		"infrastructure": infra.ID,
 	})
 
-	vars, err := p.getVarsFromConfigFolder()
+	vars, err := utils.GetVarsFromConfigFolder()
 	if err != nil {
 		return err
 	}

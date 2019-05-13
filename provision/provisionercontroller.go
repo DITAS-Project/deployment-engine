@@ -75,7 +75,7 @@ func (p *ProvisionerController) Provision(deploymentID, infraID, product string,
 	}
 
 	if args == nil {
-		args = make(map[string][]string)
+		args = make(model.Parameters)
 	}
 
 	err = provisioner.Provision(deploymentID, &infra, product, args)
