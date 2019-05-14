@@ -12,15 +12,12 @@
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
  * License for the specific language governing permissions and limitations under
  * the License.
- *
- * This is being developed for the DITAS Project: https://www.ditas-project.eu/
  */
 
-package ditas
+package ansible
 
 import (
 	"deployment-engine/model"
-	"deployment-engine/provision/ansible"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -29,7 +26,7 @@ import (
 )
 
 const (
-	DitasGlusterFSClientInstalled = "ditas_glusterfs_client_installed"
+	GlusterFSClientInstalled = "glusterfs_client_installed"
 )
 
 type glusterFSHostnamesType struct {
@@ -56,18 +53,18 @@ type glusterFSTopology struct {
 }
 
 type GlusterfsProvisioner struct {
-	parent        *ansible.Provisioner
+	parent        *Provisioner
 	scriptsFolder string
 }
 
-func NewGlusterfsProvisioner(parent *ansible.Provisioner, scriptsFolder string) GlusterfsProvisioner {
+func NewGlusterfsProvisioner(parent *Provisioner) GlusterfsProvisioner {
 	return GlusterfsProvisioner{
 		parent:        parent,
-		scriptsFolder: scriptsFolder,
+		scriptsFolder: parent.ScriptsFolder,
 	}
 }
 
-func (p GlusterfsProvisioner) BuildInventory(deploymentID string, infra model.InfrastructureDeploymentInfo, args map[string][]string) (ansible.Inventory, error) {
+func (p GlusterfsProvisioner) BuildInventory(deploymentID string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) (Inventory, error) {
 	return p.parent.Provisioners["kubeadm"].BuildInventory(deploymentID, infra, args)
 }
 
@@ -93,11 +90,12 @@ func (p GlusterfsProvisioner) toGlusterFSNode(node model.NodeInfo) glusterFSNode
 }
 
 func (p GlusterfsProvisioner) generateGlusterFSTopology(infra model.InfrastructureDeploymentInfo) (string, error) {
-	nodes := make([]glusterFSNodeType, len(infra.Slaves)+1)
-	nodes[0] = p.toGlusterFSNode(infra.Master)
-	for i, node := range infra.Slaves {
-		nodes[i+1] = p.toGlusterFSNode(node)
-	}
+	nodes := make([]glusterFSNodeType, 0)
+
+	infra.ForEachNode(func(node model.NodeInfo) {
+		nodes = append(nodes, p.toGlusterFSNode(node))
+	})
+
 	result, err := json.Marshal(glusterFSTopology{
 		Clusters: []glusterFSClusterType{
 			glusterFSClusterType{
@@ -112,26 +110,26 @@ func (p GlusterfsProvisioner) generateGlusterFSTopology(infra model.Infrastructu
 	return string(result), nil
 }
 
-func (p GlusterfsProvisioner) DeployProduct(inventoryPath, deploymentID string, infra model.InfrastructureDeploymentInfo, args map[string][]string) error {
+func (p GlusterfsProvisioner) DeployProduct(inventoryPath, deploymentID string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error {
 
 	logger := logrus.WithFields(logrus.Fields{
 		"deployment":     deploymentID,
 		"infrastructure": infra.ID,
 	})
 
-	installClient := !infra.ExtraProperties.GetBool(DitasGlusterFSClientInstalled)
+	installClient := !infra.ExtraProperties.GetBool(GlusterFSClientInstalled)
 
-	topology, err := p.generateGlusterFSTopology(infra)
+	topology, err := p.generateGlusterFSTopology(*infra)
 	if err != nil {
 		return err
 	}
 
 	singleNode := ""
-	if len(infra.Slaves) < 2 {
+	if infra.NumNodes() < 3 {
 		singleNode = "--single-node"
 	}
 
-	return ansible.ExecutePlaybook(logger, p.scriptsFolder+"/deploy_glusterfs.yml", inventoryPath, map[string]string{
+	return ExecutePlaybook(logger, p.scriptsFolder+"/kubernetes/glusterfs/deploy_glusterfs.yml", inventoryPath, map[string]string{
 		"topology":       topology,
 		"single_node":    singleNode,
 		"install_client": string(strconv.AppendBool([]byte{}, installClient)),

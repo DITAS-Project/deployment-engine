@@ -133,7 +133,7 @@ func (c *Deployer) CreateDeployment(deployment model.Deployment) (model.Deployme
 		ID:              uuid.New().String(),
 		Name:            deployment.Name,
 		Status:          "starting",
-		Infrastructures: make([]model.InfrastructureDeploymentInfo, 0),
+		Infrastructures: make(map[string]model.InfrastructureDeploymentInfo),
 	}
 
 	result, err := c.Repository.SaveDeployment(result)

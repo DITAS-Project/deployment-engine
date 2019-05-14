@@ -23,16 +23,14 @@ import blueprint "github.com/DITAS-Project/blueprint-go"
 type VDCInformation struct {
 	ID           string `bson:"_id"`
 	DeploymentID string `json:"deployment_id" bson:"deployment_id"`
-	InfraVDCs    map[string]InfraServicesInformation
 }
 
-type InfraServicesInformation struct {
-	LastPort           int                       `json:"last_port"`
-	LastDatasourcePort int                       `json:"last_datasource_port"`
-	VdcNumber          int                       `json:"vdc_number"`
-	Initialized        bool                      `json:"initalized"`
-	VdcPorts           map[string]int            `json:"vdc_ports"`
-	Datasources        map[string]map[string]int `json:"datasources"` // DatasourceType -> DatasourceId -> Port
+type Registry struct {
+	Name     string
+	URL      string
+	Username string
+	Password string
+	Email    string
 }
 
 // CreateDeploymentRequest is a request to create a deployment of a VDC of a given blueprint in a series of resources

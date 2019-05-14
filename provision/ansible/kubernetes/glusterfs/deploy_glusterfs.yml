@@ -35,7 +35,7 @@
 
       - name: Copy topology file
         template:
-          src: templates/topology.json.j2
+          src: topology.json.j2
           dest: gluster-kubernetes/deploy/topology.json
 
       - name: Fix wrong kubernetes deployment template
@@ -55,7 +55,7 @@
 
       - name: Copy non-HA storage class
         template:
-          src: kubernetes/storageclass_glusterfs_single.yml
+          src: storageclass_glusterfs_single.yml
           dest: storageclass_glusterfs_single.yml
 
       - name: Deploy non-HA storage class
@@ -63,13 +63,10 @@
 
       - name: Copy HA storage class
         template:
-          src: kubernetes/storageclass_glusterfs_ha.yml
+          src: storageclass_glusterfs_ha.yml
           dest: storageclass_glusterfs_ha.yml
         when: single_node == ""
       
       - name: Deploy HA storage class
         shell: kubectl create -f storageclass_glusterfs_ha.yml
         when: single_node == ""
-      
-    
-  

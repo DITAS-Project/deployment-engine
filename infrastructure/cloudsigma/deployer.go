@@ -370,10 +370,12 @@ func (d *CloudsigmaDeployer) CreateServer(resource model.ResourceType, ip IPRefe
 	disks, err := d.createHostDrives(logger, nodeName, resource)
 	result.Info.DriveUUID = disks.Drive.UUID
 	result.Info.DataDrives = make([]model.DriveInfo, len(disks.Data))
+	result.Info.DriveSize = disks.Drive.Size
 	for i, disk := range disks.Data {
 		result.Info.DataDrives[i] = model.DriveInfo{
 			Name: disk.Name,
 			UUID: disk.UUID,
+			Size: disk.Size,
 		}
 	}
 
@@ -464,7 +466,7 @@ func (d CloudsigmaDeployer) DeployInfrastructure(deploymentID string, infra mode
 
 	deployment := model.InfrastructureDeploymentInfo{
 		ID:              uuid.New().String(),
-		Products:        make([]string, 0),
+		Products:        make(map[string]interface{}),
 		ExtraProperties: infra.ExtraProperties,
 	}
 
@@ -475,7 +477,7 @@ func (d CloudsigmaDeployer) DeployInfrastructure(deploymentID string, infra mode
 	numNodes := len(infra.Resources)
 	deployment.Name = infra.Name
 	deployment.Type = DeploymentType
-	deployment.Slaves = make([]model.NodeInfo, 0, numNodes-1)
+	deployment.Nodes = make(map[string][]model.NodeInfo)
 	deployment.Status = "creating"
 
 	var logger = log.WithField("deployment", infra.Name)
@@ -503,11 +505,13 @@ func (d CloudsigmaDeployer) DeployInfrastructure(deploymentID string, infra mode
 	for remaining := numNodes; remaining > 0; remaining-- {
 		result := <-c
 		if result.Error == nil {
-			if strings.ToLower(result.Info.Role) == "master" {
-				deployment.Master = result.Info
-			} else {
-				deployment.Slaves = append(deployment.Slaves, result.Info)
+			role := strings.ToLower(result.Info.Role)
+			roleNodes, ok := deployment.Nodes[role]
+			if !ok {
+				roleNodes = make([]model.NodeInfo, 0, 1)
 			}
+			roleNodes = append(roleNodes, result.Info)
+			deployment.Nodes[role] = roleNodes
 		} else {
 			failed = true
 		}
@@ -629,26 +633,17 @@ func (d CloudsigmaDeployer) DeleteInfrastructure(deploymentID string, infra mode
 
 	result := make(map[string]error)
 
-	logger.Info("Deleting slaves")
-	for _, slave := range infra.Slaves {
-		errSlave := d.deleteHost(logger, slave)
-		if errSlave != nil {
-			logger.WithError(errSlave).Errorf("Error deleting slave %s", slave.Hostname)
-			result[slave.Hostname] = errSlave
+	logger.Info("Deleting nodes")
+	infra.ForEachNode(func(node model.NodeInfo) {
+		err := d.deleteHost(logger, node)
+		if err != nil {
+			logger.WithError(err).Errorf("Error deleting node %s", node.Hostname)
+			result[node.Hostname] = err
 		}
-	}
+	})
 
 	if len(result) == 0 {
-		logger.Info("Slaves deleted")
-	}
-
-	logger.Info("Now deleting master")
-	errMaster := d.deleteHost(logger, infra.Master)
-	if errMaster != nil {
-		logger.WithError(errMaster).Errorf("Error deleting master %s", infra.Master.Hostname)
-		result[infra.Master.Hostname] = errMaster
-	} else {
-		logger.Info("Master deleted. Infrastructure clear")
+		logger.Info("Nodes deleted. Infrastructure clear")
 	}
 
 	return result

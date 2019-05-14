@@ -19,17 +19,33 @@ package provision
 import (
 	"deployment-engine/model"
 	"deployment-engine/persistence"
+	"deployment-engine/provision/kubernetes"
 	"fmt"
 
 	log "github.com/sirupsen/logrus"
 )
 
+const (
+	baremetalProvisionerType = "baremetal"
+)
+
 type ProvisionerController struct {
-	Repository  persistence.DeploymentRepository
-	Provisioner model.Provisioner
+	Repository   persistence.DeploymentRepository
+	Provisioners map[string]model.Provisioner
 }
 
-func (p *ProvisionerController) Provision(deploymentID, infraID, product string, args map[string][]string) (model.DeploymentInfo, error) {
+func NewProvisionerController(defaultProvisioner model.Provisioner, repo persistence.DeploymentRepository) *ProvisionerController {
+	result := ProvisionerController{
+		Repository:   repo,
+		Provisioners: make(map[string]model.Provisioner),
+	}
+
+	result.Provisioners[baremetalProvisionerType] = defaultProvisioner
+	result.Provisioners["kubernetes"] = kubernetes.NewKubernetesController()
+	return &result
+}
+
+func (p *ProvisionerController) Provision(deploymentID, infraID, product string, args model.Parameters, framework string) (model.DeploymentInfo, error) {
 	deployment, err := p.Repository.GetDeployment(deploymentID)
 	if err != nil {
 		log.WithError(err).Errorf("Error getting deployment %s", deploymentID)
@@ -48,11 +64,25 @@ func (p *ProvisionerController) Provision(deploymentID, infraID, product string,
 		}
 	}
 
-	err = p.Provisioner.Provision(deploymentID, infra, product, args)
+	provType := framework
+	if provType == "" {
+		provType = baremetalProvisionerType
+	}
+
+	provisioner, ok := p.Provisioners[provType]
+	if !ok {
+		return deployment, fmt.Errorf("Can't find provisioner for framework %s", provType)
+	}
+
+	if args == nil {
+		args = make(model.Parameters)
+	}
+
+	err = provisioner.Provision(deploymentID, &infra, product, args)
 	if err != nil {
 		log.WithError(err).Errorf("Error provisioning product %s", product)
 		return deployment, err
 	}
 
-	return p.Repository.AddProductToInfrastructure(deploymentID, infraID, product)
+	return p.Repository.UpdateInfrastructure(deploymentID, infra)
 }

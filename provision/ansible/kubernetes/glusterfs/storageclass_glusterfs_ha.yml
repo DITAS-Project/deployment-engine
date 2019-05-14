@@ -6,4 +6,3 @@
   provisioner: kubernetes.io/glusterfs
   parameters:
     resturl: "{{ heketi_url.stdout }}"
-  

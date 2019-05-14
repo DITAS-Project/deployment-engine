@@ -17,12 +17,16 @@
 package utils
 
 import (
+	"deployment-engine/model"
+	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
 	"time"
 
 	homedir "github.com/mitchellh/go-homedir"
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 )
 
 const (
@@ -30,10 +34,28 @@ const (
 )
 
 func ExecuteCommand(logger *log.Entry, name string, args ...string) error {
-	cmd := exec.Command(name, args...)
-	cmd.Stdout = logger.Writer()
-	cmd.Stderr = logger.Writer()
-	return cmd.Run()
+	return CreateCommand(logger, nil, true, name, args...).Run()
+}
+
+func CreateCommand(logger *log.Entry, envVars map[string]string, preserveEnv bool, command string, args ...string) *exec.Cmd {
+	cmd := exec.Command(command, args...)
+	if logger != nil {
+		cmd.Stdout = logger.Writer()
+		cmd.Stderr = logger.Writer()
+	}
+
+	if envVars != nil {
+		if preserveEnv {
+			cmd.Env = os.Environ()
+		} else {
+			cmd.Env = make([]string, 0, len(envVars))
+		}
+		for k, v := range envVars {
+			cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
+		}
+	}
+
+	return cmd
 }
 
 func WaitForStatusChange(status string, timeout time.Duration, getter func() (string, error)) (string, bool, error) {
@@ -56,4 +78,52 @@ func ConfigurationFolder() (string, error) {
 	}
 
 	return fmt.Sprintf("%s/%s", home, ConfigurationFolderName), nil
+}
+
+func TransformObject(input interface{}, output interface{}) error {
+	strInput, err := json.Marshal(input)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(strInput, output)
+}
+
+func GetSingleValue(values map[string][]string, key string) (string, bool) {
+	vals, ok := values[key]
+	if !ok || vals == nil || len(vals) == 0 {
+		return "", false
+	}
+	return vals[0], ok
+}
+
+func IndexOf(slice []int, elem int) int {
+	for i, num := range slice {
+		if num == elem {
+			return i
+		}
+	}
+	return -1
+}
+
+// GetDockerRepositories returns a map of Docker repositories from the configuration
+func GetDockerRepositories() map[string]model.DockerRegistry {
+	registries := make([]model.DockerRegistry, 0)
+	result := make(map[string]model.DockerRegistry)
+	viper.UnmarshalKey("kubernetes.registries", &registries)
+	for _, registry := range registries {
+		result[registry.Name] = registry
+	}
+	return result
+}
+
+func GetVarsFromConfigFolder() (map[string]interface{}, error) {
+	generalConfigFolder, err := ConfigurationFolder()
+	if err != nil {
+		return nil, fmt.Errorf("Error getting variables from configuration folder: %s\n",err.Error())
+	}
+	reader := viper.New()
+	reader.SetConfigName("vars")
+	reader.AddConfigPath(generalConfigFolder)
+	reader.ReadInConfig()
+	return reader.AllSettings(), nil
 }

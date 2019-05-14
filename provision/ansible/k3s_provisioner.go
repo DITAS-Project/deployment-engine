@@ -16,32 +16,35 @@
  * This is being developed for the DITAS Project: https://www.ditas-project.eu/
  */
 
-package ditas
+package ansible
 
 import (
 	"deployment-engine/model"
-	"deployment-engine/provision/ansible"
+
+	"strconv"
 
 	"github.com/sirupsen/logrus"
 )
 
+const (
+	K3sCurlInstalled = "k3s_curl_installed"
+)
+
 type K3sProvisioner struct {
-	parent        *ansible.Provisioner
-	scriptsFolder string
+	parent *Provisioner
 }
 
-func NewK3sProvisioner(parent *ansible.Provisioner, scriptsFolder string) K3sProvisioner {
+func NewK3sProvisioner(parent *Provisioner) K3sProvisioner {
 	return K3sProvisioner{
-		parent:        parent,
-		scriptsFolder: scriptsFolder,
+		parent: parent,
 	}
 }
 
-func (p K3sProvisioner) BuildInventory(deploymentID string, infra model.InfrastructureDeploymentInfo, args map[string][]string) (ansible.Inventory, error) {
+func (p K3sProvisioner) BuildInventory(deploymentID string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) (Inventory, error) {
 	return p.parent.Provisioners["kubeadm"].BuildInventory(deploymentID, infra, args)
 }
 
-func (p K3sProvisioner) DeployProduct(inventoryPath, deploymentID string, infra model.InfrastructureDeploymentInfo, args map[string][]string) error {
+func (p K3sProvisioner) DeployProduct(inventoryPath, deploymentID string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error {
 
 	logger := logrus.WithFields(logrus.Fields{
 		"deployment":     deploymentID,
@@ -50,16 +53,24 @@ func (p K3sProvisioner) DeployProduct(inventoryPath, deploymentID string, infra 
 
 	inventoryFolder := p.parent.GetInventoryFolder(deploymentID, infra.ID)
 
-	err := ansible.ExecutePlaybook(logger, p.scriptsFolder+"/deploy_k3s.yml", inventoryPath, map[string]string{
-		"master_ip":        infra.Master.IP,
+	master, err := infra.GetFirstNodeOfRole("master")
+	if err != nil {
+		return err
+	}
+
+	err = ExecutePlaybook(logger, p.parent.ScriptsFolder+"/kubernetes/deploy_k3s.yml", inventoryPath, map[string]string{
+		"master_ip":        master.IP,
 		"inventory_folder": inventoryFolder,
+		"install_curl":     strconv.FormatBool(!infra.ExtraProperties.GetBool(K3sCurlInstalled)),
 	})
 	if err != nil {
 		logger.WithError(err).Error("Error initializing master")
 		return err
 	}
 
-	return ansible.ExecutePlaybook(logger, p.scriptsFolder+"/join_k3s_nodes.yml", inventoryPath, map[string]string{
-		"master_ip": infra.Master.IP,
-	})
+	infra.Products["kubernetes"] = KubernetesConfiguration{
+		ConfigurationFile: inventoryFolder + "/config",
+	}
+
+	return err
 }

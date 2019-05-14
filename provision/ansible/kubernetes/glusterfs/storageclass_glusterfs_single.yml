@@ -7,4 +7,3 @@
   parameters:
     resturl: "{{ heketi_url.stdout }}"
     volumetype: none
-  

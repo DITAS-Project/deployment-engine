@@ -28,9 +28,13 @@ import (
 const (
 	InventoryFolderProperty = "ansible.folders.inventory"
 	ScriptsFolderProperty   = "ansible.folders.scripts"
+	KubesprayFolderProperty = "ansible.folders.kubespray"
 
 	InventoryFolderDefaultValue = "/tmp/ansible_inventories"
 	ScriptsFolderDefaultValue   = "provision/ansible"
+
+	AnsibleWaitForSSHReadyProperty = "wait_for_ssh_ready"
+	KubesprayFolderDefaultValue    = "provision/ansible/kubespray"
 )
 
 type Provisioner struct {
@@ -56,16 +60,18 @@ type Inventory struct {
 }
 
 type ProductProvisioner interface {
-	BuildInventory(deploymentID string, infra model.InfrastructureDeploymentInfo, args map[string][]string) (Inventory, error)
-	DeployProduct(inventory, deploymentID string, infra model.InfrastructureDeploymentInfo, args map[string][]string) error
+	BuildInventory(deploymentID string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) (Inventory, error)
+	DeployProduct(inventory, deploymentID string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error
 }
 
 func New() (*Provisioner, error) {
 	viper.SetDefault(InventoryFolderProperty, InventoryFolderDefaultValue)
 	viper.SetDefault(ScriptsFolderProperty, ScriptsFolderDefaultValue)
+	viper.SetDefault(KubesprayFolderProperty, KubesprayFolderDefaultValue)
 
 	inventoryFolder := viper.GetString(InventoryFolderProperty)
 	scriptsFolder := viper.GetString(ScriptsFolderProperty)
+	kubesprayFolder := viper.GetString(KubesprayFolderProperty)
 
 	err := os.MkdirAll(inventoryFolder, os.ModePerm)
 	if err != nil {
@@ -79,14 +85,23 @@ func New() (*Provisioner, error) {
 	}
 
 	result.Provisioners = map[string]ProductProvisioner{
-		"docker":     NewDockerProvisioner(&result),
-		"kubernetes": NewKubernetesProvisioner(&result),
+		"docker":             NewDockerProvisioner(&result),
+		"kubernetes":         NewKubernetesProvisioner(&result),
+		"kubeadm":            NewKubeadmProvisioner(&result),
+		"gluster-kubernetes": NewGlusterfsProvisioner(&result),
+		"k3s":                NewK3sProvisioner(&result),
+		"private_registries": NewRegistryProvisioner(&result),
+		"kubespray":          NewKubesprayProvisioner(&result, kubesprayFolder),
 	}
 
 	return &result, nil
 }
 
-func (p *Provisioner) WaitForSSHPortReady(deploymentID string, infra model.InfrastructureDeploymentInfo, args map[string][]string) error {
+func (p *Provisioner) AddProvisioner(name string, provisioner ProductProvisioner) {
+	p.Provisioners[name] = provisioner
+}
+
+func (p *Provisioner) WaitForSSHPortReady(deploymentID string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error {
 	logger := log.WithField("deployment", deploymentID).WithField("infrastructure", infra.ID)
 	logger.Info("Waiting for port 22 to be ready")
 
@@ -205,14 +220,19 @@ func (p Provisioner) WriteInventory(deploymentID, infraID, product string, inven
 	return filePath, nil
 }
 
-func (p Provisioner) WaitAndProvision(deploymentId string, infra model.InfrastructureDeploymentInfo, product string, wait bool, args map[string][]string) error {
+func (p Provisioner) Provision(deploymentId string, infra *model.InfrastructureDeploymentInfo, product string, args model.Parameters) error {
+
+	if args == nil {
+		args = make(model.Parameters)
+	}
 
 	provisioner := p.Provisioners[product]
 	if provisioner == nil {
 		return fmt.Errorf("Product %s not supported by this deployer", product)
 	}
 
-	if wait {
+	wait, ok := args.GetBool(AnsibleWaitForSSHReadyProperty)
+	if ok && wait {
 		err := p.WaitForSSHPortReady(deploymentId, infra, args)
 		if err != nil {
 			log.WithError(err).Error("Error waiting for infrastructure to be ready")
@@ -235,8 +255,12 @@ func (p Provisioner) WaitAndProvision(deploymentId string, infra model.Infrastru
 	return provisioner.DeployProduct(inventoryPath, deploymentId, infra, args)
 }
 
-func (p Provisioner) Provision(deploymentId string, infra model.InfrastructureDeploymentInfo, product string, args map[string][]string) error {
-	return p.WaitAndProvision(deploymentId, infra, product, true, args)
+func (p Provisioner) GetProducts() []string {
+	result := make([]string, 0, len(p.Provisioners))
+	for k, _ := range p.Provisioners {
+		result = append(result, k)
+	}
+	return result
 }
 
 func (p *Provisioner) GetInventoryFolder(deploymentID, infraID string) string {

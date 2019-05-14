@@ -28,10 +28,17 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/spf13/viper"
+
 	"fmt"
 
 	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
+)
+
+const (
+	DitasUseDefaultFrontendConfigProperty     = "ditas.frontend.use_default_config"
+	DitasUseDefaultFrontendConfigDefaultValue = false
 )
 
 type DitasFrontend struct {
@@ -43,6 +50,7 @@ type DitasFrontend struct {
 }
 
 func NewDitasFrontend() (*DitasFrontend, error) {
+	viper.SetDefault(DitasUseDefaultFrontendConfigProperty, DitasUseDefaultFrontendConfigDefaultValue)
 	repository, err := mongorepo.CreateRepositoryNative()
 	if err != nil {
 		return nil, err
@@ -57,21 +65,20 @@ func NewDitasFrontend() (*DitasFrontend, error) {
 		Repository: repository,
 	}
 
-	controller := &provision.ProvisionerController{
-		Repository:  repository,
-		Provisioner: provisioner,
-	}
+	controller := provision.NewProvisionerController(provisioner, repository)
 
-	vdcManager, err := NewVDCManager(provisioner, deployer, controller)
+	vdcManager, err := NewVDCManager(deployer, controller)
 	if err != nil {
 		return nil, err
 	}
 
+	router := mux.NewRouter()
 	result := DitasFrontend{
-		Router:                mux.NewRouter(),
+		Router:                router,
 		DeploymentController:  deployer,
 		ProvisionerController: controller,
 		DefaultFrontend: &restfrontend.App{
+			Router:                router,
 			DeploymentController:  deployer,
 			ProvisionerController: controller,
 		},
@@ -79,6 +86,11 @@ func NewDitasFrontend() (*DitasFrontend, error) {
 	}
 
 	result.initializeRoutes()
+
+	if viper.GetBool(DitasUseDefaultFrontendConfigProperty) {
+		result.DefaultFrontend.InitializeRoutes()
+	}
+
 	return &result, nil
 }
 
@@ -87,8 +99,8 @@ func (a DitasFrontend) Run(addr string) error {
 }
 
 func (a *DitasFrontend) initializeRoutes() {
-	a.Router.HandleFunc("/deployment", a.createDep).Methods("POST")
-	a.Router.HandleFunc("/deployment/{blueprintId}/{infraId}/{datasource}", a.createDatasource).Methods("POST")
+	a.Router.HandleFunc("/blueprint", a.createDep).Methods("POST")
+	a.Router.HandleFunc("/blueprint/{blueprintId}/{infraId}/{datasource}", a.createDatasource).Methods("POST")
 	//a.Router.HandleFunc("/deployment/{depId}/{infraId}", a.DefaultFrontend.deleteInfra).Methods("DELETE")
 }
 
@@ -268,7 +280,7 @@ func (a *DitasFrontend) createDatasource(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	err := a.VDCManagerInstance.DeployDatasource(blueprintId, infraId, datasource, r.URL.Query())
+	err := a.VDCManagerInstance.DeployDatasource(blueprintId, infraId, datasource, restfrontend.GetParameters(r.URL.Query()))
 	if err != nil {
 		restfrontend.RespondWithError(w, http.StatusInternalServerError, err.Error())
 		return

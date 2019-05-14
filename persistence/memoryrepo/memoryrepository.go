@@ -18,6 +18,7 @@ package memoryrepo
 
 import (
 	"deployment-engine/model"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -33,35 +34,14 @@ const (
 // WARNING: When used as vault, it stores credentials and private keys in memory and UNENCRYPTED which is a VERY bad practice and it's strongly discouraged to be used in production. Use it for development and test but change later for a secure vault implementation.
 type MemoryRepository struct {
 	deployments map[string]model.DeploymentInfo
-	products    map[string]model.Product
 	vault       map[string]model.Secret
 }
 
 func CreateMemoryRepository() *MemoryRepository {
 	return &MemoryRepository{
 		deployments: make(map[string]model.DeploymentInfo),
-		products:    make(map[string]model.Product),
 		vault:       make(map[string]model.Secret),
 	}
-}
-
-func (v *MemoryRepository) get(ID, objectType string, result interface{}) error {
-	var ok bool
-	switch objectType {
-	case deploymentType:
-		*result.(*model.DeploymentInfo), ok = v.deployments[ID]
-	case productType:
-		*result.(*model.Product), ok = v.products[ID]
-	case secretType:
-		*result.(*model.Secret), ok = v.vault[ID]
-	default:
-		return fmt.Errorf("Unrecognized object type %s", objectType)
-	}
-
-	if !ok {
-		return fmt.Errorf("%s %s not found in repository", objectType, ID)
-	}
-	return nil
 }
 
 //SaveDeployment a new deployment information and return the updated deployment from the underlying database
@@ -73,8 +53,7 @@ func (m *MemoryRepository) SaveDeployment(deployment model.DeploymentInfo) (mode
 
 //UpdateDeployment a deployment replacing its old contents
 func (m *MemoryRepository) UpdateDeployment(deployment model.DeploymentInfo) (model.DeploymentInfo, error) {
-	var dep model.DeploymentInfo
-	err := m.get(deployment.ID, deploymentType, &dep)
+	_, err := m.GetDeployment(deployment.ID)
 	if err == nil {
 		m.deployments[deployment.ID] = deployment
 	}
@@ -83,9 +62,11 @@ func (m *MemoryRepository) UpdateDeployment(deployment model.DeploymentInfo) (mo
 
 //GetDeployment the deployment information given its ID
 func (m *MemoryRepository) GetDeployment(deploymentID string) (model.DeploymentInfo, error) {
-	var deployment model.DeploymentInfo
-	err := m.get(deploymentID, deploymentType, &deployment)
-	return deployment, err
+	dep, ok := m.deployments[deploymentID]
+	if !ok {
+		return dep, fmt.Errorf("Can't find deployment %s", deploymentID)
+	}
+	return dep, nil
 }
 
 //ListDeployment all available deployments
@@ -107,65 +88,69 @@ func (m *MemoryRepository) DeleteDeployment(deploymentID string) error {
 
 // UpdateDeploymentStatus updates the status of a deployment
 func (m *MemoryRepository) UpdateDeploymentStatus(deploymentID, status string) (model.DeploymentInfo, error) {
-	var updated model.DeploymentInfo
-	err := m.get(deploymentID, deploymentType, &updated)
-	if err == nil {
-		updated.Status = status
-		m.deployments[deploymentID] = updated
+	updated, err := m.GetDeployment(deploymentID)
+	if err != nil {
+		return updated, err
 	}
-	return updated, err
+	updated.Status = status
+	return m.UpdateDeployment(updated)
+}
+
+//UpdateInfrastructure updates as a whole an existing infrastructure in a deployment
+func (m *MemoryRepository) UpdateInfrastructure(deploymentID string, infra model.InfrastructureDeploymentInfo) (model.DeploymentInfo, error) {
+
+	var dep model.DeploymentInfo
+
+	if infra.ID == "" {
+		return dep, errors.New("Infrastructure has an empty ID")
+	}
+
+	dep, err := m.GetDeployment(deploymentID)
+	if err != nil {
+		return dep, fmt.Errorf("Can't find deployment %s: %s", deploymentID, err.Error())
+	}
+
+	if dep.Infrastructures == nil {
+		dep.Infrastructures = make(map[string]model.InfrastructureDeploymentInfo)
+	}
+
+	dep.Infrastructures[infra.ID] = infra
+	return m.UpdateDeployment(dep)
 }
 
 // UpdateInfrastructureStatus updates the status of a infrastructure in a deployment
 func (m *MemoryRepository) UpdateInfrastructureStatus(deploymentID, infrastructureID, status string) (model.DeploymentInfo, error) {
 	var updated model.DeploymentInfo
-	err := m.get(deploymentID, deploymentType, &updated)
-	if err == nil {
-		found := false
-		for i := 0; i < len(updated.Infrastructures) && !found; i++ {
-			if updated.Infrastructures[i].ID == infrastructureID {
-				updated.Infrastructures[i].Status = status
-				found = true
-			}
-		}
-		m.deployments[deploymentID] = updated
+
+	infra, err := m.FindInfrastructure(deploymentID, infrastructureID)
+	if err != nil {
+		return updated, err
 	}
-	return updated, err
+
+	infra.Status = status
+
+	return m.UpdateInfrastructure(deploymentID, infra)
 }
 
 //AddInfrastructure adds a new infrastructure to an existing deployment
 func (m *MemoryRepository) AddInfrastructure(deploymentID string, infra model.InfrastructureDeploymentInfo) (model.DeploymentInfo, error) {
-	dep, err := m.GetDeployment(deploymentID)
-	if err != nil {
-		return dep, err
-	}
-
-	if dep.Infrastructures == nil {
-		dep.Infrastructures = []model.InfrastructureDeploymentInfo{infra}
-	} else {
-		dep.Infrastructures = append(dep.Infrastructures, infra)
-	}
-
-	return m.UpdateDeployment(dep)
+	return m.UpdateInfrastructure(deploymentID, infra)
 }
 
 //FindInfrastructure finds an infrastructure in a deployment given their identifiers
-func (m *MemoryRepository) FindInfrastructure(depoloymentID, infraID string) (model.InfrastructureDeploymentInfo, error) {
+func (m *MemoryRepository) FindInfrastructure(deploymentID, infraID string) (model.InfrastructureDeploymentInfo, error) {
 
-	dep, err := m.GetDeployment(depoloymentID)
+	dep, err := m.GetDeployment(deploymentID)
 	if err != nil {
 		return model.InfrastructureDeploymentInfo{}, err
 	}
 
-	if dep.Infrastructures != nil && len(dep.Infrastructures) > 0 {
-		for _, infra := range dep.Infrastructures {
-			if infra.ID == infraID {
-				return infra, nil
-			}
-		}
+	infra, ok := dep.Infrastructures[infraID]
+	if !ok {
+		return infra, fmt.Errorf("Can't find infrastructure %s in deployment %s", infraID, deploymentID)
 	}
 
-	return model.InfrastructureDeploymentInfo{}, fmt.Errorf("Can't find infrastructure %s in deployment %s", infraID, depoloymentID)
+	return infra, nil
 
 }
 
@@ -176,95 +161,24 @@ func (m *MemoryRepository) DeleteInfrastructure(deploymentID, infraID string) (m
 		return dep, err
 	}
 
-	if dep.Infrastructures == nil || len(dep.Infrastructures) == 0 {
-		return dep, fmt.Errorf("No infrastructures found on deployment %s", deploymentID)
-	}
-
-	i := 0
-	var infra model.InfrastructureDeploymentInfo
-	for i, infra = range dep.Infrastructures {
-		if infra.ID == infraID {
-			break
-		}
-	}
-
-	if i < len(dep.Infrastructures) && dep.Infrastructures[i].ID == infraID {
-		dep.Infrastructures[i] = dep.Infrastructures[len(dep.Infrastructures)-1]
-		dep.Infrastructures = dep.Infrastructures[:len(dep.Infrastructures)-1]
-		dep, err = m.UpdateDeployment(dep)
-		return dep, err
-	}
-
-	return dep, fmt.Errorf("Can't find infrastructure %s in deployment %s", infraID, deploymentID)
+	delete(dep.Infrastructures, infraID)
+	return m.UpdateDeployment(dep)
 }
 
 // AddProductToInfrastructure adds a new product to an existing infrastructure
-func (m *MemoryRepository) AddProductToInfrastructure(deploymentID, infrastructureID, product string) (model.DeploymentInfo, error) {
-	dep, err := m.GetDeployment(deploymentID)
+func (m *MemoryRepository) AddProductToInfrastructure(deploymentID, infrastructureID, product string, config interface{}) (model.DeploymentInfo, error) {
 
+	infra, err := m.FindInfrastructure(deploymentID, infrastructureID)
 	if err != nil {
-		return dep, err
+		return model.DeploymentInfo{}, err
 	}
 
-	if dep.Infrastructures == nil {
-		return dep, fmt.Errorf("Deployment %s does not have infrastructures", deploymentID)
+	if infra.Products == nil {
+		infra.Products = make(map[string]interface{})
 	}
 
-	for i, infra := range dep.Infrastructures {
-		if infra.ID == infrastructureID {
-			if infra.Products == nil {
-				infra.Products = []string{product}
-			} else {
-				infra.Products = append(infra.Products, product)
-			}
-			dep.Infrastructures[i] = infra
-			m.deployments[dep.ID] = dep
-			return dep, nil
-		}
-	}
-
-	return dep, fmt.Errorf("Infrastructure %s not found in deployment %s", infrastructureID, deploymentID)
-}
-
-//SaveProduct a new product information and return the created product from the underlying database
-func (m *MemoryRepository) SaveProduct(product model.Product) (model.Product, error) {
-	product.ID = uuid.New().String()
-	m.products[product.ID] = product
-	return product, nil
-}
-
-//GetProduct the product information given its ID
-func (m *MemoryRepository) GetProduct(productID string) (model.Product, error) {
-	var result model.Product
-	err := m.get(productID, productType, &result)
-	return result, err
-}
-
-//ListProducts all available products
-func (m *MemoryRepository) ListProducts() ([]model.Product, error) {
-	result := make([]model.Product, len(m.products))
-	i := 0
-	for _, v := range m.products {
-		result[i] = v
-		i++
-	}
-	return result, nil
-}
-
-//UpdateProduct a product replacing its old contents
-func (m *MemoryRepository) UpdateProduct(product model.Product) (model.Product, error) {
-	var result model.Product
-	err := m.get(product.ID, productType, &result)
-	if err == nil {
-		m.products[product.ID] = product
-	}
-	return product, err
-}
-
-//DeleteProduct a product given its ID
-func (m *MemoryRepository) DeleteProduct(productID string) error {
-	delete(m.products, productID)
-	return nil
+	infra.Products[product] = config
+	return m.UpdateInfrastructure(deploymentID, infra)
 }
 
 // AddSecret adds a new secret to the vault, returning its identifier
@@ -289,9 +203,11 @@ func (v *MemoryRepository) UpdateSecret(secretID string, secret model.Secret) er
 
 // GetSecret gets a secret information given its identifier
 func (v *MemoryRepository) GetSecret(secretID string) (model.Secret, error) {
-	var secret model.Secret
-	err := v.get(secretID, secretType, &secret)
-	return secret, err
+	secret, ok := v.vault[secretID]
+	if !ok {
+		return secret, fmt.Errorf("Can't find secret %", secretID)
+	}
+	return secret, nil
 }
 
 // DeleteSecret deletes a secret from the vault given its identifier
