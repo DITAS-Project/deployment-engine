@@ -189,7 +189,7 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, de
 			Name: vdcId,
 		},
 		Spec: corev1.ServiceSpec{
-			Type:     corev1.ServiceTypeNodePort-,
+			Type:     corev1.ServiceTypeNodePort,
 			Selector: vdcLabels,
 			Ports:    ports,
 		},
