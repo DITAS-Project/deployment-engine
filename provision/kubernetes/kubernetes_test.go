@@ -16,13 +16,16 @@
 
 package kubernetes
 
-import "testing"
+import (
+	"math/rand"
+	"sort"
+	"testing"
+)
 
 func TestPorts(t *testing.T) {
 	lastPort := 30000
 	config := KubernetesConfiguration{
-		LastNodePort: lastPort,
-		UsedPorts:    make(map[int]bool),
+		UsedPorts: make(sort.IntSlice, 0),
 	}
 
 	for i := 0; i < 100; i++ {
@@ -30,18 +33,14 @@ func TestPorts(t *testing.T) {
 		if !(port >= lastPort && port < 30100) {
 			t.Fatalf("Port %d out of expected initial range", port)
 		}
-		used, ok := config.UsedPorts[port]
-		if !ok {
-			t.Fatalf("Port %d expected to be in use but it's not", port)
-		}
-
-		if !used {
-			t.Fatalf("Wrong used value for port %d", port)
-		}
 	}
 
 	if len(config.UsedPorts) != 100 {
 		t.Fatalf("Unexpected length for used ports: Expected 100 but got %d", len(config.UsedPorts))
+	}
+
+	if !sort.IntsAreSorted(config.UsedPorts) {
+		t.Fatalf("Ports not sorted after initial load")
 	}
 
 	err := config.ClaimPort(30078)
@@ -56,6 +55,10 @@ func TestPorts(t *testing.T) {
 		}
 	}
 
+	if !sort.IntsAreSorted(config.UsedPorts) {
+		t.Fatalf("Ports not sorted after batch claim")
+	}
+
 	if len(config.UsedPorts) != 200 {
 		t.Fatalf("Unexpected length for used ports: Expected 200 but got %d", len(config.UsedPorts))
 	}
@@ -65,6 +68,10 @@ func TestPorts(t *testing.T) {
 		if port >= 30200 && port < 30300 {
 			t.Fatalf("Got free port %d but it should be used", port)
 		}
+	}
+
+	if !sort.IntsAreSorted(config.UsedPorts) {
+		t.Fatalf("Ports not sorted after batch port finding")
 	}
 
 	if len(config.UsedPorts) != 700 {
@@ -79,8 +86,26 @@ func TestPorts(t *testing.T) {
 		t.Fatalf("Expected 500 ports in use but got %d", len(config.UsedPorts))
 	}
 
-	if config.LastNodePort != 30150 {
-		t.Fatalf("Last node port expected to be 30150 but got %d", config.LastNodePort)
+	if !sort.IntsAreSorted(config.UsedPorts) {
+		t.Fatalf("Ports not sorted after free")
+	}
+
+	newPorts := 0
+	max := NodePortEnd - NodePortStart
+	for i := 0; i < 500; i++ {
+		randPort := NodePortStart + rand.Intn(max)
+		err = config.ClaimPort(randPort)
+		if err == nil {
+			newPorts++
+		}
+	}
+
+	if len(config.UsedPorts) != 500+newPorts {
+		t.Fatalf("Expected %d ports in use but got %d", 500+newPorts, len(config.UsedPorts))
+	}
+
+	if !sort.IntsAreSorted(config.UsedPorts) {
+		t.Fatalf("Ports not sorted after random claim")
 	}
 
 }

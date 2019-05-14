@@ -32,6 +32,15 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
+type VDCConfiguration struct {
+	Ports map[string]int
+}
+
+type VDCsConfiguration struct {
+	NumVDCs int
+	VDCs    map[string]VDCConfiguration
+}
+
 type VDCProvisioner struct {
 	configFolder string
 }
@@ -39,6 +48,14 @@ type VDCProvisioner struct {
 func NewVDCProvisioner(configFolder string) *VDCProvisioner {
 	return &VDCProvisioner{
 		configFolder: configFolder,
+	}
+}
+
+func (p VDCProvisioner) FreePorts(config *kubernetes.KubernetesConfiguration, vdcConfig VDCConfiguration, err error) {
+	if err != nil {
+		for _, port := range vdcConfig.Ports {
+			config.LiberatePort(port)
+		}
 	}
 }
 
@@ -55,20 +72,63 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, de
 	}
 
 	bp := blueprintRaw.(blueprint.BlueprintType)
-	vdcId, ok := args.GetString("vdcId")
+
+	var vdcsConfig VDCsConfiguration
+	vdcConfigRaw, ok := config.DeploymentsConfiguration["VDC"]
 	if !ok {
-		return fmt.Errorf("Can't find VDC identifier in parameters")
+		vdcsConfig = VDCsConfiguration{
+			NumVDCs: 0,
+			VDCs:    make(map[string]VDCConfiguration),
+		}
+		config.DeploymentsConfiguration["VDC"] = vdcsConfig
+	} else {
+		err := utils.TransformObject(vdcConfigRaw, &vdcsConfig)
+		if err != nil {
+			return fmt.Errorf("Error reading VDCs configuration: %s\n", err.Error())
+		}
 	}
+
+	vdcId := fmt.Sprintf("vdc-%d", vdcsConfig.NumVDCs)
+
+	vdcConfig, ok := vdcsConfig.VDCs[vdcId]
+	if ok {
+		return fmt.Errorf("VDC %s already deployed", vdcId)
+	}
+	vdcConfig = VDCConfiguration{
+		Ports: make(map[string]int),
+	}
+
 	logger = logger.WithField("VDC", vdcId)
+
+	var imageSet kubernetes.ImageSet
+	utils.TransformObject(bp.InternalStructure.VDCImages, &imageSet)
+	imageSet["sla-manager"] = kubernetes.ImageInfo{
+		Image: "ditas/slalite",
+	}
+
+	var err error
+	defer func() {
+		p.FreePorts(config, vdcConfig, err)
+	}()
+	for _, image := range imageSet {
+		if image.ExternalPort != 0 {
+			err = config.ClaimPort(image.ExternalPort)
+			if err != nil {
+				return fmt.Errorf("Can't claim port %d: %s\n", image.ExternalPort, err.Error())
+			}
+			vdcConfig.Ports[image.Image] = image.ExternalPort
+		}
+	}
 
 	vars, err := utils.GetVarsFromConfigFolder()
 	if err != nil {
 		return err
 	}
+	vars["vdcId"] = vdcId
 
 	configMapName := fmt.Sprintf("%s-configmap", vdcId)
 
-	configMap, err := kubernetes.GetConfigMapFromFolder(p.configFolder+"/vdc", configMapName, vars)
+	configMap, err := kubernetes.GetConfigMapFromFolder(p.configFolder+"/vdcs", configMapName, vars)
 	if err != nil {
 		logger.WithError(err).Error("Error reading configuration map")
 		return err
@@ -96,12 +156,6 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, de
 
 	vdcLabels := map[string]string{
 		"component": vdcId,
-	}
-
-	var imageSet kubernetes.ImageSet
-	utils.TransformObject(bp.InternalStructure.VDCImages, &imageSet)
-	imageSet["sla-manager"] = kubernetes.ImageInfo{
-		Image: "ditas/slalite",
 	}
 
 	var repoSecrets []string
@@ -135,7 +189,7 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, de
 			Name: vdcId,
 		},
 		Spec: corev1.ServiceSpec{
-			Type:     corev1.ServiceTypeClusterIP,
+			Type:     corev1.ServiceTypeNodePort-,
 			Selector: vdcLabels,
 			Ports:    ports,
 		},
@@ -146,6 +200,10 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, de
 	if err != nil {
 		return err
 	}
+
+	vdcsConfig.NumVDCs++
+	vdcsConfig.VDCs[vdcId] = vdcConfig
+	config.DeploymentsConfiguration["VDC"] = vdcsConfig
 
 	logger.Info("VDC successfully deployed")
 

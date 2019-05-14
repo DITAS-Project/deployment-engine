@@ -124,6 +124,8 @@ func (p VDMProvisioner) Provision(config *kubernetes.KubernetesConfiguration, de
 		return err
 	}
 
+	config.DeploymentsConfiguration["VDM"] = true
+
 	logger.Info("VDM successfully deployed")
 
 	return err
