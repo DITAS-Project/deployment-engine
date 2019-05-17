@@ -120,7 +120,7 @@ func (c *KubernetesConfiguration) LiberatePort(port int) {
 	if c.UsedPorts != nil && len(c.UsedPorts) > 0 {
 		idx := c.UsedPorts.Search(port)
 		if idx < len(c.UsedPorts) && c.UsedPorts[idx] == port {
-			c.UsedPorts = append(c.UsedPorts[:idx],c.UsedPorts[idx+1:]...)
+			c.UsedPorts = append(c.UsedPorts[:idx], c.UsedPorts[idx+1:]...)
 		}
 	}
 }
@@ -149,6 +149,15 @@ func NewKubernetesController() *KubernetesController {
 	}
 }
 
+func GetKubernetesConfiguration(i model.InfrastructureDeploymentInfo) (KubernetesConfiguration, error) {
+	var result KubernetesConfiguration
+	ok, err := utils.GetStruct(i.Products, "kubernetes", &result)
+	if !ok {
+		err = fmt.Errorf("Can't find kubernetes configuration in infrastructure %s", i.ID)
+	}
+	return result, err
+}
+
 func (p *KubernetesController) AddProvisioner(name string, provisioner KubernetesProvisioner) {
 	p.productProvisioners[name] = provisioner
 }
@@ -159,7 +168,7 @@ func (p KubernetesController) initializeConfig(config *KubernetesConfiguration) 
 	}
 
 	if config.UsedPorts == nil {
-		config.UsedPorts = make(sort.IntSlice,0)
+		config.UsedPorts = make(sort.IntSlice, 0)
 	}
 
 	if config.RegistriesSecrets == nil {

@@ -33,7 +33,8 @@ import (
 )
 
 type VDCConfiguration struct {
-	Ports map[string]int
+	Ports     map[string]int
+	Blueprint string
 }
 
 type VDCsConfiguration struct {
@@ -88,7 +89,16 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, de
 		}
 	}
 
-	vdcId := fmt.Sprintf("vdc-%d", vdcsConfig.NumVDCs)
+	vdcId, ok := args.GetString("vdcId")
+	if !ok {
+		vdcId = fmt.Sprintf("vdc-%d", vdcsConfig.NumVDCs)
+	}
+	isMove := ok
+
+	vdmIP, ok := args.GetString("vdmIP")
+	if isMove && !ok {
+		return fmt.Errorf("It's necessary to pass the VDM IP in order to move a VDC")
+	}
 
 	vdcConfig, ok := vdcsConfig.VDCs[vdcId]
 	if ok {
@@ -140,6 +150,7 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, de
 	}
 
 	configMap.Data["blueprint.json"] = string(strBp)
+	vdcConfig.Blueprint = configMap.Data["blueprint.json"]
 
 	kubeClient, err := kubernetes.NewClient(config.ConfigurationFile)
 	if err != nil {
@@ -164,6 +175,16 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, de
 	}
 
 	vdcDeployment := kubernetes.GetDeploymentDescription(vdcId, int32(1), int64(30), vdcLabels, imageSet, configMapName, "/etc/ditas", repoSecrets)
+
+	if isMove {
+		hostAlias := []corev1.HostAlias{
+			corev1.HostAlias{
+				IP:        vdmIP,
+				Hostnames: []string{"vdm"},
+			},
+		}
+		vdcDeployment.Spec.Template.Spec.HostAliases = hostAlias
+	}
 
 	logger.Info("Creating or updating VDC pod")
 	_, err = kubeClient.CreateOrUpdateDeployment(logger, DitasNamespace, &vdcDeployment)

@@ -38,6 +38,8 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	apiv1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -265,6 +267,139 @@ func (m *VDCManager) doDeployVDC(deploymentID string, infra model.Infrastructure
 
 	_, err := m.ProvisionerController.Provision(deploymentID, infra.ID, "vdc", args, "kubernetes")
 	return err
+}
+
+func (m *VDCManager) MoveVDC(blueprintID, sourceInfraID, vdcID, targetInfraID string) (model.DeploymentInfo, error) {
+	var vdcInfo VDCInformation
+	var deployment model.DeploymentInfo
+	err := m.Collection.FindOne(context.Background(), bson.M{"_id": blueprintID}).Decode(&vdcInfo)
+	if err != nil {
+		return deployment, fmt.Errorf("Error finding deployment for blueprint %s: %s", blueprintID, err.Error())
+	}
+
+	deploymentID := vdcInfo.DeploymentID
+	deployment, err = m.DeploymentController.Repository.GetDeployment(deploymentID)
+	if err != nil {
+		return deployment, fmt.Errorf("Error gettind deployment %s associated to blueprint %s: %s", deploymentID, blueprintID, err.Error())
+	}
+
+	sourceInfra, ok := deployment.Infrastructures[sourceInfraID]
+	if !ok {
+		return deployment, fmt.Errorf("Can't find infrastructure %s in deployment %s associated to blueprint %s", sourceInfraID, deploymentID, blueprintID)
+	}
+
+	kubeConfig, err := kubernetes.GetKubernetesConfiguration(sourceInfra)
+	if err != nil {
+		return deployment, fmt.Errorf("Error reading kubernetes configuration in infrastructure %s in deployment %s associated to blueprint %s: %s", sourceInfraID, deploymentID, blueprintID, err.Error())
+	}
+
+	var vdcsConfig VDCsConfiguration
+	ok, err = utils.GetStruct(kubeConfig.DeploymentsConfiguration, "VDC", &vdcsConfig)
+	if !ok {
+		return deployment, fmt.Errorf("Can't find the VDCs configuration in infrastructure %s in deployment %s associated to blueprint %s", sourceInfraID, deploymentID, blueprintID)
+	}
+	if err != nil {
+		return deployment, fmt.Errorf("Error reading VDC configuration in infrastructure %s in deployment %s associated to blueprint %s: %s", sourceInfraID, deploymentID, blueprintID, err.Error())
+	}
+
+	vdcConfig, ok := vdcsConfig.VDCs[vdcID]
+	if !ok {
+		return deployment, fmt.Errorf("Can't find the VDC %s configuration in infrastructure %s in deployment %s associated to blueprint %s", vdcID, sourceInfraID, deploymentID, blueprintID)
+	}
+
+	var bp blueprint.BlueprintType
+	err = json.Unmarshal([]byte(vdcConfig.Blueprint), &bp)
+	if err != nil {
+		return deployment, fmt.Errorf("Error unmarshaling blueprint for VDC %s: %s", vdcID, err.Error())
+	}
+
+	vdmIP := m.findVDMIP(deployment)
+	if vdmIP == "" {
+		return deployment, fmt.Errorf("Can't find VDM IP in deployment %s associated to blueprint %s", deploymentID, blueprintID)
+	}
+
+	parameters := model.Parameters{
+		"blueprint": bp,
+		"vdcId":     vdcID,
+		"vdmIP":     vdmIP,
+	}
+
+	deployment, err = m.ProvisionerController.Provision(deploymentID, targetInfraID, "vdc", parameters, "kubernetes")
+
+	if err != nil {
+		return deployment, err
+	}
+
+	err = m.doDeleteVDC(&sourceInfra, vdcID)
+	if err != nil {
+		return deployment, err
+	}
+
+	deployment.Infrastructures[sourceInfra.ID] = sourceInfra
+	return m.DeploymentController.Repository.SaveDeployment(deployment)
+}
+
+func (m *VDCManager) doDeleteVDC(infra *model.InfrastructureDeploymentInfo, vdcID string) error {
+	logger := log.WithFields(log.Fields{
+		"infra": infra.ID,
+		"vdc":   vdcID,
+	})
+
+	kubeConfig, err := kubernetes.GetKubernetesConfiguration(*infra)
+	if err != nil {
+		return fmt.Errorf("Error reading kuberentes configuration from infrastructure %s: %s", infra.ID, err.Error())
+	}
+
+	vdcsConfig, err := GetVDCsConfiguration(*infra)
+	if err != nil {
+		return fmt.Errorf("Error reading VDCs configuration from infrastructure %s: %s", infra.ID, err.Error())
+	}
+
+	kubeClient, err := kubernetes.NewClient(kubeConfig.ConfigurationFile)
+	if err != nil {
+		return err
+	}
+
+	logger.Info("Deleting VDC")
+	err = kubeClient.Client.AppsV1().Deployments(apiv1.NamespaceDefault).Delete(vdcID, &metav1.DeleteOptions{})
+	if err != nil {
+		return fmt.Errorf("Error deleting VDC %s: %s", vdcID, err.Error())
+	}
+
+	delete(vdcsConfig.VDCs, vdcID)
+	kubeConfig.DeploymentsConfiguration["VDC"] = vdcsConfig
+	infra.Products["kubernetes"] = kubeConfig
+
+	return err
+}
+
+func GetVDCsConfiguration(infra model.InfrastructureDeploymentInfo) (VDCsConfiguration, error) {
+	var vdcsConfig VDCsConfiguration
+	kubeconfig, err := kubernetes.GetKubernetesConfiguration(infra)
+	if err != nil {
+		return vdcsConfig, err
+	}
+	ok, err := utils.GetStruct(kubeconfig.DeploymentsConfiguration, "VDC", &vdcsConfig)
+	if !ok {
+		return vdcsConfig, errors.New("Can't find VDCs configuration")
+	}
+	return vdcsConfig, err
+}
+
+func (m *VDCManager) findVDMIP(deployment model.DeploymentInfo) string {
+	for _, infra := range deployment.Infrastructures {
+		kubeConfig, err := kubernetes.GetKubernetesConfiguration(infra)
+		if err == nil {
+			_, ok := kubeConfig.DeploymentsConfiguration["VDM"]
+			if ok {
+				master, err := infra.GetFirstNodeOfRole("master")
+				if err == nil {
+					return master.IP
+				}
+			}
+		}
+	}
+	return ""
 }
 
 func (m *VDCManager) DeployDatasource(blueprintId, infraId, datasourceType string, args model.Parameters) error {
