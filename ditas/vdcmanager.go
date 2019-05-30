@@ -43,14 +43,17 @@ import (
 )
 
 const (
-	DitasScriptsFolderProperty    = "ditas.folders.scripts"
-	DitasConfigFolderProperty     = "ditas.folders.config"
-	DitasRegistryURLProperty      = "ditas.registry.url"
-	DitasRegistryUsernameProperty = "ditas.registry.username"
-	DitasRegistryPasswordProperty = "ditas.registry.password"
+	DitasScriptsFolderProperty              = "ditas.folders.scripts"
+	DitasConfigFolderProperty               = "ditas.folders.config"
+	DitasRegistryURLProperty                = "ditas.registry.url"
+	DitasRegistryUsernameProperty           = "ditas.registry.username"
+	DitasRegistryPasswordProperty           = "ditas.registry.password"
+	DitasPersistenceGlusterFSDeployProperty = "ditas.persistence.glusterfs.deploy"
+	DitasPersistenceRookDeployProperty      = "ditas.persistence.rook.deploy"
 
-	DitasScriptsFolderDefaultValue = "ditas/scripts"
-	DitasConfigFolderDefaultValue  = "ditas/VDC-Shared-Config"
+	DitasScriptsFolderDefaultValue     = "ditas/scripts"
+	DitasConfigFolderDefaultValue      = "ditas/VDC-Shared-Config"
+	DitasPersistenceDeployDefaultValue = false
 )
 
 type VDCManager struct {
@@ -66,6 +69,8 @@ func NewVDCManager(deployer *infrastructure.Deployer, provisionerController *pro
 	viper.SetDefault(mongorepo.MongoDBURLName, mongorepo.MongoDBURLDefault)
 	viper.SetDefault(DitasScriptsFolderProperty, DitasScriptsFolderDefaultValue)
 	viper.SetDefault(DitasConfigFolderProperty, DitasConfigFolderDefaultValue)
+	viper.SetDefault(DitasPersistenceGlusterFSDeployProperty, DitasPersistenceDeployDefaultValue)
+	viper.SetDefault(DitasPersistenceRookDeployProperty, DitasPersistenceDeployDefaultValue)
 
 	configFolder, err := utils.ConfigurationFolder()
 	if err != nil {
@@ -185,6 +190,17 @@ func (m *VDCManager) findDefaultInfra(deployment model.DeploymentInfo) (model.In
 	return model.InfrastructureDeploymentInfo{}, false
 }
 
+/*func (m *VDCManager) provisionPersistence(solution, property string, deployment model.Deployment, infra model.InfrastructureDeploymentInfo) (model.DeploymentInfo, error) {
+	if viper.GetBool(property) {
+		args := map[string][]string{
+			ansible.AnsibleWaitForSSHReadyProperty: []string{"false"},
+		}
+
+		return m.ProvisionerController.Provision(deployment.ID, infra.ID, solution, args, "kubernetes")
+	}
+	return deployment, nil
+}*/
+
 func (m *VDCManager) provisionKubernetes(deployment model.DeploymentInfo, vdcInfo *VDCInformation) (model.DeploymentInfo, error) {
 	var result model.DeploymentInfo
 	var err error
@@ -202,11 +218,14 @@ func (m *VDCManager) provisionKubernetes(deployment model.DeploymentInfo, vdcInf
 			ansible.AnsibleWaitForSSHReadyProperty: []string{"false"},
 		}
 
-		result, err = m.ProvisionerController.Provision(deployment.ID, infra.ID, "rook", args, "kubernetes")
+		result, err = m.ProvisionerController.Provision(deployment.ID, infra.ID, solution, args, "kubernetes")
 		if err != nil {
-			log.WithError(err).Error("Error deploying ceph cluster to master")
+			log.WithError(err).Errorf("Error deploying rook to kubernetes cluster %s of deployment %s", infra.ID, deployment.ID)
 			return result, err
-		}*/
+		}
+
+		result, err = m.provisionPersistence("glusterfs")*/
+
 	}
 	return result, nil
 }

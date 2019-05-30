@@ -1,0 +1,25 @@
+---
+ - hosts: [all]
+   become: true
+   tasks:
+     - name: "Add Gluster 6 repository"
+       apt_repository:
+         repo: ppa:gluster/glusterfs-6
+         update_cache: yes
+     - name: "Install glusterfs packages"
+       apt:
+         name: "{{ packages }}"
+         vars:
+           packages:
+           - glusterfs-server
+           - glusterfs-client
+     - name: "Start Glusterfs service"
+       systemd:
+         state: started
+         name: glusterd
+         enabled: yes
+     - name: "Join workers to the cluster"
+       shell: "gluster peer probe {{ node }}"
+       vars:
+         node: "{{ nodes }}"
+           
