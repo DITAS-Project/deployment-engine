@@ -23,6 +23,7 @@ import (
 	"deployment-engine/provision"
 	"deployment-engine/provision/ansible"
 	"deployment-engine/restfrontend"
+	"deployment-engine/utils"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -100,7 +101,8 @@ func (a DitasFrontend) Run(addr string) error {
 
 func (a *DitasFrontend) initializeRoutes() {
 	a.Router.HandleFunc("/blueprint", a.createDep).Methods("POST")
-	a.Router.HandleFunc("/blueprint/{blueprintId}/{infraId}/{datasource}", a.createDatasource).Methods("POST")
+	a.Router.HandleFunc("/blueprint/{blueprintId}/{infraId}/datasources/{datasource}", a.createDatasource).Methods("POST")
+	a.Router.HandleFunc("/blueprint/{blueprintId}/{infraId}/vdcs/{vdcId}", a.moveVDC).Methods("PUT")
 	//a.Router.HandleFunc("/deployment/{depId}/{infraId}", a.DefaultFrontend.deleteInfra).Methods("DELETE")
 }
 
@@ -259,6 +261,41 @@ func (a *DitasFrontend) createDep(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+}
+
+func (a *DitasFrontend) moveVDC(w http.ResponseWriter, r *http.Request) {
+	blueprintId, ok := a.DefaultFrontend.GetQueryParam("blueprintId", r)
+	if !ok {
+		restfrontend.RespondWithError(w, http.StatusBadRequest, "Blueprint identifier is mandatory")
+		return
+	}
+
+	infraId, ok := a.DefaultFrontend.GetQueryParam("infraId", r)
+	if !ok {
+		restfrontend.RespondWithError(w, http.StatusBadRequest, "Infrastructure identifier is mandatory")
+		return
+	}
+
+	vdc, ok := a.DefaultFrontend.GetQueryParam("vdcId", r)
+	if !ok {
+		restfrontend.RespondWithError(w, http.StatusBadRequest, "VDC identifier is mandatory")
+		return
+	}
+
+	targetInfra, ok := utils.GetSingleValue(r.URL.Query(), "targetInfra")
+	if !ok {
+		restfrontend.RespondWithError(w, http.StatusBadRequest, "Target infrastructure identifier parameter is mandatory")
+		return
+	}
+
+	dep, err := a.VDCManagerInstance.MoveVDC(blueprintId, infraId, vdc, targetInfra)
+	if err != nil {
+		restfrontend.RespondWithError(w, http.StatusBadRequest, fmt.Sprintf("Error moving VDC: %s", err.Error()))
+		return
+	}
+
+	restfrontend.RespondWithJSON(w, http.StatusOK, dep)
+	return
 }
 
 func (a *DitasFrontend) createDatasource(w http.ResponseWriter, r *http.Request) {

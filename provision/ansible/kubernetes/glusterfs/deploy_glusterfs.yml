@@ -43,6 +43,12 @@
           path: gluster-kubernetes/deploy/kube-templates/glusterfs-daemonset.yaml
           regexp: "/usr/lib/modules"
           replace: "/lib/modules"
+
+      - name: Fix deployment in k8s 1.14
+        replace:
+          path: gluster-kubernetes/deploy/gk-deploy.sh
+          regexp: "heketi_pod=$(${CLI} get pod --no-headers --show-all --selector=\"heketi\" | awk '{print $1}')"
+          replace: "heketi_pod=$(${CLI} get pod --no-headers --selector=\"heketi\" | awk '{print $1}'"
       
       - name: Execute glusterfs cluster deployment
         shell: "./gk-deploy -g -v -y {{ single_node }}"

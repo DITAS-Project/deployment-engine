@@ -80,6 +80,15 @@ func ConfigurationFolder() (string, error) {
 	return fmt.Sprintf("%s/%s", home, ConfigurationFolderName), nil
 }
 
+func GetStruct(input map[string]interface{}, key string, result interface{}) (bool, error) {
+	raw, ok := input[key]
+	if !ok {
+		return false, nil
+	}
+
+	return true, TransformObject(raw, result)
+}
+
 func TransformObject(input interface{}, output interface{}) error {
 	strInput, err := json.Marshal(input)
 	if err != nil {
@@ -119,7 +128,7 @@ func GetDockerRepositories() map[string]model.DockerRegistry {
 func GetVarsFromConfigFolder() (map[string]interface{}, error) {
 	generalConfigFolder, err := ConfigurationFolder()
 	if err != nil {
-		return nil, fmt.Errorf("Error getting variables from configuration folder: %s\n",err.Error())
+		return nil, fmt.Errorf("Error getting variables from configuration folder: %s\n", err.Error())
 	}
 	reader := viper.New()
 	reader.SetConfigName("vars")
