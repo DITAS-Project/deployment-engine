@@ -253,13 +253,16 @@ func (a *DitasFrontend) createDep(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := a.VDCManagerInstance.DeployBlueprint(request)
+	dep, err := a.VDCManagerInstance.DeployBlueprint(request)
 
 	if err != nil {
 		log.WithError(err).Error("Error deploying blueprint")
 		restfrontend.RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Error deploying blueprint: %s", err.Error()))
 		return
 	}
+
+	restfrontend.RespondWithJSON(w, http.StatusCreated, dep)
+	return
 
 }
 

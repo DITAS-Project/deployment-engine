@@ -18,7 +18,11 @@
 
 package ditas
 
-import blueprint "github.com/DITAS-Project/blueprint-go"
+import (
+	"deployment-engine/model"
+
+	blueprint "github.com/DITAS-Project/blueprint-go"
+)
 
 type VDCInformation struct {
 	ID           string `bson:"_id"`
@@ -42,5 +46,5 @@ type CreateDeploymentRequest struct {
 
 	// The list of infrastructures to use to deploy the VDC
 	// required: true
-	Resources []blueprint.InfrastructureType `json:"resources"`
+	Resources []model.InfrastructureType `json:"resources"`
 }

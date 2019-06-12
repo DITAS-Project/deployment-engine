@@ -402,6 +402,9 @@ func (d *CloudsigmaDeployer) CreateServer(resource model.ResourceType, ip IPRefe
 	}
 
 	result.Info.IP = ip.UUID
+	result.Info.CPU = server.CPU
+	result.Info.RAM = server.Mem
+	result.Info.Cores = server.SMP
 
 	logger.Info("Server deployment complete!!!!")
 

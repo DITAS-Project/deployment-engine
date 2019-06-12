@@ -3,6 +3,8 @@ github.com/DITAS-Project/blueprint-go v0.0.0-20190311145452-d2d2b094b09c h1:Ifs5
 github.com/DITAS-Project/blueprint-go v0.0.0-20190311145452-d2d2b094b09c/go.mod h1:1QPU3t9136eLD320SvfENOlnjkYNxcu+HMl719/3SaY=
 github.com/DITAS-Project/blueprint-go v0.0.0-20190514091917-fb002f06a318 h1:hBFocZfZJEQlRF0fVuYwzbqHYldpBpUXE+hdEEzUin0=
 github.com/DITAS-Project/blueprint-go v0.0.0-20190514091917-fb002f06a318/go.mod h1:OEh2oEHsiWxV91Z3ZVEa2IuQ8FjQFphH9A9r6LnEFV8=
+github.com/DITAS-Project/blueprint-go v0.0.0-20190530152530-d72d049cd401 h1:l4A1pyh5sQu3jZT45Q/78f6m5DVKn2GiCB0yA//oZLM=
+github.com/DITAS-Project/blueprint-go v0.0.0-20190530152530-d72d049cd401/go.mod h1:OEh2oEHsiWxV91Z3ZVEa2IuQ8FjQFphH9A9r6LnEFV8=
 github.com/PuerkitoBio/purell v1.1.0 h1:rmGxhojJlM0tuKtfdvliR84CFHljx9ag64t2xmVkjK4=
 github.com/PuerkitoBio/purell v1.1.0/go.mod h1:c11w/QuzBsJSee3cPx9rAFu61PvFxuPbtSwDGJws/X0=
 github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 h1:d+Bc7a5rLufV/sSk/8dngufqelfh6jnri85riMAaF/M=
