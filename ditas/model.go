@@ -18,12 +18,6 @@
 
 package ditas
 
-import (
-	"deployment-engine/model"
-
-	blueprint "github.com/DITAS-Project/blueprint-go"
-)
-
 type VDCInformation struct {
 	ID           string `bson:"_id"`
 	DeploymentID string `json:"deployment_id" bson:"deployment_id"`
@@ -35,16 +29,4 @@ type Registry struct {
 	Username string
 	Password string
 	Email    string
-}
-
-// CreateDeploymentRequest is a request to create a deployment of a VDC of a given blueprint in a series of resources
-// swagger:model
-type CreateDeploymentRequest struct {
-	// The abstract blueprint to use to create the VDC
-	// required: true
-	Blueprint blueprint.BlueprintType `json:"blueprint"`
-
-	// The list of infrastructures to use to deploy the VDC
-	// required: true
-	Resources []model.InfrastructureType `json:"resources"`
 }

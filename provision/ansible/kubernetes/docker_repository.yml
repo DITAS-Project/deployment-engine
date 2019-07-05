@@ -4,6 +4,7 @@
     become: yes
     become_user: root
     become_method: sudo
+    strategy: free
     tasks:
     - name: Ensures certificate folder exists exists
       file: 
@@ -17,5 +18,8 @@
         dest: "/etc/docker/certs.d/{{ repo_name }}/ca.crt"
       when: cert_file is defined
 
+  - hosts: [all]
+    strategy: free
+    tasks:
     - name: Log in to docker
       shell: docker login --username {{ repo_username }} --password {{ repo_password }} {{ repo_name }}

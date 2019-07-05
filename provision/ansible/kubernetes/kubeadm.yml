@@ -54,6 +54,7 @@
   - hosts: [slaves]
     become: yes
     gather_facts: no
+    strategy: free
     tasks:
       - name: joining nodes to cluster
         command: "{{ hostvars[groups['master'][0]]['join_command'] }}"

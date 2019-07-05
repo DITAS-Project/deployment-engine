@@ -129,7 +129,7 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, de
 		return errors.New("Can't find blueprint in parameters")
 	}
 
-	bp := blueprintRaw.(blueprint.BlueprintType)
+	bp := blueprintRaw.(blueprint.Blueprint)
 
 	deploymentRaw, ok := args["deployment"]
 	if !ok {

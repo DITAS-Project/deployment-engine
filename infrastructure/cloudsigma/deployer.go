@@ -457,7 +457,7 @@ func (d CloudsigmaDeployer) clearHostName(hostname string) (string, error) {
 		return "", err
 	}
 
-	replaced := reg.ReplaceAllString(toReplace, "")
+	replaced := reg.ReplaceAllString(toReplace, "-")
 	if len(replaced) > 255 || len(replaced) == 0 {
 		return "", fmt.Errorf("Infrastructure or host name of resource is too long or too short. Infrastructure name + resource name should be between 0 and 255 alphanumeric characters")
 	}

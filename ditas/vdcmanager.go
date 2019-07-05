@@ -112,25 +112,22 @@ func NewVDCManager(deployer *infrastructure.Deployer, provisionerController *pro
 	}, nil
 }
 
-func (m *VDCManager) DeployBlueprint(request CreateDeploymentRequest) (model.DeploymentInfo, error) {
-	bp := request.Blueprint
+func (m *VDCManager) DeployBlueprint(bp blueprint.Blueprint) (model.DeploymentInfo, error) {
 	var deploymentInfo model.DeploymentInfo
-	if bp.InternalStructure.Overview.Name == nil {
-		return deploymentInfo, errors.New("Invalid blueprint. Name is mandatory")
+	if bp.ID == "" {
+		return deploymentInfo, errors.New("Invalid blueprint. Id is mandatory")
 	}
-	blueprintName := *bp.InternalStructure.Overview.Name
+
 	var vdcInfo VDCInformation
-	err := m.Collection.FindOne(context.Background(), bson.M{"_id": blueprintName}).Decode(&vdcInfo)
+	err := m.Collection.FindOne(context.Background(), bson.M{"_id": bp.ID}).Decode(&vdcInfo)
 	if err != nil {
 
 		vdcInfo = VDCInformation{
-			ID: blueprintName,
+			ID: bp.ID,
 		}
 
-		deployment := model.Deployment{
-			Name:            blueprintName,
-			Infrastructures: request.Resources,
-		}
+		var deployment model.Deployment
+		err = utils.TransformObject(bp.CookbookAppendix.Resources, &deployment)
 
 		deploymentInfo, err = m.DeploymentController.CreateDeployment(deployment)
 		if err != nil {
@@ -237,7 +234,7 @@ func (m *VDCManager) provisionKubernetes(deployment model.DeploymentInfo, vdcInf
 	return result, nil
 }
 
-func (m *VDCManager) DeployVDC(blueprint blueprint.BlueprintType, deployment model.DeploymentInfo, infra model.InfrastructureDeploymentInfo) (model.DeploymentInfo, error) {
+func (m *VDCManager) DeployVDC(blueprint blueprint.Blueprint, deployment model.DeploymentInfo, infra model.InfrastructureDeploymentInfo) (model.DeploymentInfo, error) {
 
 	kubeConfigRaw, ok := infra.Products["kubernetes"]
 	if !ok {
@@ -263,7 +260,7 @@ func (m *VDCManager) DeployVDC(blueprint blueprint.BlueprintType, deployment mod
 	return m.doDeployVDC(deployment, infra, blueprint)
 }
 
-func (m *VDCManager) doDeployVDC(deployment model.DeploymentInfo, infra model.InfrastructureDeploymentInfo, bp blueprint.BlueprintType) (model.DeploymentInfo, error) {
+func (m *VDCManager) doDeployVDC(deployment model.DeploymentInfo, infra model.InfrastructureDeploymentInfo, bp blueprint.Blueprint) (model.DeploymentInfo, error) {
 
 	args := make(model.Parameters)
 	args["blueprint"] = bp
@@ -309,7 +306,7 @@ func (m *VDCManager) MoveVDC(blueprintID, sourceInfraID, vdcID, targetInfraID st
 		return deployment, fmt.Errorf("Can't find the VDC %s configuration in infrastructure %s in deployment %s associated to blueprint %s", vdcID, sourceInfraID, deploymentID, blueprintID)
 	}
 
-	var bp blueprint.BlueprintType
+	var bp blueprint.Blueprint
 	err = json.Unmarshal([]byte(vdcConfig.Blueprint), &bp)
 	if err != nil {
 		return deployment, fmt.Errorf("Error unmarshaling blueprint for VDC %s: %s", vdcID, err.Error())
@@ -321,9 +318,10 @@ func (m *VDCManager) MoveVDC(blueprintID, sourceInfraID, vdcID, targetInfraID st
 	}
 
 	parameters := model.Parameters{
-		"blueprint": bp,
-		"vdcId":     vdcID,
-		"vdmIP":     vdmIP,
+		"blueprint":  bp,
+		"vdcId":      vdcID,
+		"vdmIP":      vdmIP,
+		"deployment": deployment,
 	}
 
 	deployment, err = m.ProvisionerController.Provision(deploymentID, targetInfraID, "vdc", parameters, "kubernetes")
