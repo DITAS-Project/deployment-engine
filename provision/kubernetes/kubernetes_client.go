@@ -82,7 +82,7 @@ type ImageInfo struct {
 	Image string `json:"image"`
 
 	// Environment is a map of environment variables whose key is the variable name and value is the variable value
-	Environment map[string]string `json:environment`
+	Environment map[string]string `json:"environment"`
 }
 
 // ImageSet represents a set of docker images whose key is an identifier and value is a the docker image information such as image name and listening ports
@@ -199,6 +199,11 @@ func GetContainersDescription(images ImageSet, secrets []SecretData, volumes []V
 
 	for containerId, containerInfo := range images {
 
+		container := corev1.Container{
+			Name:  containerId,
+			Image: containerInfo.Image,
+		}
+
 		env := make([]corev1.EnvVar, 0, len(containerInfo.Environment)+len(secrets))
 		for k, v := range containerInfo.Environment {
 			env = append(env, corev1.EnvVar{
@@ -223,6 +228,10 @@ func GetContainersDescription(images ImageSet, secrets []SecretData, volumes []V
 			}
 		}
 
+		if len(env) > 0 {
+			container.Env = env
+		}
+
 		volumeMounts := make([]corev1.VolumeMount, len(volumes))
 		for i, volume := range volumes {
 			volumeMounts[i] = corev1.VolumeMount{
@@ -231,17 +240,19 @@ func GetContainersDescription(images ImageSet, secrets []SecretData, volumes []V
 			}
 		}
 
-		containers = append(containers, corev1.Container{
-			Name:  containerId,
-			Image: containerInfo.Image,
-			Ports: []corev1.ContainerPort{
+		if len(volumeMounts) > 0 {
+			container.VolumeMounts = volumeMounts
+		}
+
+		if containerInfo.InternalPort != 0 {
+			container.Ports = []corev1.ContainerPort{
 				corev1.ContainerPort{
 					ContainerPort: int32(containerInfo.InternalPort),
 				},
-			},
-			Env:          env,
-			VolumeMounts: volumeMounts,
-		})
+			}
+		}
+
+		containers = append(containers, container)
 	}
 
 	return containers
@@ -361,7 +372,7 @@ func CreateOrUpdateResource(logger *logrus.Entry, name string, getter func() (in
 		logger.WithError(err).Error("Error getting resource information")
 		return existing, err
 	}
-	if existing != nil {
+	if existing != nil && err == nil {
 		log.Info("Resource exists. Deleting")
 		deleter(name, &metav1.DeleteOptions{})
 		log.Info("Waiting for resource to be deleted")

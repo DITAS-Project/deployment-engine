@@ -80,7 +80,7 @@ func testStatus(repo DeploymentRepository, ID, status, infraID, infrastatus stri
 }
 
 func testDeployment(t *testing.T) {
-
+	t.Logf("Testing %d deployment repositories", len(depRepos))
 	for _, repo := range depRepos {
 		infraId := "infra1"
 		dep := model.DeploymentInfo{
@@ -197,6 +197,7 @@ func testDeployment(t *testing.T) {
 }
 
 func testVault(t *testing.T) {
+	t.Logf("Testing %d vaults", len(vaults))
 	for _, repo := range vaults {
 		testSecret := model.Secret{
 			Description: "Test secret",
