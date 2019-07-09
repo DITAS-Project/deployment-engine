@@ -154,6 +154,12 @@ type NodeInfo struct {
 	// Role of the node. Master or slave in case of Kubernetes.
 	// example:master
 	Role string `json:"role"`
+	// CPU speed in Mhz.
+	CPU int `json:"cpu"`
+	// Number of cores.
+	Cores int `json:"cores"`
+	// RAM quantity in bytes.
+	RAM int64 `json:"ram"`
 	// IP assigned to this node.
 	// required:true
 	// unique:true

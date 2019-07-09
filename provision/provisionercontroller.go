@@ -74,6 +74,10 @@ func (p *ProvisionerController) Provision(deploymentID, infraID, product string,
 		return deployment, fmt.Errorf("Can't find provisioner for framework %s", provType)
 	}
 
+	if args == nil {
+		args = make(model.Parameters)
+	}
+
 	err = provisioner.Provision(deploymentID, &infra, product, args)
 	if err != nil {
 		log.WithError(err).Errorf("Error provisioning product %s", product)

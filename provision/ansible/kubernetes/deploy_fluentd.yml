@@ -1,0 +1,14 @@
+---
+  - hosts: [master]
+    tasks:
+      - name: Copy variables file
+        copy:
+          content: "{{ values }}"
+          dest: fluentd_vars.yml
+          trim_blocks: no
+
+      - name: Add heml repository
+        shell: "helm repo add kiwigrid https://kiwigrid.github.io"
+
+      - name: Install fluentd chart
+        shell: "helm install --name fluentd -f fluentd_vars.yml kiwigrid/fluentd-elasticsearch"

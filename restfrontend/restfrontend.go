@@ -51,7 +51,7 @@ func New(repository persistence.DeploymentRepository, vault persistence.Vault) (
 		ProvisionerController: provision.NewProvisionerController(ansibleProvisioner, repository),
 		Vault:                 vault,
 	}
-	result.initializeRoutes()
+	result.InitializeRoutes()
 	return &result, nil
 }
 
@@ -59,7 +59,7 @@ func (a App) Run(addr string) error {
 	return http.ListenAndServe(addr, a.Router)
 }
 
-func (a *App) initializeRoutes() {
+func (a *App) InitializeRoutes() {
 	a.Router.HandleFunc("/deployment", a.CreateDep).Methods("POST")
 	a.Router.HandleFunc("/deployment/{depId}", a.DeleteDeployment).Methods("DELETE")
 	a.Router.HandleFunc("/deployment/{depId}/{infraId}", a.DeleteInfra).Methods("DELETE")
