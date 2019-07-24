@@ -18,6 +18,12 @@
 
 package ditas
 
+const (
+	ElasticSearchUrlVarName      = "elasticsearch_url"
+	ElasticSearchUsernameVarName = "elasticsearch_user"
+	ElasticSearchPasswordVarName = "elasticsearch_password"
+)
+
 type VDCInformation struct {
 	ID           string `bson:"_id"`
 	DeploymentID string `json:"deployment_id" bson:"deployment_id"`

@@ -51,7 +51,10 @@ func (p FluentdProvisioner) DeployProduct(inventoryPath, deploymentID string, in
 	extraArgs := make(map[string]interface{})
 
 	for k, v := range args {
-		p.addParameter(strings.Split(k, "."), v.(string), extraArgs)
+		stringVal, ok := v.(string)
+		if ok {
+			p.addParameter(strings.Split(k, "."), stringVal, extraArgs)
+		}
 	}
 
 	vals, err := yaml.Marshal(extraArgs)

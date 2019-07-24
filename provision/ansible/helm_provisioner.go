@@ -44,6 +44,7 @@ func (p HelmProvisioner) DeployProduct(inventoryPath, deploymentID string, infra
 		"deployment":     deploymentID,
 		"infrastructure": infra.ID,
 	})
+	infra.Products["helm"] = true
 
 	return ExecutePlaybook(logger, p.parent.ScriptsFolder+"/kubernetes/deploy_helm.yml", inventoryPath, nil)
 }

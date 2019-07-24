@@ -36,6 +36,8 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"gopkg.in/mgo.v2/bson"
 
+	"net/url"
+
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	apiv1 "k8s.io/api/core/v1"
@@ -218,11 +220,53 @@ func (m *VDCManager) provisionKubernetes(deployment model.DeploymentInfo, vdcInf
 			return result, err
 		}
 
-		/*args := map[string][]string{
-			ansible.AnsibleWaitForSSHReadyProperty: []string{"false"},
+		args = model.Parameters{
+			ansible.AnsibleWaitForSSHReadyProperty: false,
 		}
 
-		result, err = m.ProvisionerController.Provision(deployment.ID, infra.ID, solution, args, "kubernetes")
+		result, err = m.ProvisionerController.Provision(deployment.ID, infra.ID, "helm", args, "")
+		if err != nil {
+			log.WithError(err).Errorf("Error deploying helm in infrastructure %s", infra.ID)
+			return result, err
+		}
+
+		vars, err := utils.GetVarsFromConfigFolder()
+		if err != nil {
+			log.WithError(err).Error("Error reading variables from configuration folder")
+			return result, err
+		}
+
+		esURL, ok := vars[ElasticSearchUrlVarName]
+		if ok {
+
+			parsedURL, err := url.Parse(esURL.(string))
+			if err != nil {
+				log.WithError(err).Errorf("Invalid elasticsearch URL: %s", parsedURL)
+				return result, err
+			}
+
+			args["elasticsearch.host"] = parsedURL.Hostname()
+			args["elasticsearch.port"] = parsedURL.Port()
+
+			esUsername, ok := vars[ElasticSearchUsernameVarName]
+			if ok {
+				args["elasticsearch.auth.enabled"] = "true"
+				args["elasticsearch.auth.user"] = esUsername
+
+				esPassword, ok := vars[ElasticSearchPasswordVarName]
+				if ok {
+					args["elasticsearch.auth.password"] = esPassword
+				}
+			}
+
+			result, err = m.ProvisionerController.Provision(deployment.ID, infra.ID, "fluentd", args, "")
+			if err != nil {
+				log.WithError(err).Errorf("Error installing fluentd at infrastructure %s", infra.ID)
+				return result, err
+			}
+		}
+
+		/*result, err = m.ProvisionerController.Provision(deployment.ID, infra.ID, solution, args, "kubernetes")
 		if err != nil {
 			log.WithError(err).Errorf("Error deploying rook to kubernetes cluster %s of deployment %s", infra.ID, deployment.ID)
 			return result, err

@@ -18,4 +18,4 @@
         shell: "kubectl create clusterrolebinding tiller-cluster-rule --clusterrole=cluster-admin --serviceaccount=kube-system:tiller"
         
       - name: Initialize helm
-        shell: "helm init --service-account=tiller"
+        shell: "helm init --service-account=tiller --wait"
