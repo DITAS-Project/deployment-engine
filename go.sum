@@ -3,6 +3,12 @@ github.com/DITAS-Project/blueprint-go v0.0.0-20190311145452-d2d2b094b09c h1:Ifs5
 github.com/DITAS-Project/blueprint-go v0.0.0-20190311145452-d2d2b094b09c/go.mod h1:1QPU3t9136eLD320SvfENOlnjkYNxcu+HMl719/3SaY=
 github.com/DITAS-Project/blueprint-go v0.0.0-20190514091917-fb002f06a318 h1:hBFocZfZJEQlRF0fVuYwzbqHYldpBpUXE+hdEEzUin0=
 github.com/DITAS-Project/blueprint-go v0.0.0-20190514091917-fb002f06a318/go.mod h1:OEh2oEHsiWxV91Z3ZVEa2IuQ8FjQFphH9A9r6LnEFV8=
+github.com/DITAS-Project/blueprint-go v0.0.0-20190530152530-d72d049cd401 h1:l4A1pyh5sQu3jZT45Q/78f6m5DVKn2GiCB0yA//oZLM=
+github.com/DITAS-Project/blueprint-go v0.0.0-20190530152530-d72d049cd401/go.mod h1:OEh2oEHsiWxV91Z3ZVEa2IuQ8FjQFphH9A9r6LnEFV8=
+github.com/DITAS-Project/blueprint-go v0.0.0-20190702094243-bad952741b14 h1:zhk78ilXlxw8O7kCZ3MmumSAT0k8GPKsxbvqiPPL3VA=
+github.com/DITAS-Project/blueprint-go v0.0.0-20190702094243-bad952741b14/go.mod h1:1QPU3t9136eLD320SvfENOlnjkYNxcu+HMl719/3SaY=
+github.com/DITAS-Project/blueprint-go v0.0.0-20190702100911-11805f455d69 h1:5q2owdQrRt0FZ+YruSuUYAjCQamDqHvb+XKRrvTsAiI=
+github.com/DITAS-Project/blueprint-go v0.0.0-20190702100911-11805f455d69/go.mod h1:1QPU3t9136eLD320SvfENOlnjkYNxcu+HMl719/3SaY=
 github.com/PuerkitoBio/purell v1.1.0 h1:rmGxhojJlM0tuKtfdvliR84CFHljx9ag64t2xmVkjK4=
 github.com/PuerkitoBio/purell v1.1.0/go.mod h1:c11w/QuzBsJSee3cPx9rAFu61PvFxuPbtSwDGJws/X0=
 github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 h1:d+Bc7a5rLufV/sSk/8dngufqelfh6jnri85riMAaF/M=
@@ -119,7 +125,8 @@ github.com/xdg/stringprep v1.0.0/go.mod h1:Jhud4/sHMO4oL310DaZAKk9ZaJ08SJfe+sJh0
 github.com/xordataexchange/crypt v0.0.3-0.20170626215501-b2862e3d0a77/go.mod h1:aYKd//L2LvnjZzWKhF00oedf4jCCReLcmhLdhm1A27Q=
 go.mongodb.org/mongo-driver v1.0.0 h1:KxPRDyfB2xXnDE2My8acoOWBQkfv3tz0SaWTRZjJR0c=
 go.mongodb.org/mongo-driver v1.0.0/go.mod h1:u7ryQJ+DOzQmeO7zB6MHyr8jkEQvC8vH7qLUO4lqsUM=
-golang.org/x/crypto v0.0.0-20180621125126-a49355c7e3f8/go.mod h1:6SG95UA2DQfeDnfUPMdvaQW0Q7yPrPDi9nlGo2tz2b4=
+go.mongodb.org/mongo-driver v1.0.3 h1:GKoji1ld3tw2aC+GX1wbr/J2fX13yNacEYoJ8Nhr0yU=
+go.mongodb.org/mongo-driver v1.0.3/go.mod h1:u7ryQJ+DOzQmeO7zB6MHyr8jkEQvC8vH7qLUO4lqsUM=
 golang.org/x/crypto v0.0.0-20181203042331-505ab145d0a9 h1:mKdxBk7AujPs8kU4m80U72y/zjbZ3UcXC7dClwKbUI0=
 golang.org/x/crypto v0.0.0-20181203042331-505ab145d0a9/go.mod h1:6SG95UA2DQfeDnfUPMdvaQW0Q7yPrPDi9nlGo2tz2b4=
 golang.org/x/net v0.0.0-20180712202826-d0887baf81f4/go.mod h1:mL1N/T3taQHkDXs73rZJwtUhF3w3ftmwwsq0BUmARs4=

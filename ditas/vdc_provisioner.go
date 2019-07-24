@@ -23,6 +23,7 @@ import (
 	"deployment-engine/provision/kubernetes"
 	"deployment-engine/utils"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	blueprint "github.com/DITAS-Project/blueprint-go"
@@ -60,8 +61,64 @@ func (p VDCProvisioner) FreePorts(config *kubernetes.KubernetesConfiguration, vd
 	}
 }
 
+func (p VDCProvisioner) transformDeploymentInfo(src model.DeploymentInfo, infraID, vdcID string, newVDC VDCConfiguration) (blueprint.DeploymentInfo, error) {
+	var target blueprint.DeploymentInfo
+	err := utils.TransformObject(src, &target)
+	if err != nil {
+		return target, err
+	}
+
+	for _, infra := range src.Infrastructures {
+		var kubeConfig kubernetes.KubernetesConfiguration
+		ok, err := utils.GetObjectFromMap(infra.Products, "kubernetes", &kubeConfig)
+		if !ok {
+			return target, fmt.Errorf("Can't find kubernetes configuration in infrastructure %s", infra.ID)
+		}
+		if err != nil {
+			return target, err
+		}
+
+		var vdcsConfiguration VDCsConfiguration
+		ok, err = utils.GetObjectFromMap(kubeConfig.DeploymentsConfiguration, "VDC", &vdcsConfiguration)
+		if err != nil {
+			return target, err
+		}
+		if !ok || vdcsConfiguration.VDCs == nil {
+			vdcsConfiguration.VDCs = make(map[string]VDCConfiguration)
+		}
+
+		if infra.ID == infraID {
+			vdcsConfiguration.VDCs[vdcID] = newVDC
+		}
+
+		vdcsInfo := make(map[string]blueprint.VDCInfo)
+		for k, v := range vdcsConfiguration.VDCs {
+			vdcsInfo[k] = blueprint.VDCInfo{
+				Ports: v.Ports,
+			}
+		}
+
+		targetInfra, ok := target.Infrastructures[infra.ID]
+		if !ok {
+			return target, fmt.Errorf("Infrastructure %s not found in blueprint", infra.ID)
+		}
+		targetInfra.VDCs = vdcsInfo
+
+		vdmConfig, ok := kubeConfig.DeploymentsConfiguration["VDM"]
+		if ok {
+			targetInfra.VDM = vdmConfig.(bool)
+		}
+
+		target.Infrastructures[infra.ID] = targetInfra
+
+	}
+
+	return target, err
+}
+
 func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, deploymentID string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error {
 
+	var err error
 	logger := logrus.WithFields(logrus.Fields{
 		"deployment":     deploymentID,
 		"infrastructure": infra.ID,
@@ -69,24 +126,29 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, de
 
 	blueprintRaw, ok := args["blueprint"]
 	if !ok {
-		return fmt.Errorf("Can't find blueprint in parameters")
+		return errors.New("Can't find blueprint in parameters")
 	}
 
-	bp := blueprintRaw.(blueprint.BlueprintType)
+	bp := blueprintRaw.(blueprint.Blueprint)
+
+	deploymentRaw, ok := args["deployment"]
+	if !ok {
+		return errors.New("Can't find deployment in parameters")
+	}
+
+	deployment := deploymentRaw.(model.DeploymentInfo)
 
 	var vdcsConfig VDCsConfiguration
-	vdcConfigRaw, ok := config.DeploymentsConfiguration["VDC"]
+	ok, err = utils.GetObjectFromMap(config.DeploymentsConfiguration, "VDC", &vdcsConfig)
+	if err != nil {
+		return fmt.Errorf("Error getting VDCs configuration for infrastructure %s: %s", infra.ID, err.Error())
+	}
 	if !ok {
 		vdcsConfig = VDCsConfiguration{
 			NumVDCs: 0,
 			VDCs:    make(map[string]VDCConfiguration),
 		}
 		config.DeploymentsConfiguration["VDC"] = vdcsConfig
-	} else {
-		err := utils.TransformObject(vdcConfigRaw, &vdcsConfig)
-		if err != nil {
-			return fmt.Errorf("Error reading VDCs configuration: %s\n", err.Error())
-		}
 	}
 
 	vdcId, ok := args.GetString("vdcId")
@@ -115,8 +177,15 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, de
 	imageSet["sla-manager"] = kubernetes.ImageInfo{
 		Image: "ditas/slalite",
 	}
+	imageSet["request-monitor"] = kubernetes.ImageInfo{
+		Image:        "ditas/vdc-request-monitor:production",
+		InternalPort: 80,
+	}
+	imageSet["logging-agent"] = kubernetes.ImageInfo{
+		Image:        "ditas/vdc-logging-agent:production",
+		InternalPort: 8484,
+	}
 
-	var err error
 	defer func() {
 		p.FreePorts(config, vdcConfig, err)
 	}()
@@ -130,11 +199,35 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, de
 		}
 	}
 
+	vdcsConfig.NumVDCs++
+
+	bpDeployment, err := p.transformDeploymentInfo(deployment, infra.ID, vdcId, vdcConfig)
+	if err != nil {
+		return fmt.Errorf("Error transforming deployment to write the COOKBOOK_APPENDIX section: %s", err.Error())
+	}
+	bp.CookbookAppendix.Deployment = bpDeployment
+
+	strBp, err := json.Marshal(bp)
+	if err != nil {
+		return fmt.Errorf("Error marshalling blueprint: %s", err.Error())
+	}
+	vdcConfig.Blueprint = string(strBp)
+
+	vdcsConfig.VDCs[vdcId] = vdcConfig
+
 	vars, err := utils.GetVarsFromConfigFolder()
 	if err != nil {
 		return err
 	}
 	vars["vdcId"] = vdcId
+
+	caf, ok := imageSet["caf"]
+	if !ok {
+		return errors.New("Can't find CAF image with identifier \"caf\"")
+	}
+	cafPort := caf.InternalPort
+	cafExternalPort := caf.ExternalPort
+	vars["caf_port"] = cafPort
 
 	configMapName := fmt.Sprintf("%s-configmap", vdcId)
 
@@ -144,13 +237,7 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, de
 		return err
 	}
 
-	strBp, err := json.Marshal(bp)
-	if err != nil {
-		return fmt.Errorf("Error marshalling blueprint: %s\n", err.Error())
-	}
-
 	configMap.Data["blueprint.json"] = string(strBp)
-	vdcConfig.Blueprint = configMap.Data["blueprint.json"]
 
 	kubeClient, err := kubernetes.NewClient(config.ConfigurationFile)
 	if err != nil {
@@ -185,6 +272,8 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, de
 		}
 		vdcDeployment.Spec.Template.Spec.HostAliases = hostAlias
 	}
+	shareNamespace := true
+	vdcDeployment.Spec.Template.Spec.ShareProcessNamespace = &shareNamespace
 
 	logger.Info("Creating or updating VDC pod")
 	_, err = kubeClient.CreateOrUpdateDeployment(logger, DitasNamespace, &vdcDeployment)
@@ -193,7 +282,7 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, de
 		return err
 	}
 
-	ports := make([]corev1.ServicePort, 0)
+	/*ports := make([]corev1.ServicePort, 0)
 
 	for _, image := range imageSet {
 		if image.ExternalPort != 0 {
@@ -203,6 +292,14 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, de
 				TargetPort: intstr.FromInt(image.InternalPort),
 			})
 		}
+	}*/
+
+	ports := []corev1.ServicePort{
+		corev1.ServicePort{
+			Port:       int32(cafExternalPort),
+			NodePort:   int32(cafExternalPort),
+			TargetPort: intstr.FromInt(80),
+		},
 	}
 
 	vdcService := corev1.Service{
@@ -222,8 +319,6 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, de
 		return err
 	}
 
-	vdcsConfig.NumVDCs++
-	vdcsConfig.VDCs[vdcId] = vdcConfig
 	config.DeploymentsConfiguration["VDC"] = vdcsConfig
 
 	logger.Info("VDC successfully deployed")

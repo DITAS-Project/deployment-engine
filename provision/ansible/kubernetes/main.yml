@@ -6,6 +6,14 @@
 
 - hosts: all
   become: yes
+  tasks:
+  - name: Ensure br_netfilter is loaded
+    modprobe:
+      name: br_netfilter
+      state: present
+
+- hosts: all
+  become: yes
 
   vars:
     kubernetes_allow_pods_on_master: True

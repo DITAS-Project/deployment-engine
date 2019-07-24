@@ -97,6 +97,14 @@ func TransformObject(input interface{}, output interface{}) error {
 	return json.Unmarshal(strInput, output)
 }
 
+func GetObjectFromMap(src map[string]interface{}, key string, result interface{}) (bool, error) {
+	raw, ok := src[key]
+	if !ok {
+		return false, nil
+	}
+	return ok, TransformObject(raw, result)
+}
+
 func GetSingleValue(values map[string][]string, key string) (string, bool) {
 	vals, ok := values[key]
 	if !ok || vals == nil || len(vals) == 0 {

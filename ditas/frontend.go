@@ -29,6 +29,7 @@ import (
 	"net/http"
 	"net/url"
 
+	blueprint "github.com/DITAS-Project/blueprint-go"
 	"github.com/spf13/viper"
 
 	"fmt"
@@ -106,17 +107,19 @@ func (a *DitasFrontend) initializeRoutes() {
 	//a.Router.HandleFunc("/deployment/{depId}/{infraId}", a.DefaultFrontend.deleteInfra).Methods("DELETE")
 }
 
-func (a *DitasFrontend) ValidateRequest(request CreateDeploymentRequest) error {
+func (a *DitasFrontend) ValidateRequest(request blueprint.Blueprint) error {
 
-	if request.Blueprint.InternalStructure.Overview.Name == nil {
-		return errors.New("Invalid blueprint. Name is mandatory")
+	if request.ID == "" {
+		return errors.New("Invalid blueprint. ID is mandatory")
 	}
 
-	if request.Resources == nil || len(request.Resources) == 0 {
+	resources := request.CookbookAppendix.Resources.Infrastructures
+
+	if resources == nil || len(resources) == 0 {
 		return errors.New("List of resources to deploy is mandatory")
 	}
 
-	for _, infra := range request.Resources {
+	for _, infra := range resources {
 		provider := infra.Provider
 		if provider.APIType != "cloudsigma" {
 			return fmt.Errorf("Invalid provider type %s found in infrastructure %s. Only cloudsigma is supported", provider.APIType, infra.Name)
@@ -239,10 +242,10 @@ func (a *DitasFrontend) ValidateRequest(request CreateDeploymentRequest) error {
 //   500:
 //     description: Internal error
 func (a *DitasFrontend) createDep(w http.ResponseWriter, r *http.Request) {
-	var request CreateDeploymentRequest
+	var request blueprint.Blueprint
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&request); err != nil {
-		log.WithError(err).Error("Error deserializing deployment")
+		log.WithError(err).Error("Error deserializing blueprint")
 		restfrontend.RespondWithError(w, http.StatusBadRequest, fmt.Sprintf("Invalid payload: %s", err.Error()))
 		return
 	}
@@ -253,13 +256,16 @@ func (a *DitasFrontend) createDep(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := a.VDCManagerInstance.DeployBlueprint(request)
+	dep, err := a.VDCManagerInstance.DeployBlueprint(request)
 
 	if err != nil {
 		log.WithError(err).Error("Error deploying blueprint")
 		restfrontend.RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Error deploying blueprint: %s", err.Error()))
 		return
 	}
+
+	restfrontend.RespondWithJSON(w, http.StatusCreated, dep)
+	return
 
 }
 
