@@ -1,24 +1,25 @@
 ---
   - hosts: [all]
     gather_facts: no
+    become: yes
+    become_user: root
+    become_method: sudo
+    strategy: free
     tasks:
     - name: Ensures certificate folder exists exists
-      become: yes
-      become_user: root
-      become_method: sudo
       file: 
         path: "/etc/docker/certs.d/{{ repo_name }}" 
         state: directory
       when: cert_file is defined
       
     - name: Copy repository certificate to host
-      become: yes
-      become_user: root
-      become_method: sudo
       copy: 
         src: "{{ cert_file }}"
         dest: "/etc/docker/certs.d/{{ repo_name }}/ca.crt"
       when: cert_file is defined
 
+  - hosts: [all]
+    strategy: free
+    tasks:
     - name: Log in to docker
       shell: docker login --username {{ repo_username }} --password {{ repo_password }} {{ repo_name }}

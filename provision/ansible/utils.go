@@ -18,6 +18,7 @@ package ansible
 
 import (
 	"deployment-engine/utils"
+	"encoding/json"
 	"fmt"
 
 	log "github.com/sirupsen/logrus"
@@ -33,11 +34,11 @@ func ExecutePlaybook(logger *log.Entry, script string, inventory string, extrava
 
 	if extravars != nil && len(extravars) > 0 {
 		args = append(args, "--extra-vars")
-		extras := ""
-		for k, v := range extravars {
-			extras = extras + fmt.Sprintf("%s=%s ", k, v)
+		vars, err := json.Marshal(extravars)
+		if err != nil {
+			return fmt.Errorf("Error marshaling ansible variables: %s", err.Error())
 		}
-		args = append(args, extras)
+		args = append(args, string(vars))
 	}
 
 	return utils.ExecuteCommand(logger, "ansible-playbook", args...)

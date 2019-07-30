@@ -92,6 +92,8 @@ func New() (*Provisioner, error) {
 		"k3s":                NewK3sProvisioner(&result),
 		"private_registries": NewRegistryProvisioner(&result),
 		"kubespray":          NewKubesprayProvisioner(&result, kubesprayFolder),
+		"helm":               NewHelmProvisioner(&result),
+		"fluentd":            NewFluentdProvisioner(&result),
 	}
 
 	return &result, nil

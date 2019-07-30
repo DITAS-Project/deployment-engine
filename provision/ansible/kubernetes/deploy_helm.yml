@@ -1,0 +1,21 @@
+---
+  - hosts: [master]
+    become: yes
+    gather_facts: no
+    tasks:
+      - name: Install helm binary
+        script: scripts/helm/helm_install.sh
+
+  - hosts: [master]
+    become: no
+    gather_facts: no
+    tasks:
+      
+      - name: Create tiller service account
+        shell: "kubectl create serviceaccount --namespace kube-system tiller"
+
+      - name: Bind tiller service account to admin role
+        shell: "kubectl create clusterrolebinding tiller-cluster-rule --clusterrole=cluster-admin --serviceaccount=kube-system:tiller"
+        
+      - name: Initialize helm
+        shell: "helm init --service-account=tiller --wait"
