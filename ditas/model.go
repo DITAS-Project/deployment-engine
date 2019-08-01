@@ -27,6 +27,8 @@ const (
 type VDCInformation struct {
 	ID           string `bson:"_id"`
 	DeploymentID string `json:"deployment_id" bson:"deployment_id"`
+	NumVDCs      int
+	VDCs         map[string][]string
 }
 
 type Registry struct {

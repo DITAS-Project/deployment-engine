@@ -52,10 +52,12 @@ const (
 	DitasRegistryPasswordProperty           = "ditas.registry.password"
 	DitasPersistenceGlusterFSDeployProperty = "ditas.persistence.glusterfs.deploy"
 	DitasPersistenceRookDeployProperty      = "ditas.persistence.rook.deploy"
+	DitasTombstonePortProperty              = "ditas.tombstone.port"
 
 	DitasScriptsFolderDefaultValue     = "ditas/scripts"
 	DitasConfigFolderDefaultValue      = "ditas/VDC-Shared-Config"
 	DitasPersistenceDeployDefaultValue = false
+	DitasTombstonePortDefaultValue     = 30010
 )
 
 type VDCManager struct {
@@ -73,6 +75,7 @@ func NewVDCManager(deployer *infrastructure.Deployer, provisionerController *pro
 	viper.SetDefault(DitasConfigFolderProperty, DitasConfigFolderDefaultValue)
 	viper.SetDefault(DitasPersistenceGlusterFSDeployProperty, DitasPersistenceDeployDefaultValue)
 	viper.SetDefault(DitasPersistenceRookDeployProperty, DitasPersistenceDeployDefaultValue)
+	viper.SetDefault(DitasTombstonePortProperty, DitasTombstonePortDefaultValue)
 
 	configFolder, err := utils.ConfigurationFolder()
 	if err != nil {
@@ -125,7 +128,9 @@ func (m *VDCManager) DeployBlueprint(bp blueprint.Blueprint) (model.DeploymentIn
 	if err != nil {
 
 		vdcInfo = VDCInformation{
-			ID: bp.ID,
+			ID:      bp.ID,
+			NumVDCs: 0,
+			VDCs:    make(map[string][]string),
 		}
 
 		var deployment model.Deployment
@@ -145,7 +150,7 @@ func (m *VDCManager) DeployBlueprint(bp blueprint.Blueprint) (model.DeploymentIn
 
 		vdcInfo.DeploymentID = deploymentInfo.ID
 
-		deploymentInfo, err = m.provisionKubernetes(deploymentInfo, &vdcInfo)
+		deploymentInfo, err = m.provisionKubernetes(deploymentInfo)
 		if err != nil {
 			log.WithError(err).Error("Error deploying kubernetes. Trying to clean deployment")
 
@@ -178,7 +183,28 @@ func (m *VDCManager) DeployBlueprint(bp blueprint.Blueprint) (model.DeploymentIn
 		return deploymentInfo, fmt.Errorf("Can't find default infrastructure in deployment %s", deploymentInfo.ID)
 	}
 
-	return m.DeployVDC(bp, deploymentInfo, infra)
+	vdcID := fmt.Sprintf("vdc-%d", vdcInfo.NumVDCs)
+
+	res, err := m.DeployVDC(bp, deploymentInfo, infra, vdcID)
+	if err != nil {
+		return res, err
+	}
+
+	infras, ok := vdcInfo.VDCs[vdcID]
+	if !ok {
+		infras = []string{infra.ID}
+	} else {
+		infras = append(infras, infra.ID)
+	}
+	vdcInfo.VDCs[vdcID] = infras
+	vdcInfo.NumVDCs++
+
+	_, err = m.Collection.ReplaceOne(context.Background(), bson.M{"_id": vdcInfo.ID}, vdcInfo, options.Replace())
+	if err != nil {
+		return res, fmt.Errorf("Error saving VDC information: %s", err.Error())
+	}
+
+	return res, err
 }
 
 func (m *VDCManager) findDefaultInfra(deployment model.DeploymentInfo) (model.InfrastructureDeploymentInfo, bool) {
@@ -207,7 +233,7 @@ func (m *VDCManager) findDefaultInfra(deployment model.DeploymentInfo) (model.In
 	return deployment, nil
 }*/
 
-func (m *VDCManager) provisionKubernetes(deployment model.DeploymentInfo, vdcInfo *VDCInformation) (model.DeploymentInfo, error) {
+func (m *VDCManager) provisionKubernetes(deployment model.DeploymentInfo) (model.DeploymentInfo, error) {
 	var result model.DeploymentInfo
 	var err error
 	for _, infra := range deployment.Infrastructures {
@@ -278,7 +304,7 @@ func (m *VDCManager) provisionKubernetes(deployment model.DeploymentInfo, vdcInf
 	return result, nil
 }
 
-func (m *VDCManager) DeployVDC(blueprint blueprint.Blueprint, deployment model.DeploymentInfo, infra model.InfrastructureDeploymentInfo) (model.DeploymentInfo, error) {
+func (m *VDCManager) DeployVDC(blueprint blueprint.Blueprint, deployment model.DeploymentInfo, infra model.InfrastructureDeploymentInfo, vdcID string) (model.DeploymentInfo, error) {
 
 	kubeConfigRaw, ok := infra.Products["kubernetes"]
 	if !ok {
@@ -301,18 +327,24 @@ func (m *VDCManager) DeployVDC(blueprint blueprint.Blueprint, deployment model.D
 		}
 	}
 
-	return m.doDeployVDC(deployment, infra, blueprint)
+	return m.doDeployVDC(deployment, infra, blueprint, vdcID, "")
 }
 
-func (m *VDCManager) doDeployVDC(deployment model.DeploymentInfo, infra model.InfrastructureDeploymentInfo, bp blueprint.Blueprint) (model.DeploymentInfo, error) {
+func (m *VDCManager) doDeployVDC(deployment model.DeploymentInfo, infra model.InfrastructureDeploymentInfo, bp blueprint.Blueprint, vdcID, vdmIP string) (model.DeploymentInfo, error) {
 
 	args := make(model.Parameters)
 	args["blueprint"] = bp
 	args["deployment"] = deployment
+	args["vdcId"] = vdcID
+	args["tombstonePort"] = viper.GetInt(DitasTombstonePortProperty)
+	if vdmIP != "" {
+		args["vdmIP"] = vdmIP
+		args["move"] = true
+	}
 	return m.ProvisionerController.Provision(deployment.ID, infra.ID, "vdc", args, "kubernetes")
 }
 
-func (m *VDCManager) MoveVDC(blueprintID, sourceInfraID, vdcID, targetInfraID string) (model.DeploymentInfo, error) {
+func (m *VDCManager) MoveVDC(blueprintID, vdcID, targetInfraID string) (model.DeploymentInfo, error) {
 	var vdcInfo VDCInformation
 	var deployment model.DeploymentInfo
 	err := m.Collection.FindOne(context.Background(), bson.M{"_id": blueprintID}).Decode(&vdcInfo)
@@ -326,28 +358,20 @@ func (m *VDCManager) MoveVDC(blueprintID, sourceInfraID, vdcID, targetInfraID st
 		return deployment, fmt.Errorf("Error gettind deployment %s associated to blueprint %s: %s", deploymentID, blueprintID, err.Error())
 	}
 
-	sourceInfra, ok := deployment.Infrastructures[sourceInfraID]
+	infras, ok := vdcInfo.VDCs[vdcID]
 	if !ok {
-		return deployment, fmt.Errorf("Can't find infrastructure %s in deployment %s associated to blueprint %s", sourceInfraID, deploymentID, blueprintID)
+		return deployment, fmt.Errorf("Can't find VDC with identifier %s in deployment %s", vdcID, deployment.ID)
 	}
 
-	kubeConfig, err := kubernetes.GetKubernetesConfiguration(sourceInfra)
-	if err != nil {
-		return deployment, fmt.Errorf("Error reading kubernetes configuration in infrastructure %s in deployment %s associated to blueprint %s: %s", sourceInfraID, deploymentID, blueprintID, err.Error())
+	for _, infra := range infras {
+		if infra == targetInfraID {
+			return deployment, fmt.Errorf("VDC with identifier %s already exists in infrastructure %s of deployment %s", vdcID, infra, deployment.ID)
+		}
 	}
 
-	var vdcsConfig VDCsConfiguration
-	ok, err = utils.GetStruct(kubeConfig.DeploymentsConfiguration, "VDC", &vdcsConfig)
+	infra, ok := deployment.Infrastructures[targetInfraID]
 	if !ok {
-		return deployment, fmt.Errorf("Can't find the VDCs configuration in infrastructure %s in deployment %s associated to blueprint %s", sourceInfraID, deploymentID, blueprintID)
-	}
-	if err != nil {
-		return deployment, fmt.Errorf("Error reading VDC configuration in infrastructure %s in deployment %s associated to blueprint %s: %s", sourceInfraID, deploymentID, blueprintID, err.Error())
-	}
-
-	vdcConfig, ok := vdcsConfig.VDCs[vdcID]
-	if !ok {
-		return deployment, fmt.Errorf("Can't find the VDC %s configuration in infrastructure %s in deployment %s associated to blueprint %s", vdcID, sourceInfraID, deploymentID, blueprintID)
+		return deployment, fmt.Errorf("Can't find infrastructure %s in deployment %s associated to blueprint %s", targetInfraID, deployment.ID, blueprintID)
 	}
 
 	var bp blueprint.Blueprint
@@ -460,4 +484,20 @@ func (m *VDCManager) DeployDatasource(blueprintId, infraId, datasourceType strin
 
 	_, err = m.ProvisionerController.Provision(blueprintInfo.DeploymentID, infra.ID, datasourceType, args, "kubernetes")
 	return err
+}
+
+func (m *VDCManager) GetVDCDeploymentInformation(blueprintID, vdcID string) ([]string, error) {
+	var blueprintInfo VDCInformation
+	err := m.Collection.FindOne(context.Background(), bson.M{"_id": blueprintID}).Decode(&blueprintInfo)
+	if err != nil {
+		return nil, fmt.Errorf("Can't find information for blueprint %s: %s", blueprintID, err.Error())
+	}
+
+	res, ok := blueprintInfo.VDCs[vdcID]
+	if !ok {
+		return res, fmt.Errorf("Can't find VDC %s of blueprint %s", vdcID, blueprintID)
+	}
+
+	return res, nil
+
 }

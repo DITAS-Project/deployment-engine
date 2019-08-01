@@ -269,6 +269,29 @@ func (a *DitasFrontend) createDep(w http.ResponseWriter, r *http.Request) {
 
 }
 
+func (a *DitasFrontend) getVDCDeploymentInformation(w http.ResponseWriter, r *http.Request) {
+	blueprintId, ok := a.DefaultFrontend.GetQueryParam("blueprintId", r)
+	if !ok {
+		restfrontend.RespondWithError(w, http.StatusBadRequest, "Blueprint identifier is mandatory")
+		return
+	}
+
+	vdc, ok := a.DefaultFrontend.GetQueryParam("vdcId", r)
+	if !ok {
+		restfrontend.RespondWithError(w, http.StatusBadRequest, "VDC identifier is mandatory")
+		return
+	}
+
+	res, err := a.VDCManagerInstance.GetVDCDeploymentInformation(blueprintId, vdc)
+	if err != nil {
+		restfrontend.RespondWithError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	restfrontend.RespondWithJSON(w, http.StatusOK, res)
+	return
+}
+
 func (a *DitasFrontend) moveVDC(w http.ResponseWriter, r *http.Request) {
 	blueprintId, ok := a.DefaultFrontend.GetQueryParam("blueprintId", r)
 	if !ok {

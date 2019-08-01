@@ -61,56 +61,11 @@ func (p VDCProvisioner) FreePorts(config *kubernetes.KubernetesConfiguration, vd
 	}
 }
 
-func (p VDCProvisioner) transformDeploymentInfo(src model.DeploymentInfo, infraID, vdcID string, newVDC VDCConfiguration) (blueprint.DeploymentInfo, error) {
+func (p VDCProvisioner) transformDeploymentInfo(src model.DeploymentInfo) (blueprint.DeploymentInfo, error) {
 	var target blueprint.DeploymentInfo
 	err := utils.TransformObject(src, &target)
 	if err != nil {
 		return target, err
-	}
-
-	for _, infra := range src.Infrastructures {
-		var kubeConfig kubernetes.KubernetesConfiguration
-		ok, err := utils.GetObjectFromMap(infra.Products, "kubernetes", &kubeConfig)
-		if !ok {
-			return target, fmt.Errorf("Can't find kubernetes configuration in infrastructure %s", infra.ID)
-		}
-		if err != nil {
-			return target, err
-		}
-
-		var vdcsConfiguration VDCsConfiguration
-		ok, err = utils.GetObjectFromMap(kubeConfig.DeploymentsConfiguration, "VDC", &vdcsConfiguration)
-		if err != nil {
-			return target, err
-		}
-		if !ok || vdcsConfiguration.VDCs == nil {
-			vdcsConfiguration.VDCs = make(map[string]VDCConfiguration)
-		}
-
-		if infra.ID == infraID {
-			vdcsConfiguration.VDCs[vdcID] = newVDC
-		}
-
-		vdcsInfo := make(map[string]blueprint.VDCInfo)
-		for k, v := range vdcsConfiguration.VDCs {
-			vdcsInfo[k] = blueprint.VDCInfo{
-				Ports: v.Ports,
-			}
-		}
-
-		targetInfra, ok := target.Infrastructures[infra.ID]
-		if !ok {
-			return target, fmt.Errorf("Infrastructure %s not found in blueprint", infra.ID)
-		}
-		targetInfra.VDCs = vdcsInfo
-
-		vdmConfig, ok := kubeConfig.DeploymentsConfiguration["VDM"]
-		if ok {
-			targetInfra.VDM = vdmConfig.(bool)
-		}
-
-		target.Infrastructures[infra.ID] = targetInfra
-
 	}
 
 	return target, err
@@ -151,26 +106,36 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, de
 		config.DeploymentsConfiguration["VDC"] = vdcsConfig
 	}
 
-	vdcId, ok := args.GetString("vdcId")
+	tombstonePort, ok := args.GetInt("tombstonePort")
 	if !ok {
-		vdcId = fmt.Sprintf("vdc-%d", vdcsConfig.NumVDCs)
+		return errors.New("Tombstone port is mandatory. Please check the configuration file for ditas.tombstone.port property")
 	}
-	isMove := ok
+
+	vdcID, ok := args.GetString("vdcId")
+	if !ok {
+		return errors.New("Can't find VDC identifier in parameters")
+	}
+
+	isMove, ok := args.GetBool("move")
+	if !ok {
+		isMove = false
+	}
 
 	vdmIP, ok := args.GetString("vdmIP")
 	if isMove && !ok {
 		return fmt.Errorf("It's necessary to pass the VDM IP in order to move a VDC")
 	}
 
-	vdcConfig, ok := vdcsConfig.VDCs[vdcId]
+	vdcConfig, ok := vdcsConfig.VDCs[vdcID]
 	if ok {
-		return fmt.Errorf("VDC %s already deployed", vdcId)
+		return fmt.Errorf("VDC %s already deployed", vdcID)
 	}
+
 	vdcConfig = VDCConfiguration{
 		Ports: make(map[string]int),
 	}
 
-	logger = logger.WithField("VDC", vdcId)
+	logger = logger.WithField("VDC", vdcID)
 
 	var imageSet kubernetes.ImageSet
 	utils.TransformObject(bp.InternalStructure.VDCImages, &imageSet)
@@ -201,7 +166,7 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, de
 
 	vdcsConfig.NumVDCs++
 
-	bpDeployment, err := p.transformDeploymentInfo(deployment, infra.ID, vdcId, vdcConfig)
+	bpDeployment, err := p.transformDeploymentInfo(deployment)
 	if err != nil {
 		return fmt.Errorf("Error transforming deployment to write the COOKBOOK_APPENDIX section: %s", err.Error())
 	}
@@ -213,13 +178,13 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, de
 	}
 	vdcConfig.Blueprint = string(strBp)
 
-	vdcsConfig.VDCs[vdcId] = vdcConfig
+	vdcsConfig.VDCs[vdcID] = vdcConfig
 
 	vars, err := utils.GetVarsFromConfigFolder()
 	if err != nil {
 		return err
 	}
-	vars["vdcId"] = vdcId
+	vars["vdcId"] = vdcID
 
 	caf, ok := imageSet["caf"]
 	if !ok {
@@ -229,7 +194,7 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, de
 	cafExternalPort := caf.ExternalPort
 	vars["caf_port"] = cafPort
 
-	configMapName := fmt.Sprintf("%s-configmap", vdcId)
+	configMapName := fmt.Sprintf("%s-configmap", vdcID)
 
 	configMap, err := kubernetes.GetConfigMapFromFolder(p.configFolder+"/vdcs", configMapName, vars)
 	if err != nil {
@@ -253,7 +218,7 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, de
 	}
 
 	vdcLabels := map[string]string{
-		"component": vdcId,
+		"component": vdcID,
 	}
 
 	var repoSecrets []string
@@ -261,7 +226,7 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, de
 		repoSecrets = []string{config.RegistriesSecret}
 	}
 
-	vdcDeployment := kubernetes.GetDeploymentDescription(vdcId, int32(1), int64(30), vdcLabels, imageSet, configMapName, "/etc/ditas", repoSecrets)
+	vdcDeployment := kubernetes.GetDeploymentDescription(vdcID, int32(1), int64(30), vdcLabels, imageSet, configMapName, "/etc/ditas", repoSecrets)
 
 	if isMove {
 		hostAlias := []corev1.HostAlias{
@@ -299,12 +264,19 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, de
 			Port:       int32(cafExternalPort),
 			NodePort:   int32(cafExternalPort),
 			TargetPort: intstr.FromInt(80),
+			Name:       "caf",
+		},
+		corev1.ServicePort{
+			Port:       int32(tombstonePort),
+			NodePort:   int32(tombstonePort),
+			TargetPort: intstr.FromInt(3000),
+			Name:       "tombstone",
 		},
 	}
 
 	vdcService := corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: vdcId,
+			Name: vdcID,
 		},
 		Spec: corev1.ServiceSpec{
 			Type:     corev1.ServiceTypeNodePort,
