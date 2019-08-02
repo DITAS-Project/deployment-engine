@@ -33,16 +33,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-type VDCConfiguration struct {
-	Ports     map[string]int
-	Blueprint string
-}
-
-type VDCsConfiguration struct {
-	NumVDCs int
-	VDCs    map[string]VDCConfiguration
-}
-
 type VDCProvisioner struct {
 	configFolder string
 }
@@ -51,24 +41,6 @@ func NewVDCProvisioner(configFolder string) *VDCProvisioner {
 	return &VDCProvisioner{
 		configFolder: configFolder,
 	}
-}
-
-func (p VDCProvisioner) FreePorts(config *kubernetes.KubernetesConfiguration, vdcConfig VDCConfiguration, err error) {
-	if err != nil {
-		for _, port := range vdcConfig.Ports {
-			config.LiberatePort(port)
-		}
-	}
-}
-
-func (p VDCProvisioner) transformDeploymentInfo(src model.DeploymentInfo) (blueprint.DeploymentInfo, error) {
-	var target blueprint.DeploymentInfo
-	err := utils.TransformObject(src, &target)
-	if err != nil {
-		return target, err
-	}
-
-	return target, err
 }
 
 func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, deploymentID string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error {
@@ -85,26 +57,6 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, de
 	}
 
 	bp := blueprintRaw.(blueprint.Blueprint)
-
-	deploymentRaw, ok := args["deployment"]
-	if !ok {
-		return errors.New("Can't find deployment in parameters")
-	}
-
-	deployment := deploymentRaw.(model.DeploymentInfo)
-
-	var vdcsConfig VDCsConfiguration
-	ok, err = utils.GetObjectFromMap(config.DeploymentsConfiguration, "VDC", &vdcsConfig)
-	if err != nil {
-		return fmt.Errorf("Error getting VDCs configuration for infrastructure %s: %s", infra.ID, err.Error())
-	}
-	if !ok {
-		vdcsConfig = VDCsConfiguration{
-			NumVDCs: 0,
-			VDCs:    make(map[string]VDCConfiguration),
-		}
-		config.DeploymentsConfiguration["VDC"] = vdcsConfig
-	}
 
 	tombstonePort, ok := args.GetInt("tombstonePort")
 	if !ok {
@@ -126,15 +78,6 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, de
 		return fmt.Errorf("It's necessary to pass the VDM IP in order to move a VDC")
 	}
 
-	vdcConfig, ok := vdcsConfig.VDCs[vdcID]
-	if ok {
-		return fmt.Errorf("VDC %s already deployed", vdcID)
-	}
-
-	vdcConfig = VDCConfiguration{
-		Ports: make(map[string]int),
-	}
-
 	logger = logger.WithField("VDC", vdcID)
 
 	var imageSet kubernetes.ImageSet
@@ -151,34 +94,10 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, de
 		InternalPort: 8484,
 	}
 
-	defer func() {
-		p.FreePorts(config, vdcConfig, err)
-	}()
-	for _, image := range imageSet {
-		if image.ExternalPort != 0 {
-			err = config.ClaimPort(image.ExternalPort)
-			if err != nil {
-				return fmt.Errorf("Can't claim port %d: %s\n", image.ExternalPort, err.Error())
-			}
-			vdcConfig.Ports[image.Image] = image.ExternalPort
-		}
-	}
-
-	vdcsConfig.NumVDCs++
-
-	bpDeployment, err := p.transformDeploymentInfo(deployment)
-	if err != nil {
-		return fmt.Errorf("Error transforming deployment to write the COOKBOOK_APPENDIX section: %s", err.Error())
-	}
-	bp.CookbookAppendix.Deployment = bpDeployment
-
 	strBp, err := json.Marshal(bp)
 	if err != nil {
 		return fmt.Errorf("Error marshalling blueprint: %s", err.Error())
 	}
-	vdcConfig.Blueprint = string(strBp)
-
-	vdcsConfig.VDCs[vdcID] = vdcConfig
 
 	vars, err := utils.GetVarsFromConfigFolder()
 	if err != nil {
@@ -290,8 +209,6 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, de
 	if err != nil {
 		return err
 	}
-
-	config.DeploymentsConfiguration["VDC"] = vdcsConfig
 
 	logger.Info("VDC successfully deployed")
 

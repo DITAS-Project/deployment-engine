@@ -117,6 +117,16 @@ func NewVDCManager(deployer *infrastructure.Deployer, provisionerController *pro
 	}, nil
 }
 
+func (p *VDCManager) transformDeploymentInfo(src model.DeploymentInfo) (blueprint.DeploymentInfo, error) {
+	var target blueprint.DeploymentInfo
+	err := utils.TransformObject(src, &target)
+	if err != nil {
+		return target, err
+	}
+
+	return target, err
+}
+
 func (m *VDCManager) DeployBlueprint(bp blueprint.Blueprint) (model.DeploymentInfo, error) {
 	var deploymentInfo model.DeploymentInfo
 	if bp.ID == "" {
@@ -130,7 +140,7 @@ func (m *VDCManager) DeployBlueprint(bp blueprint.Blueprint) (model.DeploymentIn
 		vdcInfo = VDCInformation{
 			ID:      bp.ID,
 			NumVDCs: 0,
-			VDCs:    make(map[string][]string),
+			VDCs:    make(map[string]VDCConfiguration),
 		}
 
 		var deployment model.Deployment
@@ -185,18 +195,31 @@ func (m *VDCManager) DeployBlueprint(bp blueprint.Blueprint) (model.DeploymentIn
 
 	vdcID := fmt.Sprintf("vdc-%d", vdcInfo.NumVDCs)
 
+	bp.CookbookAppendix.Deployment, err = m.transformDeploymentInfo(deploymentInfo)
+	if err != nil {
+		return deploymentInfo, fmt.Errorf("Error transforming deployment information: %s", err.Error())
+	}
+
 	res, err := m.DeployVDC(bp, deploymentInfo, infra, vdcID)
 	if err != nil {
 		return res, err
 	}
 
-	infras, ok := vdcInfo.VDCs[vdcID]
-	if !ok {
-		infras = []string{infra.ID}
-	} else {
-		infras = append(infras, infra.ID)
+	strBp, err := json.Marshal(bp)
+	if err != nil {
+		return res, fmt.Errorf("Error marshaling blueprint: %s", err.Error())
 	}
-	vdcInfo.VDCs[vdcID] = infras
+
+	config, ok := vdcInfo.VDCs[vdcID]
+	if !ok {
+		config = VDCConfiguration{
+			Blueprint:       strBp,
+			Infrastructures: []string{infra.ID},
+		}
+	} else {
+		config.Infrastructures = append(config.Infrastructures, infra.ID)
+	}
+	vdcInfo.VDCs[vdcID] = config
 	vdcInfo.NumVDCs++
 
 	_, err = m.Collection.ReplaceOne(context.Background(), bson.M{"_id": vdcInfo.ID}, vdcInfo, options.Replace())
@@ -358,10 +381,12 @@ func (m *VDCManager) MoveVDC(blueprintID, vdcID, targetInfraID string) (model.De
 		return deployment, fmt.Errorf("Error gettind deployment %s associated to blueprint %s: %s", deploymentID, blueprintID, err.Error())
 	}
 
-	infras, ok := vdcInfo.VDCs[vdcID]
+	config, ok := vdcInfo.VDCs[vdcID]
 	if !ok {
 		return deployment, fmt.Errorf("Can't find VDC with identifier %s in deployment %s", vdcID, deployment.ID)
 	}
+
+	infras := config.Infrastructures
 
 	for _, infra := range infras {
 		if infra == targetInfraID {
@@ -369,13 +394,13 @@ func (m *VDCManager) MoveVDC(blueprintID, vdcID, targetInfraID string) (model.De
 		}
 	}
 
-	infra, ok := deployment.Infrastructures[targetInfraID]
+	_, ok = deployment.Infrastructures[targetInfraID]
 	if !ok {
 		return deployment, fmt.Errorf("Can't find infrastructure %s in deployment %s associated to blueprint %s", targetInfraID, deployment.ID, blueprintID)
 	}
 
 	var bp blueprint.Blueprint
-	err = json.Unmarshal([]byte(vdcConfig.Blueprint), &bp)
+	err = json.Unmarshal(config.Blueprint, &bp)
 	if err != nil {
 		return deployment, fmt.Errorf("Error unmarshaling blueprint for VDC %s: %s", vdcID, err.Error())
 	}
@@ -398,12 +423,15 @@ func (m *VDCManager) MoveVDC(blueprintID, vdcID, targetInfraID string) (model.De
 		return deployment, err
 	}
 
-	err = m.doDeleteVDC(&sourceInfra, vdcID)
-	if err != nil {
-		return deployment, err
+	config.Infrastructures = append(config.Infrastructures, targetInfraID)
+	vdcInfo.VDCs[vdcID] = config
+
+	updRes := m.Collection.FindOneAndReplace(context.Background(), bson.M{"_id": blueprintID}, vdcInfo, options.FindOneAndReplace())
+
+	if updRes.Err() != nil {
+		return deployment, fmt.Errorf("Error updating VDC information for blueprint %s: %s", blueprintID, updRes.Err())
 	}
 
-	deployment.Infrastructures[sourceInfra.ID] = sourceInfra
 	return m.DeploymentController.Repository.SaveDeployment(deployment)
 }
 
@@ -418,11 +446,6 @@ func (m *VDCManager) doDeleteVDC(infra *model.InfrastructureDeploymentInfo, vdcI
 		return fmt.Errorf("Error reading kuberentes configuration from infrastructure %s: %s", infra.ID, err.Error())
 	}
 
-	vdcsConfig, err := GetVDCsConfiguration(*infra)
-	if err != nil {
-		return fmt.Errorf("Error reading VDCs configuration from infrastructure %s: %s", infra.ID, err.Error())
-	}
-
 	kubeClient, err := kubernetes.NewClient(kubeConfig.ConfigurationFile)
 	if err != nil {
 		return err
@@ -434,24 +457,7 @@ func (m *VDCManager) doDeleteVDC(infra *model.InfrastructureDeploymentInfo, vdcI
 		return fmt.Errorf("Error deleting VDC %s: %s", vdcID, err.Error())
 	}
 
-	delete(vdcsConfig.VDCs, vdcID)
-	kubeConfig.DeploymentsConfiguration["VDC"] = vdcsConfig
-	infra.Products["kubernetes"] = kubeConfig
-
 	return err
-}
-
-func GetVDCsConfiguration(infra model.InfrastructureDeploymentInfo) (VDCsConfiguration, error) {
-	var vdcsConfig VDCsConfiguration
-	kubeconfig, err := kubernetes.GetKubernetesConfiguration(infra)
-	if err != nil {
-		return vdcsConfig, err
-	}
-	ok, err := utils.GetStruct(kubeconfig.DeploymentsConfiguration, "VDC", &vdcsConfig)
-	if !ok {
-		return vdcsConfig, errors.New("Can't find VDCs configuration")
-	}
-	return vdcsConfig, err
 }
 
 func (m *VDCManager) findVDMIP(deployment model.DeploymentInfo) string {
@@ -484,20 +490,4 @@ func (m *VDCManager) DeployDatasource(blueprintId, infraId, datasourceType strin
 
 	_, err = m.ProvisionerController.Provision(blueprintInfo.DeploymentID, infra.ID, datasourceType, args, "kubernetes")
 	return err
-}
-
-func (m *VDCManager) GetVDCDeploymentInformation(blueprintID, vdcID string) ([]string, error) {
-	var blueprintInfo VDCInformation
-	err := m.Collection.FindOne(context.Background(), bson.M{"_id": blueprintID}).Decode(&blueprintInfo)
-	if err != nil {
-		return nil, fmt.Errorf("Can't find information for blueprint %s: %s", blueprintID, err.Error())
-	}
-
-	res, ok := blueprintInfo.VDCs[vdcID]
-	if !ok {
-		return res, fmt.Errorf("Can't find VDC %s of blueprint %s", vdcID, blueprintID)
-	}
-
-	return res, nil
-
 }
