@@ -60,7 +60,7 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, de
 
 	tombstonePort, ok := args.GetInt("tombstonePort")
 	if !ok {
-		return errors.New("Tombstone port is mandatory. Please check the configuration file for ditas.tombstone.port property")
+		return errors.New("Tombstone port is mandatory")
 	}
 
 	vdcID, ok := args.GetString("vdcId")
@@ -94,6 +94,23 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, de
 		InternalPort: 8484,
 	}
 
+	caf, ok := imageSet["caf"]
+	if !ok {
+		return errors.New("Can't find CAF image with identifier \"caf\"")
+	}
+	cafPort := caf.InternalPort
+	cafExternalPort := caf.ExternalPort
+
+	err = config.ClaimPort(cafExternalPort)
+	if err != nil {
+		return fmt.Errorf("Error reserving port %d: %s", cafExternalPort, err.Error())
+	}
+	defer func() {
+		if err != nil {
+			config.LiberatePort(cafExternalPort)
+		}
+	}()
+
 	strBp, err := json.Marshal(bp)
 	if err != nil {
 		return fmt.Errorf("Error marshalling blueprint: %s", err.Error())
@@ -104,13 +121,6 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, de
 		return err
 	}
 	vars["vdcId"] = vdcID
-
-	caf, ok := imageSet["caf"]
-	if !ok {
-		return errors.New("Can't find CAF image with identifier \"caf\"")
-	}
-	cafPort := caf.InternalPort
-	cafExternalPort := caf.ExternalPort
 	vars["caf_port"] = cafPort
 
 	configMapName := fmt.Sprintf("%s-configmap", vdcID)

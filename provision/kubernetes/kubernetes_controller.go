@@ -38,7 +38,6 @@ type KubernetesConfiguration struct {
 	ConfigurationFile        string
 	RegistriesSecret         string
 	UsedPorts                sort.IntSlice
-	RegistriesSecrets        map[string]string
 	DeploymentsConfiguration map[string]interface{}
 }
 
@@ -169,10 +168,6 @@ func (p KubernetesController) initializeConfig(config *KubernetesConfiguration) 
 
 	if config.UsedPorts == nil {
 		config.UsedPorts = make(sort.IntSlice, 0)
-	}
-
-	if config.RegistriesSecrets == nil {
-		config.RegistriesSecrets = make(map[string]string)
 	}
 }
 
