@@ -25,15 +25,16 @@ const (
 )
 
 type VDCConfiguration struct {
-	Blueprint       []byte
-	Infrastructures []string
+	Blueprint                []byte
+	AppDeveloperDeploymentID string `json:"app_developer_deployment_id" bson:"app_developer_deployment_id"`
+	Infrastructures          []string
 }
 
 type VDCInformation struct {
-	ID           string `bson:"_id"`
-	DeploymentID string `json:"deployment_id" bson:"deployment_id"`
-	NumVDCs      int
-	VDCs         map[string]VDCConfiguration
+	ID                    string `bson:"_id"`
+	DataOwnerDeploymentID string `json:"data_owner_deployment_id" bson:"data_owner_deployment_id"`
+	NumVDCs               int
+	VDCs                  map[string]VDCConfiguration
 }
 
 type Registry struct {
