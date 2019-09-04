@@ -24,14 +24,20 @@ const (
 	ElasticSearchPasswordVarName = "elasticsearch_password"
 )
 
+type InfrastructureInformation struct {
+	IP            string
+	TombstonePort int
+}
+
 type VDCConfiguration struct {
 	Blueprint                []byte
 	AppDeveloperDeploymentID string `json:"app_developer_deployment_id" bson:"app_developer_deployment_id"`
-	Infrastructures          []string
+	Infrastructures          map[string]InfrastructureInformation
 }
 
 type VDCInformation struct {
 	ID                    string `bson:"_id"`
+	VDMIP                 string
 	DataOwnerDeploymentID string `json:"data_owner_deployment_id" bson:"data_owner_deployment_id"`
 	NumVDCs               int
 	VDCs                  map[string]VDCConfiguration

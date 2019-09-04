@@ -338,6 +338,15 @@ func (i InfrastructureDeploymentInfo) GetFirstNodeOfRole(role string) (NodeInfo,
 	return nodes[0], nil
 }
 
+// GetMasterIP is an utility function that returns the IP if the first master of an infrastructure
+func (i InfrastructureDeploymentInfo) GetMasterIP() (string, error) {
+	master, err := i.GetFirstNodeOfRole("master")
+	if err != nil {
+		return "", err
+	}
+	return master.IP, nil
+}
+
 func (p Parameters) GetString(key string) (string, bool) {
 	elem, ok := p[key]
 	if !ok {

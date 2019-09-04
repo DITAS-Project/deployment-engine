@@ -19,6 +19,7 @@ package utils
 import (
 	"deployment-engine/model"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -143,4 +144,13 @@ func GetVarsFromConfigFolder() (map[string]interface{}, error) {
 	reader.AddConfigPath(generalConfigFolder)
 	reader.ReadInConfig()
 	return reader.AllSettings(), nil
+}
+
+func WrapLogAndReturnError(log *log.Entry, message string, err error) error {
+	if err != nil {
+		log.WithError(err).Error(message)
+		return fmt.Errorf("%s: %w", message, err)
+	}
+	log.Error(message)
+	return errors.New(message)
 }

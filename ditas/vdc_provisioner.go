@@ -62,20 +62,24 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, de
 	if !ok {
 		return errors.New("Tombstone port is mandatory")
 	}
+	err = config.ClaimPort(tombstonePort)
+	if err != nil {
+		return fmt.Errorf("Error reserving port %d: %w", tombstonePort, err)
+	}
+	defer func() {
+		if err != nil {
+			config.LiberatePort(tombstonePort)
+		}
+	}()
 
 	vdcID, ok := args.GetString("vdcId")
 	if !ok {
 		return errors.New("Can't find VDC identifier in parameters")
 	}
 
-	isMove, ok := args.GetBool("move")
-	if !ok {
-		isMove = false
-	}
-
 	vdmIP, ok := args.GetString("vdmIP")
-	if isMove && !ok {
-		return fmt.Errorf("It's necessary to pass the VDM IP in order to move a VDC")
+	if !ok {
+		return fmt.Errorf("It's necessary to pass the VDM IP in order to deploy VDC")
 	}
 
 	logger = logger.WithField("VDC", vdcID)
@@ -157,15 +161,14 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, de
 
 	vdcDeployment := kubernetes.GetDeploymentDescription(vdcID, int32(1), int64(30), vdcLabels, imageSet, configMapName, "/etc/ditas", repoSecrets)
 
-	if isMove {
-		hostAlias := []corev1.HostAlias{
-			corev1.HostAlias{
-				IP:        vdmIP,
-				Hostnames: []string{"vdm"},
-			},
-		}
-		vdcDeployment.Spec.Template.Spec.HostAliases = hostAlias
+	hostAlias := []corev1.HostAlias{
+		corev1.HostAlias{
+			IP:        vdmIP,
+			Hostnames: []string{"vdm"},
+		},
 	}
+	vdcDeployment.Spec.Template.Spec.HostAliases = hostAlias
+
 	shareNamespace := true
 	vdcDeployment.Spec.Template.Spec.ShareProcessNamespace = &shareNamespace
 

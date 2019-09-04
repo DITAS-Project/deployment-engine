@@ -41,11 +41,11 @@ type KubernetesConfiguration struct {
 	DeploymentsConfiguration map[string]interface{}
 }
 
+// GetNewFreePort gets a port which hasn't been used in this kubernetes installation
 func (c *KubernetesConfiguration) GetNewFreePort() int {
 
 	// Initialize with the first available port
 	if c.UsedPorts == nil || len(c.UsedPorts) == 0 {
-		c.UsedPorts = sort.IntSlice{NodePortStart}
 		return NodePortStart
 	}
 
@@ -54,13 +54,11 @@ func (c *KubernetesConfiguration) GetNewFreePort() int {
 
 		// The port used is bigger than the minimum. Use the minimum and update the port list
 		if NodePortStart < c.UsedPorts[0] {
-			c.UsedPorts = sort.IntSlice{NodePortStart, c.UsedPorts[0]}
 			return NodePortStart
 		}
 
 		// We just have the initial port. Use the next one and update the port list
 		if NodePortStart == c.UsedPorts[0] {
-			c.UsedPorts = sort.IntSlice{c.UsedPorts[0], NodePortStart + 1}
 			return NodePortStart + 1
 		}
 	}
@@ -70,8 +68,6 @@ func (c *KubernetesConfiguration) GetNewFreePort() int {
 		diff := c.UsedPorts[i+1] - c.UsedPorts[i]
 		if diff > 1 {
 			port := c.UsedPorts[i] + 1
-			base := append(c.UsedPorts[:i], port)
-			c.UsedPorts = append(base, c.UsedPorts[i:]...)
 			return port
 		}
 	}
@@ -79,13 +75,13 @@ func (c *KubernetesConfiguration) GetNewFreePort() int {
 	// There isn't any gap. Return the next to the last one if it's still in range
 	lastPort := c.UsedPorts[len(c.UsedPorts)-1]
 	if lastPort < NodePortEnd {
-		c.UsedPorts = append(c.UsedPorts, lastPort+1)
 		return lastPort + 1
 	}
 
 	return -1
 }
 
+// ClaimPort will mark the port passed as argument as in use in the kubernetes installation. It will return an error if the port was already in use.
 func (c *KubernetesConfiguration) ClaimPort(port int) error {
 	if !c.portInRange(port) {
 		return fmt.Errorf("Port %d is outside the NodePort allowed range", port)
@@ -115,6 +111,7 @@ func (c KubernetesConfiguration) portInRange(port int) bool {
 	return port >= NodePortStart && port <= NodePortEnd
 }
 
+// LiberatePort marks a port as free in the kubernetes installation
 func (c *KubernetesConfiguration) LiberatePort(port int) {
 	if c.UsedPorts != nil && len(c.UsedPorts) > 0 {
 		idx := c.UsedPorts.Search(port)
