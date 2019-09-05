@@ -161,13 +161,15 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, de
 
 	vdcDeployment := kubernetes.GetDeploymentDescription(vdcID, int32(1), int64(30), vdcLabels, imageSet, configMapName, "/etc/ditas", repoSecrets)
 
-	hostAlias := []corev1.HostAlias{
-		corev1.HostAlias{
-			IP:        vdmIP,
-			Hostnames: []string{"vdm"},
-		},
+	if vdmIP != "" {
+		hostAlias := []corev1.HostAlias{
+			corev1.HostAlias{
+				IP:        vdmIP,
+				Hostnames: []string{"vdm"},
+			},
+		}
+		vdcDeployment.Spec.Template.Spec.HostAliases = hostAlias
 	}
-	vdcDeployment.Spec.Template.Spec.HostAliases = hostAlias
 
 	shareNamespace := true
 	vdcDeployment.Spec.Template.Spec.ShareProcessNamespace = &shareNamespace

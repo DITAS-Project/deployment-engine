@@ -30,7 +30,7 @@ type InfrastructureInformation struct {
 }
 
 type VDCConfiguration struct {
-	Blueprint                []byte
+	Blueprint                string
 	AppDeveloperDeploymentID string `json:"app_developer_deployment_id" bson:"app_developer_deployment_id"`
 	Infrastructures          map[string]InfrastructureInformation
 }
@@ -38,6 +38,7 @@ type VDCConfiguration struct {
 type VDCInformation struct {
 	ID                    string `bson:"_id"`
 	VDMIP                 string
+	VDMInfraID            string
 	DataOwnerDeploymentID string `json:"data_owner_deployment_id" bson:"data_owner_deployment_id"`
 	NumVDCs               int
 	VDCs                  map[string]VDCConfiguration

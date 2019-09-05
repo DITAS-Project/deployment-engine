@@ -250,6 +250,7 @@ func (m *VDCManager) DeployBlueprint(bp blueprint.Blueprint) (VDCInformation, er
 			return vdcInfo, fmt.Errorf("Error deploying VDM in infrastructure %s: %w", infra.ID, err)
 		}
 		vdcInfo.VDMIP = vdmIP
+		vdcInfo.VDMInfraID = infra.ID
 	}
 
 	appDeveloperDeployment := model.Deployment{
@@ -281,7 +282,12 @@ func (m *VDCManager) DeployBlueprint(bp blueprint.Blueprint) (VDCInformation, er
 		return vdcInfo, fmt.Errorf("Error transforming deployment information: %w", err)
 	}
 
-	tombstonePort, _, err := m.DeployVDC(bp, deploymentID, infra, vdcID, vdcInfo.VDMIP)
+	vdmIP := ""
+	if infra.ID != vdcInfo.VDMInfraID {
+		vdmIP = vdcInfo.VDMIP
+	}
+
+	tombstonePort, _, err := m.DeployVDC(bp, deploymentID, infra, vdcID, vdmIP)
 	if err != nil {
 		return vdcInfo, err
 	}
@@ -297,7 +303,7 @@ func (m *VDCManager) DeployBlueprint(bp blueprint.Blueprint) (VDCInformation, er
 	}
 
 	config := VDCConfiguration{
-		Blueprint: strBp,
+		Blueprint: string(strBp),
 		Infrastructures: map[string]InfrastructureInformation{
 			infra.ID: InfrastructureInformation{
 				IP:            masterIP,
@@ -513,7 +519,7 @@ func (m *VDCManager) CopyVDC(blueprintID, vdcID, targetInfraID string) (VDCConfi
 	}
 
 	var bp blueprint.Blueprint
-	err = json.Unmarshal(vdcConfig.Blueprint, &bp)
+	err = json.Unmarshal([]byte(vdcConfig.Blueprint), &bp)
 	if err != nil {
 		return vdcConfig, fmt.Errorf("Error unmarshaling blueprint for VDC %s: %w", vdcID, err)
 	}
@@ -523,7 +529,12 @@ func (m *VDCManager) CopyVDC(blueprintID, vdcID, targetInfraID string) (VDCConfi
 		return vdcConfig, fmt.Errorf("Can't find target infrastructure %s in target deployment %s. Weird", targetInfraID, targetDeployment.ID)
 	}
 
-	tombstonePort, targetDeployment, err := m.DeployVDC(bp, targetDeployment.ID, targetInfra, vdcID, vdcInfo.VDMIP)
+	vdmIP := ""
+	if targetInfraID != vdcInfo.VDMInfraID {
+		vdmIP = vdcInfo.VDMIP
+	}
+
+	tombstonePort, targetDeployment, err := m.DeployVDC(bp, targetDeployment.ID, targetInfra, vdcID, vdmIP)
 	if err != nil {
 		return vdcConfig, fmt.Errorf("Error creating copy of VDC %s: %w", vdcID, err)
 	}
