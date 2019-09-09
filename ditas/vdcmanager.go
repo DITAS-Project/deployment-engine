@@ -412,13 +412,11 @@ func (m *VDCManager) provisionKubernetes(deployment model.DeploymentInfo) (model
 			}
 		}
 
-		/*result, err = m.ProvisionerController.Provision(deployment.ID, infra.ID, solution, args, "kubernetes")
+		result, err = m.ProvisionerController.Provision(deployment.ID, infra.ID, "rook", args, "kubernetes")
 		if err != nil {
 			log.WithError(err).Errorf("Error deploying rook to kubernetes cluster %s of deployment %s", infra.ID, deployment.ID)
 			return result, err
 		}
-
-		result, err = m.provisionPersistence("glusterfs")*/
 
 	}
 	return result, nil
