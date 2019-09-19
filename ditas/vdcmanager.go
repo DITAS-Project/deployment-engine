@@ -73,6 +73,11 @@ type VDCManager struct {
 	ProvisionerController *provision.ProvisionerController
 }
 
+type KubernetesProvisionResult struct {
+	Infra model.InfrastructureDeploymentInfo
+	Error error
+}
+
 func NewVDCManager(deployer *infrastructure.Deployer, provisionerController *provision.ProvisionerController) (*VDCManager, error) {
 	viper.SetDefault(mongorepo.MongoDBURLName, mongorepo.MongoDBURLDefault)
 	viper.SetDefault(DitasScriptsFolderProperty, DitasScriptsFolderDefaultValue)
@@ -353,73 +358,111 @@ func (m *VDCManager) findDefaultInfra(deployments ...model.DeploymentInfo) (stri
 	return deployment, nil
 }*/
 
-func (m *VDCManager) provisionKubernetes(deployment model.DeploymentInfo) (model.DeploymentInfo, error) {
-	var result model.DeploymentInfo
-	var err error
-	for _, infra := range deployment.Infrastructures {
-		args := make(model.Parameters)
-		args[ansible.AnsibleWaitForSSHReadyProperty] = true
-		result, err = m.ProvisionerController.Provision(deployment.ID, infra.ID, "kubeadm", args, "")
-		//err := m.provisionKubernetesWithKubespray(deployment.ID, infra)
-		if err != nil {
-			log.WithError(err).Errorf("Error deploying kubernetes on infrastructure %s. Trying to clean up deployment.", infra.ID)
-			return result, err
-		}
-
-		args = model.Parameters{
-			ansible.AnsibleWaitForSSHReadyProperty: false,
-		}
-
-		result, err = m.ProvisionerController.Provision(deployment.ID, infra.ID, "helm", args, "")
-		if err != nil {
-			log.WithError(err).Errorf("Error deploying helm in infrastructure %s", infra.ID)
-			return result, err
-		}
-
-		vars, err := utils.GetVarsFromConfigFolder()
-		if err != nil {
-			log.WithError(err).Error("Error reading variables from configuration folder")
-			return result, err
-		}
-
-		esURL, ok := vars[ElasticSearchUrlVarName]
-		if ok {
-
-			parsedURL, err := url.Parse(esURL.(string))
-			if err != nil {
-				log.WithError(err).Errorf("Invalid elasticsearch URL: %s", parsedURL)
-				return result, err
-			}
-
-			args["elasticsearch.host"] = parsedURL.Hostname()
-			args["elasticsearch.port"] = parsedURL.Port()
-
-			esUsername, ok := vars[ElasticSearchUsernameVarName]
-			if ok {
-				args["elasticsearch.auth.enabled"] = "true"
-				args["elasticsearch.auth.user"] = esUsername
-
-				esPassword, ok := vars[ElasticSearchPasswordVarName]
-				if ok {
-					args["elasticsearch.auth.password"] = esPassword
-				}
-			}
-
-			result, err = m.ProvisionerController.Provision(deployment.ID, infra.ID, "fluentd", args, "")
-			if err != nil {
-				log.WithError(err).Errorf("Error installing fluentd at infrastructure %s", infra.ID)
-				return result, err
-			}
-		}
-
-		result, err = m.ProvisionerController.Provision(deployment.ID, infra.ID, "rook", args, "kubernetes")
-		if err != nil {
-			log.WithError(err).Errorf("Error deploying rook to kubernetes cluster %s of deployment %s", infra.ID, deployment.ID)
-			return result, err
-		}
-
+func (m *VDCManager) doProvisionKubernetes(deploymentID string, infra model.InfrastructureDeploymentInfo, c chan KubernetesProvisionResult) {
+	result := KubernetesProvisionResult{
+		Infra: infra,
 	}
-	return result, nil
+	args := make(model.Parameters)
+	args[ansible.AnsibleWaitForSSHReadyProperty] = true
+	dep, err := m.ProvisionerController.Provision(deploymentID, infra.ID, "kubeadm", args, "")
+	//err := m.provisionKubernetesWithKubespray(deployment.ID, infra)
+	if err != nil {
+		log.WithError(err).Errorf("Error deploying kubernetes on infrastructure %s.", infra.ID)
+		result.Error = err
+		c <- result
+		return
+	}
+	result.Infra = dep.Infrastructures[infra.ID]
+
+	args = model.Parameters{
+		ansible.AnsibleWaitForSSHReadyProperty: false,
+	}
+
+	dep, err = m.ProvisionerController.Provision(deploymentID, infra.ID, "helm", args, "")
+	if err != nil {
+		log.WithError(err).Errorf("Error deploying helm in infrastructure %s", infra.ID)
+		result.Error = err
+		c <- result
+		return
+	}
+	result.Infra = dep.Infrastructures[infra.ID]
+
+	vars, err := utils.GetVarsFromConfigFolder()
+	if err != nil {
+		log.WithError(err).Error("Error reading variables from configuration folder")
+		result.Error = err
+		c <- result
+		return
+	}
+
+	esURL, ok := vars[ElasticSearchUrlVarName]
+	if ok {
+
+		parsedURL, err := url.Parse(esURL.(string))
+		if err != nil {
+			log.WithError(err).Errorf("Invalid elasticsearch URL: %s", parsedURL)
+			result.Error = err
+			c <- result
+			return
+		}
+
+		args["elasticsearch.host"] = parsedURL.Hostname()
+		args["elasticsearch.port"] = parsedURL.Port()
+
+		esUsername, ok := vars[ElasticSearchUsernameVarName]
+		if ok {
+			args["elasticsearch.auth.enabled"] = "true"
+			args["elasticsearch.auth.user"] = esUsername
+
+			esPassword, ok := vars[ElasticSearchPasswordVarName]
+			if ok {
+				args["elasticsearch.auth.password"] = esPassword
+			}
+		}
+
+		dep, err = m.ProvisionerController.Provision(deploymentID, infra.ID, "fluentd", args, "")
+		if err != nil {
+			log.WithError(err).Errorf("Error installing fluentd at infrastructure %s", infra.ID)
+			result.Error = err
+			c <- result
+			return
+		}
+		result.Infra = dep.Infrastructures[infra.ID]
+	}
+
+	dep, err = m.ProvisionerController.Provision(deploymentID, infra.ID, "rook", args, "kubernetes")
+	if err != nil {
+		log.WithError(err).Errorf("Error deploying rook to kubernetes cluster %s of deployment %s", infra.ID, deploymentID)
+		result.Error = err
+		c <- result
+		return
+	}
+	result.Infra = dep.Infrastructures[infra.ID]
+
+	c <- result
+	return
+}
+
+func (m *VDCManager) provisionKubernetes(deployment model.DeploymentInfo) (model.DeploymentInfo, error) {
+	var err error
+
+	channel := make(chan KubernetesProvisionResult, len(deployment.Infrastructures))
+
+	for _, infra := range deployment.Infrastructures {
+		go m.doProvisionKubernetes(deployment.ID, infra, channel)
+	}
+
+	for remaining := len(deployment.Infrastructures); remaining > 0; remaining-- {
+		provisionResult := <-channel
+		if provisionResult.Error != nil {
+			log.WithError(err).Errorf("Error deploying kubernetes in infrastructure %s", provisionResult.Infra.ID)
+			err = provisionResult.Error
+		} else {
+			deployment.Infrastructures[provisionResult.Infra.ID] = provisionResult.Infra
+		}
+	}
+
+	return deployment, err
 }
 
 func (m *VDCManager) DeployVDC(blueprint blueprint.Blueprint, deploymentID string, infra model.InfrastructureDeploymentInfo, vdcID, vdmIP string) (int, model.DeploymentInfo, error) {
