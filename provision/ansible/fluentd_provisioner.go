@@ -37,14 +37,13 @@ func NewFluentdProvisioner(parent *Provisioner) FluentdProvisioner {
 	}
 }
 
-func (p FluentdProvisioner) BuildInventory(deploymentID string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) (Inventory, error) {
-	return p.parent.Provisioners["kubeadm"].BuildInventory(deploymentID, infra, args)
+func (p FluentdProvisioner) BuildInventory(infra *model.InfrastructureDeploymentInfo, args model.Parameters) (Inventory, error) {
+	return p.parent.Provisioners["kubeadm"].BuildInventory(infra, args)
 }
 
-func (p FluentdProvisioner) DeployProduct(inventoryPath, deploymentID string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error {
+func (p FluentdProvisioner) DeployProduct(inventoryPath string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error {
 
 	logger := logrus.WithFields(logrus.Fields{
-		"deployment":     deploymentID,
 		"infrastructure": infra.ID,
 	})
 

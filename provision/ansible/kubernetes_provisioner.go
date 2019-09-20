@@ -60,7 +60,7 @@ func (p KubernetesProvisioner) buildHost(host model.NodeInfo) InventoryHost {
 	}
 }
 
-func (p KubernetesProvisioner) BuildInventory(deploymentID string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) (Inventory, error) {
+func (p KubernetesProvisioner) BuildInventory(infra *model.InfrastructureDeploymentInfo, args model.Parameters) (Inventory, error) {
 	result := Inventory{
 		Hosts: make([]InventoryHost, 0),
 	}
@@ -72,11 +72,11 @@ func (p KubernetesProvisioner) BuildInventory(deploymentID string, infra *model.
 	return result, nil
 }
 
-func (p KubernetesProvisioner) DeployProduct(inventoryPath, deploymentID string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error {
+func (p KubernetesProvisioner) DeployProduct(inventoryPath string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error {
 
 	if !infra.ExtraProperties.GetBool(DockerPresentProperty) {
 		args["wait"] = []string{"false"}
-		err := p.parent.Provision(deploymentID, infra, "docker", args)
+		err := p.parent.Provision(infra, "docker", args)
 		if err != nil {
 			return err
 		}
@@ -88,7 +88,7 @@ func (p KubernetesProvisioner) DeployProduct(inventoryPath, deploymentID string,
 		return err
 	}
 
-	inventoryFolder := p.parent.GetInventoryFolder(deploymentID, infra.ID)
+	inventoryFolder := p.parent.GetInventoryFolder(infra.ID)
 
 	err = ExecutePlaybook(logger, p.parent.ScriptsFolder+"/kubernetes/main.yml", inventoryPath, map[string]string{
 		"inventory_folder": inventoryFolder,
@@ -104,7 +104,7 @@ func (p KubernetesProvisioner) DeployProduct(inventoryPath, deploymentID string,
 	repos := utils.GetDockerRepositories()
 	if repos != nil && len(repos) > 0 {
 		args[AnsibleWaitForSSHReadyProperty] = []string{"false"}
-		err = p.parent.Provision(deploymentID, infra, "private_registries", args)
+		err = p.parent.Provision(infra, "private_registries", args)
 		if err != nil {
 			return err
 		}

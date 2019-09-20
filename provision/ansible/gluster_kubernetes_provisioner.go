@@ -64,8 +64,8 @@ func NewGlusterfsProvisioner(parent *Provisioner) GlusterfsProvisioner {
 	}
 }
 
-func (p GlusterfsProvisioner) BuildInventory(deploymentID string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) (Inventory, error) {
-	return p.parent.Provisioners["kubeadm"].BuildInventory(deploymentID, infra, args)
+func (p GlusterfsProvisioner) BuildInventory(infra *model.InfrastructureDeploymentInfo, args model.Parameters) (Inventory, error) {
+	return p.parent.Provisioners["kubeadm"].BuildInventory(infra, args)
 }
 
 func (p GlusterfsProvisioner) toGlusterFSDevices(devices []model.DriveInfo) []string {
@@ -110,10 +110,9 @@ func (p GlusterfsProvisioner) generateGlusterFSTopology(infra model.Infrastructu
 	return string(result), nil
 }
 
-func (p GlusterfsProvisioner) DeployProduct(inventoryPath, deploymentID string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error {
+func (p GlusterfsProvisioner) DeployProduct(inventoryPath string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error {
 
 	logger := logrus.WithFields(logrus.Fields{
-		"deployment":     deploymentID,
 		"infrastructure": infra.ID,
 	})
 

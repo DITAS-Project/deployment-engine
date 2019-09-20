@@ -44,10 +44,9 @@ type MySQLConfig struct {
 type MySQLProvisioner struct {
 }
 
-func (p MySQLProvisioner) Provision(config *KubernetesConfiguration, deploymentID string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error {
+func (p MySQLProvisioner) Provision(config *KubernetesConfiguration, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error {
 
 	logger := logrus.WithFields(logrus.Fields{
-		"deployment":     deploymentID,
 		"infrastructure": infra.ID,
 		"product":        "MySQL",
 	})
