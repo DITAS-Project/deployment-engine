@@ -114,19 +114,9 @@ type InfrastructureType struct {
 	ExtraProperties ExtraPropertiesType `json:"extra_properties"`
 }
 
-// Deployment is a set of infrastructures that need to be instantiated or configurated to form clusters
+// Deployment is a list of infrastructures to initialize.
 // swagger:model
-type Deployment struct {
-	// Name for this deployment
-	// required:true
-	// unique:true
-	Name string `json:"name"`
-	// Optional description
-	Description string `json:"description"`
-	// List of infrastructures to deploy for this hybrid deployment
-	// required:true
-	Infrastructures []InfrastructureType `json:"infrastructures"`
-}
+type Deployment []InfrastructureType
 
 // DriveInfo is the information of a drive that has been instantiated
 // swagger:model
@@ -190,7 +180,7 @@ type InfrastructureDeploymentInfo struct {
 	// Unique infrastructure ID on the deployment
 	// required:true
 	// unique:true
-	ID string `json:"id"`
+	ID string `json:"id" bson:"_id"`
 	// Name of the infrastructure
 	Name string `json:"name"`
 	// Type of the infrastructure: cloud or edge
@@ -211,22 +201,9 @@ type InfrastructureDeploymentInfo struct {
 	ExtraProperties ExtraPropertiesType `json:"extra_properties"`
 }
 
-// DeploymentInfo contains information of a deployment than may compromise several clusters
+// DeploymentInfo is a list of infrastructures that have been initialized.
 // swagger:model
-type DeploymentInfo struct {
-	// Unique ID for the deployment
-	// required:true
-	// unique:true
-	ID string `json:"id" bson:"_id"`
-	// Name of the deployment
-	Name string `json:"name"`
-	// Lisf of infrastructures, each one representing a different cluster.
-	Infrastructures map[string]InfrastructureDeploymentInfo `json:"infrastructures"`
-	// Extra properties bound to the deployment
-	ExtraProperties ExtraPropertiesType `json:"extra_properties"`
-	// Global status of the deployment
-	Status string `json:"status"`
-}
+type DeploymentInfo []InfrastructureDeploymentInfo
 
 // Secret is a structure that will be saved as cyphered data in the database. Once saved it will receive an identifier and deployments, infrastructures, providers and provisioners can make reference to it by ID.
 // swagger:model
@@ -277,13 +254,13 @@ type Parameters map[string]interface{}
 
 // Deployer is the interface that a module that can deploy virtual resources in a cloud provider must implement.
 type Deployer interface {
-	DeployInfrastructure(deploymentID string, infra InfrastructureType) (InfrastructureDeploymentInfo, error)
-	DeleteInfrastructure(deploymentID string, infra InfrastructureDeploymentInfo) map[string]error
+	DeployInfrastructure(infra InfrastructureType) (InfrastructureDeploymentInfo, error)
+	DeleteInfrastructure(infra InfrastructureDeploymentInfo) map[string]error
 }
 
 //Provisioner is the interface that must implement custom provisioners such as ansible, etc. If some configuration needs to be passed to other provisioners or saved in the database, it should be done by setting them in the Products field of the passed infrastructure
 type Provisioner interface {
-	Provision(deployment string, infra *InfrastructureDeploymentInfo, product string, args Parameters) error
+	Provision(infra *InfrastructureDeploymentInfo, product string, args Parameters) error
 }
 
 // Frontend is the interface that must be implemented for any frontend that will serve an API around the functionality of the deployment engine

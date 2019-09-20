@@ -34,14 +34,13 @@ func NewHelmProvisioner(parent *Provisioner) HelmProvisioner {
 	}
 }
 
-func (p HelmProvisioner) BuildInventory(deploymentID string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) (Inventory, error) {
-	return p.parent.Provisioners["kubeadm"].BuildInventory(deploymentID, infra, args)
+func (p HelmProvisioner) BuildInventory(infra *model.InfrastructureDeploymentInfo, args model.Parameters) (Inventory, error) {
+	return p.parent.Provisioners["kubeadm"].BuildInventory(infra, args)
 }
 
-func (p HelmProvisioner) DeployProduct(inventoryPath, deploymentID string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error {
+func (p HelmProvisioner) DeployProduct(inventoryPath string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error {
 
 	logger := logrus.WithFields(logrus.Fields{
-		"deployment":     deploymentID,
 		"infrastructure": infra.ID,
 	})
 	infra.Products["helm"] = true

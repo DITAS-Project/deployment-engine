@@ -40,20 +40,19 @@ func NewRegistryProvisioner(parent *Provisioner) RegistryProvisioner {
 	}
 }
 
-func (p RegistryProvisioner) BuildInventory(deploymentID string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) (Inventory, error) {
-	return p.parent.Provisioners["kubeadm"].BuildInventory(deploymentID, infra, args)
+func (p RegistryProvisioner) BuildInventory(infra *model.InfrastructureDeploymentInfo, args model.Parameters) (Inventory, error) {
+	return p.parent.Provisioners["kubeadm"].BuildInventory(infra, args)
 }
 
-func (p RegistryProvisioner) DeployProduct(inventoryPath, deploymentID string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error {
+func (p RegistryProvisioner) DeployProduct(inventoryPath string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error {
 
 	logger := logrus.WithFields(map[string]interface{}{
-		"deployment":     deploymentID,
 		"infrastructure": infra.ID,
 	})
 
 	kubeConfigIn, ok := infra.Products["kubernetes"]
 	if !ok {
-		return fmt.Errorf("Kubernetes is not installed in infrastructure %s of deployment %s", infra.ID, deploymentID)
+		return fmt.Errorf("Kubernetes is not installed in infrastructure %s", infra.ID)
 	}
 
 	var kubeConfig KubernetesConfiguration
