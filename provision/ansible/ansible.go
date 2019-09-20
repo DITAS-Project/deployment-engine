@@ -60,8 +60,8 @@ type Inventory struct {
 }
 
 type ProductProvisioner interface {
-	BuildInventory(deploymentID string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) (Inventory, error)
-	DeployProduct(inventory, deploymentID string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error
+	BuildInventory(infra *model.InfrastructureDeploymentInfo, args model.Parameters) (Inventory, error)
+	DeployProduct(inventory string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error
 }
 
 func New() (*Provisioner, error) {
@@ -103,16 +103,16 @@ func (p *Provisioner) AddProvisioner(name string, provisioner ProductProvisioner
 	p.Provisioners[name] = provisioner
 }
 
-func (p *Provisioner) WaitForSSHPortReady(deploymentID string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error {
-	logger := log.WithField("deployment", deploymentID).WithField("infrastructure", infra.ID)
+func (p *Provisioner) WaitForSSHPortReady(infra *model.InfrastructureDeploymentInfo, args model.Parameters) error {
+	logger := log.WithField("infrastructure", infra.ID)
 	logger.Info("Waiting for port 22 to be ready")
 
-	inventory, err := p.Provisioners["docker"].BuildInventory(deploymentID, infra, args)
+	inventory, err := p.Provisioners["docker"].BuildInventory(infra, args)
 	if err != nil {
 		return err
 	}
 
-	inventoryPath, err := p.WriteInventory(deploymentID, infra.ID, "common", inventory)
+	inventoryPath, err := p.WriteInventory(infra.ID, "common", inventory)
 	if err != nil {
 		return err
 	}
@@ -176,9 +176,9 @@ func (p Provisioner) WriteHost(inventoryFile *os.File, host InventoryHost) error
 	return err
 }
 
-func (p Provisioner) WriteInventory(deploymentID, infraID, product string, inventory Inventory) (string, error) {
-	path := p.GetInventoryFolder(deploymentID, infraID)
-	filePath := fmt.Sprintf("%s_%s", p.GetInventoryPath(deploymentID, infraID), product)
+func (p Provisioner) WriteInventory(infraID, product string, inventory Inventory) (string, error) {
+	path := p.GetInventoryFolder(infraID)
+	filePath := fmt.Sprintf("%s_%s", p.GetInventoryPath(infraID), product)
 
 	if _, err := os.Stat(filePath); err == nil {
 
@@ -222,7 +222,7 @@ func (p Provisioner) WriteInventory(deploymentID, infraID, product string, inven
 	return filePath, nil
 }
 
-func (p Provisioner) Provision(deploymentId string, infra *model.InfrastructureDeploymentInfo, product string, args model.Parameters) error {
+func (p Provisioner) Provision(infra *model.InfrastructureDeploymentInfo, product string, args model.Parameters) error {
 
 	if args == nil {
 		args = make(model.Parameters)
@@ -233,28 +233,32 @@ func (p Provisioner) Provision(deploymentId string, infra *model.InfrastructureD
 		return fmt.Errorf("Product %s not supported by this deployer", product)
 	}
 
-	wait, ok := args.GetBool(AnsibleWaitForSSHReadyProperty)
+	/*wait, ok := args.GetBool(AnsibleWaitForSSHReadyProperty)
 	if ok && wait {
-		err := p.WaitForSSHPortReady(deploymentId, infra, args)
+		err := p.WaitForSSHPortReady(infra, args)
 		if err != nil {
 			log.WithError(err).Error("Error waiting for infrastructure to be ready")
 			return err
 		}
-	}
+	}*/
+	/*err := utils.WaitForSSHReady(*infra, true)
+	if err != nil {
+		return fmt.Errorf("Error waiting for ssh port to be ready: %w", err)
+	}*/
 
-	inventory, err := provisioner.BuildInventory(deploymentId, infra, args)
+	inventory, err := provisioner.BuildInventory(infra, args)
 	if err != nil {
 		log.WithError(err).Errorf("Error getting inventory for product %s", product)
 		return err
 	}
 
-	inventoryPath, err := p.WriteInventory(deploymentId, infra.ID, product, inventory)
+	inventoryPath, err := p.WriteInventory(infra.ID, product, inventory)
 	if err != nil {
 		log.WithError(err).Errorf("Error creating inventory file for product %s", product)
 		return err
 	}
 
-	return provisioner.DeployProduct(inventoryPath, deploymentId, infra, args)
+	return provisioner.DeployProduct(inventoryPath, infra, args)
 }
 
 func (p Provisioner) GetProducts() []string {
@@ -265,10 +269,10 @@ func (p Provisioner) GetProducts() []string {
 	return result
 }
 
-func (p *Provisioner) GetInventoryFolder(deploymentID, infraID string) string {
-	return fmt.Sprintf("%s/%s/%s", p.InventoryFolder, deploymentID, infraID)
+func (p *Provisioner) GetInventoryFolder(infraID string) string {
+	return fmt.Sprintf("%s/%s", p.InventoryFolder, infraID)
 }
 
-func (p *Provisioner) GetInventoryPath(deploymentId, infraId string) string {
-	return fmt.Sprintf("%s/%s", p.GetInventoryFolder(deploymentId, infraId), "inventory")
+func (p *Provisioner) GetInventoryPath(infraID string) string {
+	return fmt.Sprintf("%s/%s", p.GetInventoryFolder(infraID), "inventory")
 }

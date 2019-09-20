@@ -40,18 +40,17 @@ func NewK3sProvisioner(parent *Provisioner) K3sProvisioner {
 	}
 }
 
-func (p K3sProvisioner) BuildInventory(deploymentID string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) (Inventory, error) {
-	return p.parent.Provisioners["kubeadm"].BuildInventory(deploymentID, infra, args)
+func (p K3sProvisioner) BuildInventory(infra *model.InfrastructureDeploymentInfo, args model.Parameters) (Inventory, error) {
+	return p.parent.Provisioners["kubeadm"].BuildInventory(infra, args)
 }
 
-func (p K3sProvisioner) DeployProduct(inventoryPath, deploymentID string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error {
+func (p K3sProvisioner) DeployProduct(inventoryPath string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error {
 
 	logger := logrus.WithFields(logrus.Fields{
-		"deployment":     deploymentID,
 		"infrastructure": infra.ID,
 	})
 
-	inventoryFolder := p.parent.GetInventoryFolder(deploymentID, infra.ID)
+	inventoryFolder := p.parent.GetInventoryFolder(infra.ID)
 
 	master, err := infra.GetFirstNodeOfRole("master")
 	if err != nil {

@@ -20,6 +20,8 @@ import (
 	"deployment-engine/model"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"net"
 	"os"
 	"os/exec"
 	"time"
@@ -27,11 +29,22 @@ import (
 	homedir "github.com/mitchellh/go-homedir"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/knownhosts"
 )
 
 const (
 	ConfigurationFolderName = "deployment-engine"
 )
+
+type knownHostsLine struct {
+	marker  string
+	hosts   []string
+	pubKey  ssh.PublicKey
+	comment string
+}
+
+type knownHostsMap map[string][]knownHostsLine
 
 func ExecuteCommand(logger *log.Entry, name string, args ...string) error {
 	return CreateCommand(logger, nil, true, name, args...).Run()
@@ -58,6 +71,8 @@ func CreateCommand(logger *log.Entry, envVars map[string]string, preserveEnv boo
 	return cmd
 }
 
+// WaitForStatusChange calls the getter function during the time specified in timeout or until it returns a value which is different than the one specified in the "status" parameter.
+// It returns the final status, if there was a timeout and if the getter function returned error at any moment.
 func WaitForStatusChange(status string, timeout time.Duration, getter func() (string, error)) (string, bool, error) {
 	waited := 0 * time.Second
 	currentStatus := status
@@ -136,11 +151,119 @@ func GetDockerRepositories() map[string]model.DockerRegistry {
 func GetVarsFromConfigFolder() (map[string]interface{}, error) {
 	generalConfigFolder, err := ConfigurationFolder()
 	if err != nil {
-		return nil, fmt.Errorf("Error getting variables from configuration folder: %s\n", err.Error())
+		return nil, fmt.Errorf("Error getting variables from configuration folder: %w", err)
 	}
 	reader := viper.New()
 	reader.SetConfigName("vars")
 	reader.AddConfigPath(generalConfigFolder)
 	reader.ReadInConfig()
 	return reader.AllSettings(), nil
+}
+
+func connectSSH(host model.NodeInfo, signer ssh.Signer) (knownHostsLine, error) {
+	var result knownHostsLine
+	config := &ssh.ClientConfig{
+		User:              host.Username,
+		HostKeyAlgorithms: []string{ssh.SigAlgoRSA},
+		Auth: []ssh.AuthMethod{
+			ssh.PublicKeys(signer),
+		},
+		HostKeyCallback: ssh.HostKeyCallback(func(hostname string, remote net.Addr, key ssh.PublicKey) error {
+			result.hosts = []string{remote.String()}
+			result.pubKey = key
+			return nil
+		}),
+	}
+
+	_, timeout, _ := WaitForStatusChange("not_connected", 60*time.Second, func() (string, error) {
+		_, connError := ssh.Dial("tcp", host.IP+":22", config)
+		if connError != nil {
+			return "not_connected", nil
+		}
+		return "connected", nil
+	})
+	if timeout {
+		return result, fmt.Errorf("Timeout connecting to host %s", host.Hostname)
+	}
+
+	return result, nil
+}
+
+func addToKnownHosts(knownHostsLocation string, hosts []knownHostsLine) error {
+
+	f, err := os.OpenFile(knownHostsLocation,
+		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	for _, host := range hosts {
+		line := knownhosts.Line(host.hosts, host.pubKey)
+		_, err = fmt.Fprintln(f, line)
+		if err != nil {
+			return fmt.Errorf("Error writing host %v line to known hosts: %w", host.hosts, err)
+		}
+	}
+
+	return nil
+}
+
+func readKnownHosts(knownHostsLocation string) (knownHostsMap, error) {
+	result := make(knownHostsMap)
+
+	content, err := ioutil.ReadFile(knownHostsLocation)
+	if err != nil {
+		return result, fmt.Errorf("Error reading known hosts file %s: %w", knownHostsLocation, err)
+	}
+
+	var currentKnownHost knownHostsLine
+	rest := content
+	for err == nil {
+		currentKnownHost.marker, currentKnownHost.hosts, currentKnownHost.pubKey, currentKnownHost.comment, rest, err = ssh.ParseKnownHosts(rest)
+		for _, host := range currentKnownHost.hosts {
+			lines, ok := result[host]
+			if !ok {
+				lines = make([]knownHostsLine, 0, 1)
+			}
+			lines = append(lines, currentKnownHost)
+			result[host] = lines
+		}
+	}
+
+	return result, nil
+}
+
+func WaitForSSHReady(infra model.InfrastructureDeploymentInfo, addToKNownHosts bool) error {
+	sshFolderLocation := os.Getenv("HOME") + "/.ssh"
+	privateKeyLocation := sshFolderLocation + "/id_rsa"
+	knownHostsLocation := sshFolderLocation + "/known_hosts"
+
+	key, err := ioutil.ReadFile(privateKeyLocation)
+	if err != nil {
+		return err
+	}
+
+	signer, err := ssh.ParsePrivateKey(key)
+	if err != nil {
+		return err
+	}
+
+	toAppend := make([]knownHostsLine, 0)
+	for _, hosts := range infra.Nodes {
+		for _, host := range hosts {
+			line, err := connectSSH(host, signer)
+			if err != nil {
+				return err
+			}
+			toAppend = append(toAppend, line)
+		}
+
+	}
+
+	if addToKNownHosts {
+		return addToKnownHosts(knownHostsLocation, toAppend)
+	}
+
+	return nil
 }

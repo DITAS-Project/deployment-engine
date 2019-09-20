@@ -40,7 +40,7 @@ func (p GenericServiceProvisioner) ValidateExternalPort(port int, config *Kubern
 
 }
 
-func (p GenericServiceProvisioner) Provision(config *KubernetesConfiguration, deploymentID string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error {
+func (p GenericServiceProvisioner) Provision(config *KubernetesConfiguration, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error {
 
 	name, ok := args.GetString("name")
 	if !ok {
@@ -81,7 +81,6 @@ func (p GenericServiceProvisioner) Provision(config *KubernetesConfiguration, de
 	}
 
 	logger := logrus.WithFields(logrus.Fields{
-		"deployment":     deploymentID,
 		"infrastructure": infra.ID,
 		"product":        image,
 	})

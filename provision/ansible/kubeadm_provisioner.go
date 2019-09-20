@@ -41,8 +41,8 @@ func NewKubeadmProvisioner(parent *Provisioner) KubeadmProvisioner {
 	}
 }
 
-func (p KubeadmProvisioner) BuildInventory(deploymentID string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) (Inventory, error) {
-	inventory, err := p.parent.Provisioners["kubernetes"].BuildInventory(deploymentID, infra, args)
+func (p KubeadmProvisioner) BuildInventory(infra *model.InfrastructureDeploymentInfo, args model.Parameters) (Inventory, error) {
+	inventory, err := p.parent.Provisioners["kubernetes"].BuildInventory(infra, args)
 	if err != nil {
 		return inventory, err
 	}
@@ -79,14 +79,13 @@ func (p KubeadmProvisioner) BuildInventory(deploymentID string, infra *model.Inf
 	return inventory, err
 }
 
-func (p KubeadmProvisioner) DeployProduct(inventoryPath, deploymentID string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error {
+func (p KubeadmProvisioner) DeployProduct(inventoryPath string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error {
 
 	logger := logrus.WithFields(map[string]interface{}{
-		"deployment":     deploymentID,
 		"infrastructure": infra.ID,
 	})
 
-	inventoryFolder := p.parent.GetInventoryFolder(deploymentID, infra.ID)
+	inventoryFolder := p.parent.GetInventoryFolder(infra.ID)
 
 	if infra.ExtraProperties.GetBool(KubeadmPreinstalledProperty) {
 		err := ExecutePlaybook(logger, p.scriptsFolder+"/kubernetes/kubeadm.yml", inventoryPath, map[string]string{
@@ -102,7 +101,7 @@ func (p KubeadmProvisioner) DeployProduct(inventoryPath, deploymentID string, in
 		repos := utils.GetDockerRepositories()
 		if repos != nil && len(repos) > 0 {
 			args[AnsibleWaitForSSHReadyProperty] = []string{"false"}
-			err = p.parent.Provision(deploymentID, infra, "private_registries", args)
+			err = p.parent.Provision(infra, "private_registries", args)
 			if err != nil {
 				return err
 			}
@@ -110,5 +109,5 @@ func (p KubeadmProvisioner) DeployProduct(inventoryPath, deploymentID string, in
 		return nil
 	}
 
-	return p.parent.Provision(deploymentID, infra, "kubernetes", args)
+	return p.parent.Provision(infra, "kubernetes", args)
 }

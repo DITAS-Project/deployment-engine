@@ -1,0 +1,63 @@
+{
+    "name": "CloudSigma FRA deployment",
+        "description": "Deployment in CloudSigma FRA",
+        "type": "cloud",
+        "on-line": true,
+        "provider": {
+            "api_endpoint": "https://fra.cloudsigma.com/api/2.0",
+            "api_type": "cloudsigma",
+            "credentials": {
+                "username": "cloudsigmauser",
+                "password": "cloudsigmapw"
+            }
+        },
+        "resources": [
+            {
+                "name": "master",
+                "type": "vm",
+                "cpu": 4000,
+                "ram": 4096,
+                "disk": 40960,
+                "generate_ssh_keys": false,
+                "ssh_keys_id": "uuid",
+                "role": "master",
+                "image_id": "5cbae035-d977-4df0-afa7-ff1ed5877453",
+                "drives": [
+                    {
+                        "name": "data_main",
+                        "type": "SSD",
+                        "size": 20480
+                    },{
+                        "name": "data_sec",
+                        "type": "SSD",
+                        "size": 10240
+                }],
+                "extra_properties":{
+                    "cloudsigma_boot_drive_type": "custom"
+                }
+            },
+            {
+                "name": "slave",
+                "type": "vm",
+                "cpu": 2000,
+                "ram": 4096,
+                "disk": 40960,
+                "generate_ssh_keys": false,
+                "ssh_keys_id": "uuid",
+                "role": "slave",
+                "image_id": "5cbae035-d977-4df0-afa7-ff1ed5877453",
+                "drives": [{
+                    "name": "data_main",
+                    "type": "SSD",
+                    "size": 10240
+                }],
+                "extra_properties":{
+                    "cloudsigma_boot_drive_type": "custom"
+                }
+            }
+        ],
+        "extra_properties": {
+            "ansible_docker_installed": "true",
+            "kubeadm_preinstalled_image": "true"
+        }
+}

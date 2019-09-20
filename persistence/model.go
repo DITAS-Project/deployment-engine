@@ -23,41 +23,23 @@ import (
 //DeploymentRepository is the interface that must be implemented by persistence providers for deployments.
 type DeploymentRepository interface {
 
-	//Save a new deployment information and return the updated deployment from the underlying database
-	SaveDeployment(deployment model.DeploymentInfo) (model.DeploymentInfo, error)
-
-	//Get the deployment information given its ID
-	GetDeployment(deploymentID string) (model.DeploymentInfo, error)
-
-	//List all available deployments
-	ListDeployment() ([]model.DeploymentInfo, error)
-
-	//Update a deployment replacing its old contents
-	UpdateDeployment(deployment model.DeploymentInfo) (model.DeploymentInfo, error)
-
-	//Delete a deployment given its ID
-	DeleteDeployment(deploymentID string) error
-
 	//AddInfrastructure adds a new infrastructure to an existing deployment
-	AddInfrastructure(deploymentID string, infra model.InfrastructureDeploymentInfo) (model.DeploymentInfo, error)
+	AddInfrastructure(infra model.InfrastructureDeploymentInfo) (model.InfrastructureDeploymentInfo, error)
 
 	//UpdateInfrastructure updates as a whole an existing infrastructure in a deployment
-	UpdateInfrastructure(deploymentID string, infra model.InfrastructureDeploymentInfo) (model.DeploymentInfo, error)
+	UpdateInfrastructure(infra model.InfrastructureDeploymentInfo) (model.InfrastructureDeploymentInfo, error)
 
 	//FindInfrastructure finds an infrastructure in a deployment given their identifiers
-	FindInfrastructure(depoloymentID, infraID string) (model.InfrastructureDeploymentInfo, error)
+	FindInfrastructure(infraID string) (model.InfrastructureDeploymentInfo, error)
 
 	//DeleteInfrastructure will delete an infrastructure from a deployment given their identifiers
-	DeleteInfrastructure(deploymentID, infraID string) (model.DeploymentInfo, error)
-
-	// UpdateDeploymentStatus updates the status of a deployment
-	UpdateDeploymentStatus(deploymentID, status string) (model.DeploymentInfo, error)
+	DeleteInfrastructure(infraID string) (model.InfrastructureDeploymentInfo, error)
 
 	// UpdateInfrastructureStatus updates the status of a infrastructure in a deployment
-	UpdateInfrastructureStatus(deploymentID, infrastructureID, status string) (model.DeploymentInfo, error)
+	UpdateInfrastructureStatus(infrastructureID, status string) (model.InfrastructureDeploymentInfo, error)
 
 	// AddProductToInfrastructure adds a new product to an existing infrastructure
-	AddProductToInfrastructure(deploymentID, infrastructureID, product string, configuration interface{}) (model.DeploymentInfo, error)
+	AddProductToInfrastructure(infrastructureID, product string, configuration interface{}) (model.InfrastructureDeploymentInfo, error)
 }
 
 // Vault will be implemented by components that store authentication information. They can do so locally or they can be remote vaults like Hashicorp Vault.

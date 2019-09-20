@@ -1,7 +1,15 @@
 {
   "swagger": "2.0",
+  "info": {
+    "description": "Generation of clusters and kubernetes provisioning",
+    "title": "Deployment Engine",
+    "license": {
+      "name": "Apache 2.0"
+    },
+    "version": "1.0"
+  },
   "paths": {
-    "/deployment": {
+    "/infra": {
       "post": {
         "consumes": [
           "application/json"
@@ -13,7 +21,7 @@
         "tags": [
           "deployment"
         ],
-        "summary": "Creates a Deployment with the by instantiating the infrastructures passed as parameter.",
+        "summary": "Creates a multi-cluster deployment with the by instantiating the infrastructures passed as parameter.",
         "operationId": "createDeployment",
         "parameters": [
           {
@@ -40,7 +48,580 @@
             "description": "Internal error"
           }
         }
+      },
+      "delete": {
+        "description": "Deletes a list of infrastructures",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json",
+          "text/plain"
+        ],
+        "tags": [
+          "deployment"
+        ],
+        "operationId": "deleteDeployment",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "A comma-separated list of infrastructure identifiers to delete",
+            "name": "depId",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deployment successfully deleted"
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "500": {
+            "description": "Internal error"
+          }
+        }
       }
+    },
+    "/infra/{infraId}": {
+      "delete": {
+        "description": "Deletes an infrastructure in a deployment",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json",
+          "text/plain"
+        ],
+        "tags": [
+          "deployment"
+        ],
+        "operationId": "deleteInfrastructure",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "The infrastructure identifier to delete",
+            "name": "infraId",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Infrastructure successfully deleted. Returns the updated deployment",
+            "schema": {
+              "$ref": "#/definitions/InfrastructureDeploymentInfo"
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "500": {
+            "description": "Internal error"
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "BasicAuthSecret": {
+      "description": "BasicAuthSecret is a standard representation of HTTP Basic Authorization credetials",
+      "type": "object",
+      "properties": {
+        "password": {
+          "type": "string",
+          "x-go-name": "Password"
+        },
+        "username": {
+          "type": "string",
+          "x-go-name": "Username"
+        }
+      },
+      "x-go-package": "deployment-engine/model"
+    },
+    "CloudProviderInfo": {
+      "description": "CloudProviderInfo contains information about a cloud provider",
+      "type": "object",
+      "required": [
+        "api_endpoint"
+      ],
+      "properties": {
+        "api_endpoint": {
+          "description": "Endpoint to use for this infrastructure",
+          "type": "string",
+          "x-go-name": "APIEndpoint"
+        },
+        "api_type": {
+          "description": "Type of the infrastructure. i.e AWS, Cloudsigma, GCP or Edge",
+          "type": "string",
+          "x-go-name": "APIType"
+        },
+        "credentials": {
+          "description": "Credentials to access the cloud provider. Either this or secret_id is mandatory. Each cloud provider should define the format of this element.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "x-go-name": "Credentials"
+        },
+        "secret_id": {
+          "description": "Secret identifier to use to log in to the infrastructure manager.",
+          "type": "string",
+          "x-go-name": "SecretID"
+        }
+      },
+      "x-go-package": "deployment-engine/model"
+    },
+    "Deployment": {
+      "type": "array",
+      "title": "Deployment is a list of infrastructures to initialize.",
+      "items": {
+        "$ref": "#/definitions/InfrastructureType"
+      },
+      "x-go-package": "deployment-engine/model"
+    },
+    "DeploymentInfo": {
+      "type": "array",
+      "title": "DeploymentInfo is a list of infrastructures that have been initialized.",
+      "items": {
+        "$ref": "#/definitions/InfrastructureDeploymentInfo"
+      },
+      "x-go-package": "deployment-engine/model"
+    },
+    "Drive": {
+      "description": "Drive holds information about a data drive attached to a node",
+      "type": "object",
+      "required": [
+        "name",
+        "size"
+      ],
+      "properties": {
+        "name": {
+          "description": "Unique name for the drive",
+          "type": "string",
+          "x-go-name": "Name"
+        },
+        "size": {
+          "description": "Size of the disk in Mb",
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "Size"
+        },
+        "type": {
+          "description": "Type of the drive. It can be \"SSD\" or \"HDD\"",
+          "type": "string",
+          "pattern": "SSD|HDD",
+          "x-go-name": "Type",
+          "example": "SSD"
+        }
+      },
+      "x-go-package": "deployment-engine/model"
+    },
+    "DriveInfo": {
+      "description": "DriveInfo is the information of a drive that has been instantiated",
+      "type": "object",
+      "required": [
+        "uuid",
+        "name",
+        "size"
+      ],
+      "properties": {
+        "name": {
+          "description": "Name of the data drive",
+          "type": "string",
+          "uniqueItems": true,
+          "x-go-name": "Name"
+        },
+        "size": {
+          "description": "Size of the disk in bytes",
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "Size"
+        },
+        "uuid": {
+          "description": "UUID of this data drive in the infrastructure provider",
+          "type": "string",
+          "uniqueItems": true,
+          "x-go-name": "UUID"
+        }
+      },
+      "x-go-package": "deployment-engine/model"
+    },
+    "ExtraPropertiesType": {
+      "type": "object",
+      "title": "ExtraPropertiesType represents extra properties to define for resources, infrastructures or deployments. This properties are provisioner or deployment specific and they should document them when they expect any.",
+      "additionalProperties": {
+        "type": "string"
+      },
+      "x-go-package": "deployment-engine/model"
+    },
+    "ImageInfo": {
+      "description": "ImageInfo is the information about an image that will be deployed by the deployment engine",
+      "type": "object",
+      "required": [
+        "image"
+      ],
+      "properties": {
+        "environment": {
+          "description": "Environment is a map of environment variables whose key is the variable name and value is the variable value",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "x-go-name": "Environment"
+        },
+        "external_port": {
+          "description": "Port in which this image must be exposed. It must be unique across all images in all the ImageSets defined in this blueprint. Due to limitations in k8s, the port range must be bewteen 30000 and 32767",
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "ExternalPort"
+        },
+        "image": {
+          "description": "Image is the image name in the standard format [group]/\u003cimage_name\u003e:[release]",
+          "type": "string",
+          "x-go-name": "Image"
+        },
+        "internal_port": {
+          "description": "Port in which the docker image is listening internally. Two images inside the same ImageSet can't have the same internal port.",
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "InternalPort"
+        }
+      },
+      "x-go-package": "deployment-engine/provision/kubernetes"
+    },
+    "ImageSet": {
+      "description": "ImageSet represents a set of docker images whose key is an identifier and value is a the docker image information such as image name and listening ports",
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/definitions/ImageInfo"
+      },
+      "x-go-package": "deployment-engine/provision/kubernetes"
+    },
+    "InfrastructureDeploymentInfo": {
+      "type": "object",
+      "title": "InfrastructureDeploymentInfo contains information about a cluster of nodes that has been instantiated or were already existing.",
+      "required": [
+        "id",
+        "type",
+        "provider",
+        "Nodes"
+      ],
+      "properties": {
+        "Nodes": {
+          "description": "Set of nodes in the infrastructure indexed by role",
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/NodeInfo"
+            }
+          }
+        },
+        "extra_properties": {
+          "$ref": "#/definitions/ExtraPropertiesType"
+        },
+        "id": {
+          "description": "Unique infrastructure ID on the deployment",
+          "type": "string",
+          "uniqueItems": true,
+          "x-go-name": "ID"
+        },
+        "name": {
+          "description": "Name of the infrastructure",
+          "type": "string",
+          "x-go-name": "Name"
+        },
+        "products": {
+          "description": "Configuration of installed products, indexed by product name, in this infrastructure.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "object"
+          },
+          "x-go-name": "Products"
+        },
+        "provider": {
+          "$ref": "#/definitions/CloudProviderInfo"
+        },
+        "status": {
+          "description": "Status of the infrastructure",
+          "type": "string",
+          "x-go-name": "Status"
+        },
+        "type": {
+          "description": "Type of the infrastructure: cloud or edge",
+          "type": "string",
+          "pattern": "cloud|edge",
+          "x-go-name": "Type"
+        }
+      },
+      "x-go-package": "deployment-engine/model"
+    },
+    "InfrastructureType": {
+      "description": "InfrastructureType is a set of resources that need to be created or configured to form a cluster",
+      "type": "object",
+      "required": [
+        "name",
+        "resources"
+      ],
+      "properties": {
+        "description": {
+          "description": "Optional description for the infrastructure",
+          "type": "string",
+          "x-go-name": "Description"
+        },
+        "extra_properties": {
+          "$ref": "#/definitions/ExtraPropertiesType"
+        },
+        "name": {
+          "description": "Unique name for the infrastructure",
+          "type": "string",
+          "uniqueItems": true,
+          "x-go-name": "Name"
+        },
+        "provider": {
+          "$ref": "#/definitions/CloudProviderInfo"
+        },
+        "resources": {
+          "description": "List of resources to deploy",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ResourceType"
+          },
+          "x-go-name": "Resources"
+        },
+        "type": {
+          "description": "Type of the infrastructure: Cloud or Edge: Cloud infrastructures mean that the resources will be VMs that need to be instantiated. Edge means that the infrastructure is already in place and its information will be added to the database but no further work will be done by a deployer.",
+          "type": "string",
+          "x-go-name": "Type"
+        }
+      },
+      "x-go-package": "deployment-engine/model"
+    },
+    "NodeInfo": {
+      "description": "NodeInfo is the information of a virtual machine that has been instantiated or a physical one that was pre-existing",
+      "type": "object",
+      "required": [
+        "ip",
+        "uuid",
+        "drive_uuid",
+        "drive_size"
+      ],
+      "properties": {
+        "cores": {
+          "description": "Number of cores.",
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "Cores"
+        },
+        "cpu": {
+          "description": "CPU speed in Mhz.",
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "CPU"
+        },
+        "data_drives": {
+          "description": "Data drives information",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/DriveInfo"
+          },
+          "x-go-name": "DataDrives"
+        },
+        "drive_size": {
+          "description": "Size of the boot disk in bytes",
+          "type": "integer",
+          "format": "int64",
+          "uniqueItems": true,
+          "x-go-name": "DriveSize"
+        },
+        "drive_uuid": {
+          "description": "Boot disk UUID for this node in the infrastructure provider",
+          "type": "string",
+          "uniqueItems": true,
+          "x-go-name": "DriveUUID"
+        },
+        "extra_properties": {
+          "$ref": "#/definitions/ExtraPropertiesType"
+        },
+        "hostname": {
+          "description": "Hostname of the node.\nrequiered:true",
+          "type": "string",
+          "uniqueItems": true,
+          "x-go-name": "Hostname"
+        },
+        "ip": {
+          "description": "IP assigned to this node.",
+          "type": "string",
+          "uniqueItems": true,
+          "x-go-name": "IP"
+        },
+        "ram": {
+          "description": "RAM quantity in bytes.",
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "RAM"
+        },
+        "role": {
+          "description": "Role of the node. Master or slave in case of Kubernetes.",
+          "type": "string",
+          "x-go-name": "Role",
+          "example": "master"
+        },
+        "username": {
+          "description": "Username to use to manage it. If not present, root will be used.",
+          "type": "string",
+          "x-go-name": "Username"
+        },
+        "uuid": {
+          "description": "UUID of this node in the infrastructure provider",
+          "type": "string",
+          "uniqueItems": true,
+          "x-go-name": "UUID"
+        }
+      },
+      "x-go-package": "deployment-engine/model"
+    },
+    "OAuth2Secret": {
+      "description": "OAuth2Secret is a standard representation of OAuth2 credetials",
+      "type": "object",
+      "properties": {
+        "client_id": {
+          "type": "string",
+          "x-go-name": "ClientID"
+        },
+        "client_secret": {
+          "type": "string",
+          "x-go-name": "ClientSecret"
+        },
+        "scopes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "x-go-name": "Scopes"
+        }
+      },
+      "x-go-package": "deployment-engine/model"
+    },
+    "PKISecret": {
+      "description": "PKISecret is a standard representation of PKI credetials",
+      "type": "object",
+      "properties": {
+        "private_key": {
+          "type": "string",
+          "x-go-name": "PrivateKey"
+        },
+        "public_key": {
+          "type": "string",
+          "x-go-name": "PublicKey"
+        }
+      },
+      "x-go-package": "deployment-engine/model"
+    },
+    "ResourceType": {
+      "type": "object",
+      "title": "ResourceType has information about a node that needs to be created by a deployer.",
+      "required": [
+        "name",
+        "disk",
+        "image_id"
+      ],
+      "properties": {
+        "cores": {
+          "description": "Number of cores. Ignored if type is provided",
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "Cores"
+        },
+        "cpu": {
+          "description": "CPU speed in Mhz. Ignored if type is provided",
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "CPU"
+        },
+        "disk": {
+          "description": "Boot disk size in Mb",
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "Disk"
+        },
+        "drives": {
+          "description": "List of data drives to attach to this VM",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Drive"
+          },
+          "x-go-name": "Drives"
+        },
+        "extra_properties": {
+          "$ref": "#/definitions/ExtraPropertiesType"
+        },
+        "image_id": {
+          "description": "Boot image ID to use",
+          "type": "string",
+          "x-go-name": "ImageId"
+        },
+        "ip": {
+          "description": "IP to assign this VM. In case it's not specified, the first available one will be used.",
+          "type": "string",
+          "x-go-name": "IP"
+        },
+        "name": {
+          "description": "Suffix for the hostname. The real hostname will be formed of the infrastructure name + resource name",
+          "type": "string",
+          "uniqueItems": true,
+          "x-go-name": "Name"
+        },
+        "ram": {
+          "description": "RAM quantity in Mb. Ignored if type is provided",
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "RAM"
+        },
+        "role": {
+          "description": "Role that this VM plays. In case of a Kubernetes deployment at least one \"master\" is needed.",
+          "type": "string",
+          "x-go-name": "Role"
+        },
+        "type": {
+          "description": "Type of the VM to create i.e. n1-small",
+          "type": "string",
+          "x-go-name": "Type",
+          "example": "n1-small"
+        }
+      },
+      "x-go-package": "deployment-engine/model"
+    },
+    "Secret": {
+      "type": "object",
+      "title": "Secret is a structure that will be saved as cyphered data in the database. Once saved it will receive an identifier and deployments, infrastructures, providers and provisioners can make reference to it by ID.",
+      "properties": {
+        "Content": {
+          "description": "Content of the secret that will be saved in cyphered format.",
+          "type": "object"
+        },
+        "description": {
+          "description": "Description of the content in natural language",
+          "type": "string",
+          "x-go-name": "Description"
+        },
+        "format": {
+          "description": "Format of the secret if it applies",
+          "type": "string",
+          "x-go-name": "Format",
+          "example": "oauth2"
+        },
+        "metadata": {
+          "description": "Metadata associated to the secret. It will be saved in plain text and it can be queried to find required secrets when the ID is unknown.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "x-go-name": "Metadata"
+        }
+      },
+      "x-go-package": "deployment-engine/model"
     }
   }
 }

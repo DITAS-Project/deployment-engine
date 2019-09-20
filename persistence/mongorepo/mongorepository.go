@@ -102,7 +102,7 @@ func (m *MongoRepository) insert(collection string, object interface{}) error {
 }
 
 func (m *MongoRepository) replace(collection string, id string, object interface{}, result interface{}) error {
-	return m.database.Collection(collection).FindOneAndReplace(context.Background(), bson.M{"_id": id}, object).Decode(result)
+	return m.database.Collection(collection).FindOneAndReplace(context.Background(), bson.M{"_id": id}, object, options.FindOneAndReplace().SetReturnDocument(options.After)).Decode(result)
 }
 
 func (m *MongoRepository) update(collection string, id string, update bson.M, updated interface{}) error {
@@ -150,151 +150,59 @@ func (m *MongoRepository) delete(collection, ID string) error {
 	return nil
 }
 
-//SaveDeployment a new deployment information and return the updated deployment from the underlying database
-func (m *MongoRepository) SaveDeployment(deployment model.DeploymentInfo) (model.DeploymentInfo, error) {
-	deployment.ID = uuid.New().String()
-	if deployment.Infrastructures == nil {
-		deployment.Infrastructures = make(map[string]model.InfrastructureDeploymentInfo)
-	}
-	err := m.insert(deploymentCollection, deployment)
-	return deployment, err
-}
-
-//UpdateDeployment a deployment replacing its old contents
-func (m *MongoRepository) UpdateDeployment(deployment model.DeploymentInfo) (model.DeploymentInfo, error) {
-	var dep model.DeploymentInfo
-	dep.ID = deployment.ID
-	if deployment.Infrastructures == nil {
-		deployment.Infrastructures = make(map[string]model.InfrastructureDeploymentInfo)
-	}
-	err := m.replace(deploymentCollection, deployment.ID, deployment, &dep)
-	return dep, err
-}
-
-//GetDeployment the deployment information given its ID
-func (m *MongoRepository) GetDeployment(deploymentID string) (model.DeploymentInfo, error) {
-	var deployment model.DeploymentInfo
-	err := m.get(deploymentCollection, deploymentID, &deployment)
-	return deployment, err
-}
-
-//ListDeployment all available deployments
-func (m *MongoRepository) ListDeployment() ([]model.DeploymentInfo, error) {
-	result := make([]model.DeploymentInfo, 0)
-	var current model.DeploymentInfo
-
-	err := m.list(deploymentCollection, func(val interface{}) {
-		result = append(result, *val.(*model.DeploymentInfo))
-	}, &current)
-
-	return result, err
-}
-
-//DeleteDeployment a deployment given its ID
-func (m *MongoRepository) DeleteDeployment(deploymentID string) error {
-	return m.delete(deploymentCollection, deploymentID)
-}
-
 //AddInfrastructure adds a new infrastructure to an existing deployment
-func (m *MongoRepository) AddInfrastructure(deploymentID string, infra model.InfrastructureDeploymentInfo) (model.DeploymentInfo, error) {
-	return m.UpdateInfrastructure(deploymentID, infra)
-}
-
-//UpdateInfrastructure updates as a whole an existing infrastructure in a deployment
-func (m *MongoRepository) UpdateInfrastructure(deploymentID string, infra model.InfrastructureDeploymentInfo) (model.DeploymentInfo, error) {
-	var updated model.DeploymentInfo
+func (m *MongoRepository) AddInfrastructure(infra model.InfrastructureDeploymentInfo) (model.InfrastructureDeploymentInfo, error) {
+	if infra.ID == "" {
+		infra.ID = uuid.New().String()
+	}
 	if infra.Products == nil {
 		infra.Products = make(map[string]interface{})
 	}
-	err := m.update(deploymentCollection, deploymentID, bson.M{
-		"$set": bson.M{
-			fmt.Sprintf("infrastructures.%s", infra.ID): infra,
-		},
-	}, &updated)
+	return infra, m.insert(deploymentCollection, infra)
+}
+
+//UpdateInfrastructure updates as a whole an existing infrastructure in a deployment
+func (m *MongoRepository) UpdateInfrastructure(infra model.InfrastructureDeploymentInfo) (model.InfrastructureDeploymentInfo, error) {
+	var updated model.InfrastructureDeploymentInfo
+	err := m.replace(deploymentCollection, infra.ID, infra, &updated)
 	return updated, err
 }
 
 //FindInfrastructure finds an infrastructure in a deployment given their identifiers
-func (m *MongoRepository) FindInfrastructure(depoloymentID, infraID string) (model.InfrastructureDeploymentInfo, error) {
-	var dep model.DeploymentInfo
-	err := m.database.Collection(deploymentCollection).FindOne(
-		context.Background(), bson.M{
-			"_id": depoloymentID,
-		}, &options.FindOneOptions{
-			Projection: bson.M{
-				fmt.Sprintf("infrastructures.%s", infraID): 1,
-			},
-		}).Decode(&dep)
-
-	if err != nil {
-		return model.InfrastructureDeploymentInfo{}, err
-	}
-
-	if dep.Infrastructures == nil {
-		return model.InfrastructureDeploymentInfo{}, fmt.Errorf("Can't find infrastructure %s in deployment %s", depoloymentID, infraID)
-	}
-
-	infra, ok := dep.Infrastructures[infraID]
-	if !ok {
-		return infra, fmt.Errorf("Can't find infrastructure %s in deployment %s", depoloymentID, infraID)
-	}
-
-	return infra, nil
+func (m *MongoRepository) FindInfrastructure(infraID string) (model.InfrastructureDeploymentInfo, error) {
+	var result model.InfrastructureDeploymentInfo
+	err := m.get(deploymentCollection, infraID, &result)
+	return result, err
 }
 
 //DeleteInfrastructure will delete an infrastructure from a deployment given their identifiers
-func (m *MongoRepository) DeleteInfrastructure(deploymentID, infraID string) (model.DeploymentInfo, error) {
-	var dep model.DeploymentInfo
-	err := m.update(deploymentCollection, deploymentID, bson.M{
-		"$unset": bson.M{
-			fmt.Sprintf("infrastructures.%s", infraID): "",
-		},
-	}, &dep)
-
-	return dep, err
-}
-
-// UpdateDeploymentStatus updates the status of a deployment
-func (m *MongoRepository) UpdateDeploymentStatus(deploymentID, status string) (model.DeploymentInfo, error) {
-	var updated model.DeploymentInfo
-	err := m.update(deploymentCollection, deploymentID, bson.M{
-		"$set": bson.M{
-			"status": status,
-		},
-	}, &updated)
-	return updated, err
+func (m *MongoRepository) DeleteInfrastructure(infraID string) (model.InfrastructureDeploymentInfo, error) {
+	result, err := m.FindInfrastructure(infraID)
+	if err != nil {
+		return result, err
+	}
+	err = m.delete(deploymentCollection, infraID)
+	return result, err
 }
 
 // UpdateInfrastructureStatus updates the status of a infrastructure in a deployment
-func (m *MongoRepository) UpdateInfrastructureStatus(deploymentID, infrastructureID, status string) (model.DeploymentInfo, error) {
-	var updated model.DeploymentInfo
-	err := m.database.Collection(deploymentCollection).FindOneAndUpdate(
-		context.Background(),
-		bson.M{
-			"_id": deploymentID,
-			fmt.Sprintf("infrastructures.%s", infrastructureID): bson.M{"$exists": true},
+func (m *MongoRepository) UpdateInfrastructureStatus(infrastructureID, status string) (model.InfrastructureDeploymentInfo, error) {
+	var result model.InfrastructureDeploymentInfo
+	err := m.update(deploymentCollection, infrastructureID, bson.M{
+		"$set": bson.M{
+			"status": status,
 		},
-		bson.M{
-			"$set": bson.M{
-				fmt.Sprintf("infrastructures.%s.status", infrastructureID): status,
-			},
-		}).Decode(&updated)
-	return updated, err
+	}, &result)
+	return result, err
 }
 
 // AddProductToInfrastructure adds a new product to an existing infrastructure
-func (m *MongoRepository) AddProductToInfrastructure(deploymentID, infrastructureID, product string, config interface{}) (model.DeploymentInfo, error) {
-	var updated model.DeploymentInfo
-	err := m.database.Collection(deploymentCollection).FindOneAndUpdate(
-		context.Background(),
-		bson.M{
-			"_id": deploymentID,
-			fmt.Sprintf("infrastructures.%s", infrastructureID): bson.M{"$exists": true},
+func (m *MongoRepository) AddProductToInfrastructure(infrastructureID, product string, config interface{}) (model.InfrastructureDeploymentInfo, error) {
+	var updated model.InfrastructureDeploymentInfo
+	err := m.update(deploymentCollection, infrastructureID, bson.M{
+		"$set": bson.M{
+			fmt.Sprintf("products.%s", product): config,
 		},
-		bson.M{
-			"$set": bson.M{
-				fmt.Sprintf("infrastructures.%s.products.%s", infrastructureID, product): config,
-			},
-		}, m.defaultFindAndUpdateOptions).Decode(&updated)
+	}, &updated)
 	return updated, err
 }

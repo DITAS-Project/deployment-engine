@@ -24,16 +24,20 @@ import (
 	"deployment-engine/utils"
 	"fmt"
 
+	"github.com/mitchellh/go-homedir"
 	"github.com/spf13/viper"
 
 	log "github.com/sirupsen/logrus"
 )
 
 const (
-	RepositoryProperty   = "repository.type"
-	VaultProperty        = "vault.type"
-	FrontendProperty     = "frontent.type"
-	FrontendPortProperty = "frontend.port"
+	RepositoryProperty              = "repository.type"
+	VaultProperty                   = "vault.type"
+	FrontendProperty                = "frontent.type"
+	FrontendPortProperty            = "frontend.port"
+	SSHPublicKeyProperty            = "ssh.public_key"
+	SSHPrivateKeyProperty           = "ssh.private_key"
+	SSHPrivateKeyPassphraseProperty = "ssh.passphrase"
 
 	RepositoryDefault   = "mongo"
 	VaultDefault        = "mongo"
@@ -42,10 +46,17 @@ const (
 )
 
 func main() {
+	home, err := homedir.Dir()
+	if err != nil {
+		log.WithError(err).Error("Error getting HOME folder")
+	}
+	sshDir := home + "/.ssh"
 	viper.SetDefault(RepositoryProperty, RepositoryDefault)
 	viper.SetDefault(VaultProperty, VaultDefault)
 	viper.SetDefault(FrontendProperty, FrontendDefault)
 	viper.SetDefault(FrontendPortProperty, FrontendPortDefault)
+	viper.SetDefault(SSHPublicKeyProperty, sshDir+"/id_rsa.pub")
+	viper.SetDefault(SSHPrivateKeyProperty, sshDir+"/id_rsa")
 
 	configFolder, err := utils.ConfigurationFolder()
 	if err != nil {
@@ -104,7 +115,7 @@ func getVault(vaultType, repoType string, repo persistence.DeploymentRepository)
 func getFrontend(frontendType string, repo persistence.DeploymentRepository, vault persistence.Vault) (model.Frontend, error) {
 	switch frontendType {
 	case "default":
-		return restfrontend.New(repo, vault)
+		return restfrontend.New(repo, vault, viper.GetString(SSHPublicKeyProperty))
 	}
 	return nil, fmt.Errorf("Unrecognized frontend type %s", frontendType)
 }

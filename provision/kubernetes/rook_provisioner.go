@@ -52,7 +52,7 @@ func (p RookProvisioner) GetHostCapacity(node model.NodeInfo) (int64, error) {
 	return capacity, nil
 }
 
-func (p RookProvisioner) Provision(config *KubernetesConfiguration, deploymentID string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error {
+func (p RookProvisioner) Provision(config *KubernetesConfiguration, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error {
 
 	logger := logrus.WithFields(logrus.Fields{
 		"config": config.ConfigurationFile,

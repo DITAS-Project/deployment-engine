@@ -28,7 +28,6 @@ import (
 
 	"github.com/google/uuid"
 
-	homedir "github.com/mitchellh/go-homedir"
 	"github.com/sethvargo/go-password/password"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -65,32 +64,23 @@ type HostDisks struct {
 	Data  []ResourceType
 }
 
-func NewDeployer(apiURL string, credentials model.BasicAuthSecret) (*CloudsigmaDeployer, error) {
-	home, err := homedir.Dir()
-	if err != nil {
-		log.Infof("Error getting home folder: %s\n", err.Error())
-		return nil, err
-	}
+func NewDeployer(apiURL string, credentials model.BasicAuthSecret, publicKeyPath string) (*CloudsigmaDeployer, error) {
+
 	viper.SetDefault("debug_cs_client", false)
-	err = viper.ReadInConfig()
+
+	pubKeyRaw, err := ioutil.ReadFile(publicKeyPath)
 	if err == nil {
-
-		pubKeyRaw, err := ioutil.ReadFile(home + "/.ssh/id_rsa.pub")
-		if err == nil {
-			pubKey := string(pubKeyRaw)
-			client := NewClient(apiURL,
-				credentials.Username, credentials.Password, viper.GetBool("debug_cs_client"))
-			return &CloudsigmaDeployer{
-				client:    client,
-				publicKey: pubKey,
-			}, nil
-		}
-
-		log.Infof("Error reading public key: %s\n", err.Error())
-
-	} else {
-		log.Infof("Error reading configuration: %s\n", err.Error())
+		pubKey := string(pubKeyRaw)
+		client := NewClient(apiURL,
+			credentials.Username, credentials.Password, viper.GetBool("debug_cs_client"))
+		return &CloudsigmaDeployer{
+			client:    client,
+			publicKey: pubKey,
+		}, nil
 	}
+
+	log.Infof("Error reading public key: %w", err)
+
 	return nil, err
 }
 
@@ -465,7 +455,7 @@ func (d CloudsigmaDeployer) clearHostName(hostname string) (string, error) {
 	return replaced, nil
 }
 
-func (d CloudsigmaDeployer) DeployInfrastructure(deploymentID string, infra model.InfrastructureType) (model.InfrastructureDeploymentInfo, error) {
+func (d CloudsigmaDeployer) DeployInfrastructure(infra model.InfrastructureType) (model.InfrastructureDeploymentInfo, error) {
 
 	deployment := model.InfrastructureDeploymentInfo{
 		ID:              uuid.New().String(),
@@ -629,7 +619,7 @@ func (d *CloudsigmaDeployer) deleteHost(logInput *log.Entry, host model.NodeInfo
 
 }
 
-func (d CloudsigmaDeployer) DeleteInfrastructure(deploymentID string, infra model.InfrastructureDeploymentInfo) map[string]error {
+func (d CloudsigmaDeployer) DeleteInfrastructure(infra model.InfrastructureDeploymentInfo) map[string]error {
 	logger := log.WithField("infrastructure", infra.ID)
 
 	logger.Info("Deleting infrastructure")
