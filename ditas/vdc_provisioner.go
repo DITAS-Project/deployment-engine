@@ -101,11 +101,10 @@ func (p VDCProvisioner) FillEnvVars(dals map[string]blueprint.DALImage, vdcImage
 	return vdcImages, nil
 }
 
-func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, deploymentID string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error {
+func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error {
 
 	var err error
 	logger := logrus.WithFields(logrus.Fields{
-		"deployment":     deploymentID,
 		"infrastructure": infra.ID,
 	})
 

@@ -70,6 +70,10 @@ func (c *Deployer) getProviderCredentials(provider model.CloudProviderInfo, cred
 
 func (c *Deployer) findProvider(provider model.CloudProviderInfo) (model.Deployer, error) {
 
+	if c.PublicKeyPath == "" {
+		return nil, errors.New("A public key location is needed to initialize a provider")
+	}
+
 	if provider.SecretID == "" && (provider.Credentials == nil || len(provider.Credentials) == 0) {
 		return nil, fmt.Errorf("Either secret ID or provider credentials are mandatory for Provider %v", provider)
 	}
@@ -88,6 +92,9 @@ func (c *Deployer) findProvider(provider model.CloudProviderInfo) (model.Deploye
 		}
 
 		dep, err := cloudsigma.NewDeployer(provider.APIEndpoint, credentials, c.PublicKeyPath)
+		if err != nil {
+			return nil, fmt.Errorf("Error initializing deployer for %s: %w", provider.APIType, err)
+		}
 		return *dep, err
 	}
 

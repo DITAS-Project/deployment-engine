@@ -23,18 +23,18 @@ import (
 	"deployment-engine/provision"
 	"deployment-engine/provision/ansible"
 	"deployment-engine/restfrontend"
-	"deployment-engine/utils"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"net/url"
+	"os"
 
 	blueprint "github.com/DITAS-Project/blueprint-go"
 	"github.com/spf13/viper"
 
 	"fmt"
 
-	"github.com/gorilla/mux"
+	"github.com/julienschmidt/httprouter"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -45,7 +45,7 @@ const (
 
 type DitasFrontend struct {
 	DefaultFrontend       *restfrontend.App
-	Router                *mux.Router
+	Router                *httprouter.Router
 	DeploymentController  *infrastructure.Deployer
 	ProvisionerController *provision.ProvisionerController
 	VDCManagerInstance    *VDCManager
@@ -63,8 +63,11 @@ func NewDitasFrontend() (*DitasFrontend, error) {
 		return nil, err
 	}
 
+	publicKeyPath := os.Getenv("HOME") + "/.ssh/id_rsa.pub"
+
 	deployer := &infrastructure.Deployer{
-		Repository: repository,
+		Repository:    repository,
+		PublicKeyPath: publicKeyPath,
 	}
 
 	controller := provision.NewProvisionerController(provisioner, repository)
@@ -74,7 +77,7 @@ func NewDitasFrontend() (*DitasFrontend, error) {
 		return nil, err
 	}
 
-	router := mux.NewRouter()
+	router := httprouter.New()
 	result := DitasFrontend{
 		Router:                router,
 		DeploymentController:  deployer,
@@ -101,10 +104,10 @@ func (a DitasFrontend) Run(addr string) error {
 }
 
 func (a *DitasFrontend) initializeRoutes() {
-	a.Router.HandleFunc("/blueprint", a.createDep).Methods(http.MethodPost)
-	a.Router.HandleFunc("/blueprint/{blueprintId}/datasource", a.createDatasource).Methods(http.MethodPost)
-	a.Router.HandleFunc("/blueprint/{blueprintId}/vdc/{vdcId}", a.moveVDC).Methods(http.MethodPut)
-	a.Router.HandleFunc("/blueprint/{blueprintId}/vdc/{vdcId}", a.getVDCInfo).Methods(http.MethodGet)
+	a.Router.POST("/blueprint", a.createDep)
+	a.Router.POST("/blueprint/:blueprintId/datasource", a.createDatasource)
+	a.Router.PUT("/blueprint/:blueprintId/vdc/:vdcId", a.moveVDC)
+	a.Router.GET("/blueprint/:blueprintId/vdc/:vdcId", a.getVDCInfo)
 	//a.Router.HandleFunc("/deployment/{depId}/{infraId}", a.DefaultFrontend.deleteInfra).Methods("DELETE")
 }
 
@@ -212,11 +215,11 @@ func (a *DitasFrontend) ValidateRequest(request blueprint.Blueprint) error {
 	return nil
 }
 
-// swagger:operation POST /deployment deployment createDeployment
+// swagger:operation POST /blueprint deployment createDeployment
 //
 // Creates a DITAS deployment with the infrastructures passed as parameter.
 //
-// Creates a Kubernetes installation on each infrastructure and then deploys a VDC on the first one
+// Creates a Kubernetes installation on each infrastructure and then deploys a VDC on the default one
 // based on the blueprint passed as parameter.
 //
 // ---
@@ -242,7 +245,7 @@ func (a *DitasFrontend) ValidateRequest(request blueprint.Blueprint) error {
 //     description: Bad request
 //   500:
 //     description: Internal error
-func (a *DitasFrontend) createDep(w http.ResponseWriter, r *http.Request) {
+func (a *DitasFrontend) createDep(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	var request blueprint.Blueprint
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&request); err != nil {
@@ -270,26 +273,26 @@ func (a *DitasFrontend) createDep(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func (a *DitasFrontend) moveVDC(w http.ResponseWriter, r *http.Request) {
-	blueprintId, ok := a.DefaultFrontend.GetQueryParam("blueprintId", r)
-	if !ok {
+func (a *DitasFrontend) moveVDC(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	blueprintID := p.ByName("blueprintId")
+	if blueprintID == "" {
 		restfrontend.RespondWithError(w, http.StatusBadRequest, "Blueprint identifier is mandatory")
 		return
 	}
 
-	vdc, ok := a.DefaultFrontend.GetQueryParam("vdcId", r)
-	if !ok {
+	vdc := p.ByName("vdcId")
+	if vdc == "" {
 		restfrontend.RespondWithError(w, http.StatusBadRequest, "VDC identifier is mandatory")
 		return
 	}
 
-	targetInfra, ok := utils.GetSingleValue(r.URL.Query(), "targetInfra")
-	if !ok {
+	targetInfra := r.URL.Query().Get("targetInfra")
+	if targetInfra == "" {
 		restfrontend.RespondWithError(w, http.StatusBadRequest, "Target infrastructure identifier parameter is mandatory")
 		return
 	}
 
-	dep, err := a.VDCManagerInstance.CopyVDC(blueprintId, vdc, targetInfra)
+	dep, err := a.VDCManagerInstance.CopyVDC(blueprintID, vdc, targetInfra)
 	if err != nil {
 		restfrontend.RespondWithError(w, http.StatusBadRequest, fmt.Sprintf("Error moving VDC: %s", err.Error()))
 		return
@@ -299,31 +302,31 @@ func (a *DitasFrontend) moveVDC(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-func (a *DitasFrontend) createDatasource(w http.ResponseWriter, r *http.Request) {
-	blueprintId, ok := a.DefaultFrontend.GetQueryParam("blueprintId", r)
-	if !ok {
+func (a *DitasFrontend) createDatasource(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	blueprintID := p.ByName("blueprintId")
+	if blueprintID == "" {
 		restfrontend.RespondWithError(w, http.StatusBadRequest, "Blueprint identifier is mandatory")
 		return
 	}
 
-	vdcID, ok := a.DefaultFrontend.GetQueryParam("vdcId", r)
-	if !ok {
+	vdcID := r.URL.Query().Get("vdcId")
+	if vdcID == "" {
 		restfrontend.RespondWithError(w, http.StatusBadRequest, "VDC identifier is mandatory")
 	}
 
-	infraId, ok := a.DefaultFrontend.GetQueryParam("infraId", r)
-	if !ok {
+	infraID := r.URL.Query().Get("infraId")
+	if infraID == "" {
 		restfrontend.RespondWithError(w, http.StatusBadRequest, "Infrastructure identifier is mandatory")
 		return
 	}
 
-	datasource, ok := a.DefaultFrontend.GetQueryParam("datasource", r)
-	if !ok {
+	datasource := r.URL.Query().Get("datasource")
+	if datasource == "" {
 		restfrontend.RespondWithError(w, http.StatusBadRequest, "Datasource type is mandatory")
 		return
 	}
 
-	err := a.VDCManagerInstance.DeployDatasource(blueprintId, vdcID, infraId, datasource, restfrontend.GetParameters(r.URL.Query()))
+	err := a.VDCManagerInstance.DeployDatasource(blueprintID, vdcID, infraID, datasource, restfrontend.GetParameters(r.URL.Query()))
 	if err != nil {
 		restfrontend.RespondWithError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -333,15 +336,15 @@ func (a *DitasFrontend) createDatasource(w http.ResponseWriter, r *http.Request)
 	return
 }
 
-func (a *DitasFrontend) getVDCInfo(w http.ResponseWriter, r *http.Request) {
-	blueprintID, ok := a.DefaultFrontend.GetQueryParam("blueprintId", r)
-	if !ok {
+func (a *DitasFrontend) getVDCInfo(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	blueprintID := p.ByName("blueprintId")
+	if blueprintID == "" {
 		restfrontend.RespondWithError(w, http.StatusBadRequest, "Blueprint identifier is mandatory")
 		return
 	}
 
-	vdcID, ok := a.DefaultFrontend.GetQueryParam("vdcId", r)
-	if !ok {
+	vdcID := p.ByName("vdcId")
+	if vdcID == "" {
 		restfrontend.RespondWithError(w, http.StatusBadRequest, "VDC identifier is mandatory")
 	}
 

@@ -122,16 +122,16 @@ func GetConfigMapDataFromFolder(configFolder string, vars map[string]interface{}
 			fileName := configFolder + "/" + file.Name()
 			fileTemplate, err := template.New(file.Name()).ParseFiles(fileName)
 			if err != nil {
-				logrus.WithError(err).Errorf("Error reading configuration file %s", fileName)
-			} else {
-				var fileContent bytes.Buffer
-				err = fileTemplate.Execute(&fileContent, vars)
-				if err != nil {
-					logrus.WithError(err).Errorf("Error executing template %s", fileName)
-				} else {
-					result[file.Name()] = fileContent.String()
-				}
+				return result, utils.WrapLogAndReturnError(logrus.NewEntry(logrus.New()), fmt.Sprintf("Error reading configuration file %s", fileName), err)
 			}
+
+			var fileContent bytes.Buffer
+			err = fileTemplate.Execute(&fileContent, vars)
+			if err != nil {
+				return result, utils.WrapLogAndReturnError(logrus.NewEntry(logrus.New()), fmt.Sprintf("Error executing template %s", fileName), err)
+			}
+
+			result[file.Name()] = fileContent.String()
 		}
 	}
 	return result, nil
