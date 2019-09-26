@@ -52,12 +52,12 @@ func (c *KubernetesConfiguration) GetNewFreePort() int {
 	// Only one port used
 	if len(c.UsedPorts) == 1 {
 
-		// The port used is bigger than the minimum. Use the minimum and update the port list
+		// The port used is bigger than the minimum
 		if NodePortStart < c.UsedPorts[0] {
 			return NodePortStart
 		}
 
-		// We just have the initial port. Use the next one and update the port list
+		// We just have the initial port. Use the next one.
 		if NodePortStart == c.UsedPorts[0] {
 			return NodePortStart + 1
 		}

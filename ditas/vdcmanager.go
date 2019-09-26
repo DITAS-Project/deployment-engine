@@ -279,6 +279,10 @@ func (m *VDCManager) DeployBlueprint(bp blueprint.Blueprint) (VDCInformation, er
 		}
 		vdcInfo.VDMIP = vdmIP
 		vdcInfo.VDMInfraID = infra.ID
+		_, err = m.Collection.ReplaceOne(context.Background(), bson.M{"_id": vdcInfo.ID}, vdcInfo, options.Replace())
+		if err != nil {
+			return vdcInfo, fmt.Errorf("Error updating VDM information: %w", err)
+		}
 	}
 
 	appDeveloperDeploymentOrig := m.filterInfrastructures(ApplicationDeveloperOwnerValue, bp.CookbookAppendix.Resources.Infrastructures)
@@ -314,7 +318,7 @@ func (m *VDCManager) DeployBlueprint(bp blueprint.Blueprint) (VDCInformation, er
 		vdmIP = vdcInfo.VDMIP
 	}
 
-	tombstonePort, _, err := m.DeployVDC(bp, infra, vdcID, vdmIP)
+	cafPort, tombstonePort, _, err := m.DeployVDC(bp, infra, vdcID, vdmIP)
 	if err != nil {
 		return vdcInfo, err
 	}
@@ -335,6 +339,7 @@ func (m *VDCManager) DeployBlueprint(bp blueprint.Blueprint) (VDCInformation, er
 			infra.ID: InfrastructureInformation{
 				IP:            masterIP,
 				TombstonePort: tombstonePort,
+				CAFPort:       cafPort,
 			},
 		},
 		AppDeveloperDeployment: m.toIDs(appDeveloperDeploymentInfo),
@@ -378,44 +383,33 @@ func (m *VDCManager) findDefaultInfra(deployments ...model.DeploymentInfo) model
 	return deployment, nil
 }*/
 
-func (m *VDCManager) doProvisionKubernetes(infra model.InfrastructureDeploymentInfo, c chan KubernetesProvisionResult) {
-	result := KubernetesProvisionResult{
-		Infra: infra,
-	}
+func (m *VDCManager) doProvisionKubernetes(infra model.InfrastructureDeploymentInfo) (model.InfrastructureDeploymentInfo, error) {
+	var dep model.InfrastructureDeploymentInfo
 
+	logger := log.WithField("infrastructure", infra.ID)
+
+	logger.Info("Waiting for SSH ports to be ready")
 	err := utils.WaitForSSHReady(infra, true)
 	if err != nil {
-		result.Error = fmt.Errorf("Error waiting for ssh port to be ready: %w", err)
-		c <- result
-		return
+		return dep, fmt.Errorf("Error waiting for ssh port to be ready: %w", err)
 	}
+	logger.Info("SSH ports ready. Deploying Kubernetes")
 
 	args := make(model.Parameters)
-	dep, err := m.ProvisionerController.Provision(infra.ID, "kubeadm", args, "")
+	dep, err = m.ProvisionerController.Provision(infra.ID, "kubeadm", args, "")
 	//err := m.provisionKubernetesWithKubespray(deployment.ID, infra)
 	if err != nil {
-		log.WithError(err).Errorf("Error deploying kubernetes on infrastructure %s.", infra.ID)
-		result.Error = err
-		c <- result
-		return
+		return dep, utils.WrapLogAndReturnError(logger, fmt.Sprintf("Error deploying kubernetes on infrastructure %s", infra.ID), err)
 	}
-	result.Infra = dep
 
 	dep, err = m.ProvisionerController.Provision(infra.ID, "helm", args, "")
 	if err != nil {
-		log.WithError(err).Errorf("Error deploying helm in infrastructure %s", infra.ID)
-		result.Error = err
-		c <- result
-		return
+		return dep, utils.WrapLogAndReturnError(logger, fmt.Sprintf("Error deploying helm in infrastructure %s", infra.ID), err)
 	}
-	result.Infra = dep
 
 	vars, err := utils.GetVarsFromConfigFolder()
 	if err != nil {
-		log.WithError(err).Error("Error reading variables from configuration folder")
-		result.Error = err
-		c <- result
-		return
+		return dep, utils.WrapLogAndReturnError(logger, "Error reading variables from configuration folder", err)
 	}
 
 	esURL, ok := vars[ElasticSearchUrlVarName]
@@ -423,10 +417,7 @@ func (m *VDCManager) doProvisionKubernetes(infra model.InfrastructureDeploymentI
 
 		parsedURL, err := url.Parse(esURL.(string))
 		if err != nil {
-			log.WithError(err).Errorf("Invalid elasticsearch URL: %s", parsedURL)
-			result.Error = err
-			c <- result
-			return
+			return dep, utils.WrapLogAndReturnError(logger, fmt.Sprintf("Invalid elasticsearch URL: %s", parsedURL), err)
 		}
 
 		args["elasticsearch.host"] = parsedURL.Hostname()
@@ -445,24 +436,24 @@ func (m *VDCManager) doProvisionKubernetes(infra model.InfrastructureDeploymentI
 
 		dep, err = m.ProvisionerController.Provision(infra.ID, "fluentd", args, "")
 		if err != nil {
-			log.WithError(err).Errorf("Error installing fluentd at infrastructure %s", infra.ID)
-			result.Error = err
-			c <- result
-			return
+			return dep, utils.WrapLogAndReturnError(logger, fmt.Sprintf("Error installing fluentd at infrastructure %s", infra.ID), err)
 		}
-		result.Infra = dep
 	}
 
 	dep, err = m.ProvisionerController.Provision(infra.ID, "rook", args, "kubernetes")
 	if err != nil {
-		log.WithError(err).Errorf("Error deploying rook to kubernetes cluster %s", infra.ID)
-		result.Error = err
-		c <- result
-		return
+		return dep, utils.WrapLogAndReturnError(logger, fmt.Sprintf("Error deploying rook to kubernetes cluster %s", infra.ID), err)
 	}
-	result.Infra = dep
 
-	c <- result
+	return dep, err
+}
+
+func (m *VDCManager) provisionKubernetesParallel(infra model.InfrastructureDeploymentInfo, c chan KubernetesProvisionResult) {
+	res, err := m.doProvisionKubernetes(infra)
+	c <- KubernetesProvisionResult{
+		Infra: res,
+		Error: err,
+	}
 	return
 }
 
@@ -472,7 +463,7 @@ func (m *VDCManager) provisionKubernetes(deployment model.DeploymentInfo) (model
 	channel := make(chan KubernetesProvisionResult, len(deployment))
 
 	for _, infra := range deployment {
-		go m.doProvisionKubernetes(infra, channel)
+		go m.provisionKubernetesParallel(infra, channel)
 	}
 
 	for remaining := len(deployment); remaining > 0; remaining-- {
@@ -488,33 +479,35 @@ func (m *VDCManager) provisionKubernetes(deployment model.DeploymentInfo) (model
 	return result, err
 }
 
-func (m *VDCManager) DeployVDC(blueprint blueprint.Blueprint, infra model.InfrastructureDeploymentInfo, vdcID, vdmIP string) (int, model.InfrastructureDeploymentInfo, error) {
+func (m *VDCManager) DeployVDC(blueprint blueprint.Blueprint, infra model.InfrastructureDeploymentInfo, vdcID, vdmIP string) (int, int, model.InfrastructureDeploymentInfo, error) {
 
 	var deployment model.InfrastructureDeploymentInfo
 	kubeConfigRaw, ok := infra.Products["kubernetes"]
 	if !ok {
-		return -1, deployment, fmt.Errorf("Infrastructure %s doesn't have kubernetes installed", infra.ID)
+		return -1, -1, deployment, fmt.Errorf("Infrastructure %s doesn't have kubernetes installed", infra.ID)
 	}
 
 	var kubeconfig kubernetes.KubernetesConfiguration
 	err := utils.TransformObject(kubeConfigRaw, &kubeconfig)
 	if err != nil {
-		return -1, deployment, fmt.Errorf("Error reading kubernetes configuration from infrastructure %s: %w", infra.ID, err)
+		return -1, -1, deployment, fmt.Errorf("Error reading kubernetes configuration from infrastructure %s: %w", infra.ID, err)
 	}
 
 	tombstonePort := kubeconfig.GetNewFreePort()
+	cafPort := kubeconfig.GetNewFreePort()
 
-	deployment, err = m.doDeployVDC(infra, blueprint, vdcID, vdmIP, tombstonePort)
-	return tombstonePort, deployment, err
+	deployment, err = m.doDeployVDC(infra, blueprint, vdcID, vdmIP, tombstonePort, cafPort)
+	return cafPort, tombstonePort, deployment, err
 }
 
-func (m *VDCManager) doDeployVDC(infra model.InfrastructureDeploymentInfo, bp blueprint.Blueprint, vdcID, vdmIP string, tombstonePort int) (model.InfrastructureDeploymentInfo, error) {
+func (m *VDCManager) doDeployVDC(infra model.InfrastructureDeploymentInfo, bp blueprint.Blueprint, vdcID, vdmIP string, tombstonePort int, cafPort int) (model.InfrastructureDeploymentInfo, error) {
 
 	args := make(model.Parameters)
 	args["blueprint"] = bp
 	args["vdcId"] = vdcID
 	args["tombstonePort"] = tombstonePort
 	args["vdmIP"] = vdmIP
+	args["cafPort"] = cafPort
 	return m.ProvisionerController.Provision(infra.ID, "vdc", args, "kubernetes")
 }
 
@@ -580,7 +573,7 @@ func (m *VDCManager) CopyVDC(blueprintID, vdcID, targetInfraID string) (VDCConfi
 		return vdcConfig, fmt.Errorf("Error finding target infrastructure %s: %w", targetInfraID, err)
 	}
 
-	tombstonePort, targetInfra, err := m.DeployVDC(bp, targetInfra, vdcID, vdmIP)
+	cafPort, tombstonePort, targetInfra, err := m.DeployVDC(bp, targetInfra, vdcID, vdmIP)
 	if err != nil {
 		return vdcConfig, fmt.Errorf("Error creating copy of VDC %s: %w", vdcID, err)
 	}
@@ -593,6 +586,7 @@ func (m *VDCManager) CopyVDC(blueprintID, vdcID, targetInfraID string) (VDCConfi
 	vdcConfig.Infrastructures[targetInfraID] = InfrastructureInformation{
 		IP:            masterIP,
 		TombstonePort: tombstonePort,
+		CAFPort:       cafPort,
 	}
 
 	vdcInfo.VDCs[vdcID] = vdcConfig

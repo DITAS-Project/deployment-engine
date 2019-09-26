@@ -115,20 +115,6 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 
 	bp := blueprintRaw.(blueprint.Blueprint)
 
-	tombstonePort, ok := args.GetInt("tombstonePort")
-	if !ok {
-		return errors.New("Tombstone port is mandatory")
-	}
-	err = config.ClaimPort(tombstonePort)
-	if err != nil {
-		return fmt.Errorf("Error reserving port %d: %w", tombstonePort, err)
-	}
-	defer func() {
-		if err != nil {
-			config.LiberatePort(tombstonePort)
-		}
-	}()
-
 	vdcID, ok := args.GetString("vdcId")
 	if !ok {
 		return errors.New("Can't find VDC identifier in parameters")
@@ -138,6 +124,31 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 	if !ok {
 		return fmt.Errorf("It's necessary to pass the VDM IP in order to deploy VDC")
 	}
+
+	cafExternalPort, ok := args.GetInt("cafPort")
+	if !ok {
+		return errors.New("CAF port is mandatory")
+	}
+
+	tombstonePort, ok := args.GetInt("tombstonePort")
+	if !ok {
+		return errors.New("Tombstone port is mandatory")
+	}
+
+	err = config.ClaimPort(cafExternalPort)
+	if err != nil {
+		return fmt.Errorf("Error reserving port %d: %w", cafExternalPort, err)
+	}
+	err = config.ClaimPort(tombstonePort)
+	if err != nil {
+		return fmt.Errorf("Error reserving port %d: %w", tombstonePort, err)
+	}
+	defer func() {
+		if err != nil {
+			config.LiberatePort(cafExternalPort)
+			config.LiberatePort(tombstonePort)
+		}
+	}()
 
 	logger = logger.WithField("VDC", vdcID)
 
@@ -159,25 +170,15 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 
 	imageSet, err = p.FillEnvVars(dals, imageSet)
 	if err != nil {
-		return err
+		return fmt.Errorf("Error replacing environment variables: %w", err)
 	}
 
 	caf, ok := imageSet["caf"]
 	if !ok {
-		return errors.New("Can't find CAF image with identifier \"caf\"")
+		err = errors.New("Can't find CAF image with identifier \"caf\"")
+		return err
 	}
 	cafPort := caf.InternalPort
-	cafExternalPort := caf.ExternalPort
-
-	err = config.ClaimPort(cafExternalPort)
-	if err != nil {
-		return fmt.Errorf("Error reserving port %d: %s", cafExternalPort, err.Error())
-	}
-	defer func() {
-		if err != nil {
-			config.LiberatePort(cafExternalPort)
-		}
-	}()
 
 	strBp, err := json.Marshal(bp)
 	if err != nil {

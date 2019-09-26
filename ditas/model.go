@@ -27,6 +27,7 @@ const (
 type InfrastructureInformation struct {
 	IP            string
 	TombstonePort int
+	CAFPort       int
 }
 
 type VDCConfiguration struct {
