@@ -38,12 +38,12 @@ func (p HelmProvisioner) BuildInventory(infra *model.InfrastructureDeploymentInf
 	return p.parent.Provisioners["kubeadm"].BuildInventory(infra, args)
 }
 
-func (p HelmProvisioner) DeployProduct(inventoryPath string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error {
+func (p HelmProvisioner) DeployProduct(inventoryPath string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) (model.Parameters, error) {
 
 	logger := logrus.WithFields(logrus.Fields{
 		"infrastructure": infra.ID,
 	})
 	infra.Products["helm"] = true
 
-	return ExecutePlaybook(logger, p.parent.ScriptsFolder+"/kubernetes/deploy_helm.yml", inventoryPath, nil)
+	return nil, ExecutePlaybook(logger, p.parent.ScriptsFolder+"/kubernetes/deploy_helm.yml", inventoryPath, nil)
 }

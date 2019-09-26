@@ -136,7 +136,7 @@ func (v *MemoryRepository) UpdateSecret(secretID string, secret model.Secret) er
 func (v *MemoryRepository) GetSecret(secretID string) (model.Secret, error) {
 	secret, ok := v.vault[secretID]
 	if !ok {
-		return secret, fmt.Errorf("Can't find secret %", secretID)
+		return secret, fmt.Errorf("Can't find secret %s", secretID)
 	}
 	return secret, nil
 }

@@ -44,7 +44,7 @@ func (p K3sProvisioner) BuildInventory(infra *model.InfrastructureDeploymentInfo
 	return p.parent.Provisioners["kubeadm"].BuildInventory(infra, args)
 }
 
-func (p K3sProvisioner) DeployProduct(inventoryPath string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error {
+func (p K3sProvisioner) DeployProduct(inventoryPath string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) (model.Parameters, error) {
 
 	logger := logrus.WithFields(logrus.Fields{
 		"infrastructure": infra.ID,
@@ -54,7 +54,7 @@ func (p K3sProvisioner) DeployProduct(inventoryPath string, infra *model.Infrast
 
 	master, err := infra.GetFirstNodeOfRole("master")
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	err = ExecutePlaybook(logger, p.parent.ScriptsFolder+"/kubernetes/deploy_k3s.yml", inventoryPath, map[string]string{
@@ -64,12 +64,12 @@ func (p K3sProvisioner) DeployProduct(inventoryPath string, infra *model.Infrast
 	})
 	if err != nil {
 		logger.WithError(err).Error("Error initializing master")
-		return err
+		return nil, err
 	}
 
 	infra.Products["kubernetes"] = KubernetesConfiguration{
 		ConfigurationFile: inventoryFolder + "/config",
 	}
 
-	return err
+	return nil, err
 }

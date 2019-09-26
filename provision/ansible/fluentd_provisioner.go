@@ -41,7 +41,7 @@ func (p FluentdProvisioner) BuildInventory(infra *model.InfrastructureDeployment
 	return p.parent.Provisioners["kubeadm"].BuildInventory(infra, args)
 }
 
-func (p FluentdProvisioner) DeployProduct(inventoryPath string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error {
+func (p FluentdProvisioner) DeployProduct(inventoryPath string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) (model.Parameters, error) {
 
 	logger := logrus.WithFields(logrus.Fields{
 		"infrastructure": infra.ID,
@@ -58,10 +58,10 @@ func (p FluentdProvisioner) DeployProduct(inventoryPath string, infra *model.Inf
 
 	vals, err := yaml.Marshal(extraArgs)
 	if err != nil {
-		return fmt.Errorf("Error marshalling elasticsearch parameters: %s", err.Error())
+		return nil, fmt.Errorf("Error marshalling elasticsearch parameters: %w", err)
 	}
 
-	return ExecutePlaybook(logger, p.parent.ScriptsFolder+"/kubernetes/deploy_fluentd.yml", inventoryPath, map[string]string{
+	return nil, ExecutePlaybook(logger, p.parent.ScriptsFolder+"/kubernetes/deploy_fluentd.yml", inventoryPath, map[string]string{
 		"values": string(vals),
 	})
 }

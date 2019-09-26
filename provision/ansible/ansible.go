@@ -61,7 +61,7 @@ type Inventory struct {
 
 type ProductProvisioner interface {
 	BuildInventory(infra *model.InfrastructureDeploymentInfo, args model.Parameters) (Inventory, error)
-	DeployProduct(inventory string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error
+	DeployProduct(inventory string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) (model.Parameters, error)
 }
 
 func New() (*Provisioner, error) {
@@ -222,15 +222,16 @@ func (p Provisioner) WriteInventory(infraID, product string, inventory Inventory
 	return filePath, nil
 }
 
-func (p Provisioner) Provision(infra *model.InfrastructureDeploymentInfo, product string, args model.Parameters) error {
+func (p Provisioner) Provision(infra *model.InfrastructureDeploymentInfo, product string, args model.Parameters) (model.Parameters, error) {
 
 	if args == nil {
 		args = make(model.Parameters)
 	}
+	result := make(model.Parameters)
 
 	provisioner := p.Provisioners[product]
 	if provisioner == nil {
-		return fmt.Errorf("Product %s not supported by this deployer", product)
+		return result, fmt.Errorf("Product %s not supported by this deployer", product)
 	}
 
 	/*wait, ok := args.GetBool(AnsibleWaitForSSHReadyProperty)
@@ -249,21 +250,25 @@ func (p Provisioner) Provision(infra *model.InfrastructureDeploymentInfo, produc
 	inventory, err := provisioner.BuildInventory(infra, args)
 	if err != nil {
 		log.WithError(err).Errorf("Error getting inventory for product %s", product)
-		return err
+		return result, err
 	}
 
 	inventoryPath, err := p.WriteInventory(infra.ID, product, inventory)
 	if err != nil {
 		log.WithError(err).Errorf("Error creating inventory file for product %s", product)
-		return err
+		return result, err
 	}
 
-	return provisioner.DeployProduct(inventoryPath, infra, args)
+	res, err := provisioner.DeployProduct(inventoryPath, infra, args)
+	if res == nil {
+		return result, err
+	}
+	return res, err
 }
 
 func (p Provisioner) GetProducts() []string {
 	result := make([]string, 0, len(p.Provisioners))
-	for k, _ := range p.Provisioners {
+	for k := range p.Provisioners {
 		result = append(result, k)
 	}
 	return result

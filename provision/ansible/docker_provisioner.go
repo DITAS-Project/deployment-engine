@@ -56,13 +56,13 @@ func (p DockerProvisioner) BuildInventory(infra *model.InfrastructureDeploymentI
 	return result, nil
 }
 
-func (p DockerProvisioner) DeployProduct(inventoryPath string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error {
+func (p DockerProvisioner) DeployProduct(inventoryPath string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) (model.Parameters, error) {
 
 	logger := logrus.WithField("product", "docker")
 	err := utils.ExecuteCommand(logger, "ansible-galaxy", "install", "geerlingguy.docker")
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return ExecutePlaybook(logger, p.parent.ScriptsFolder+"/docker/main.yml", inventoryPath, nil)
+	return nil, ExecutePlaybook(logger, p.parent.ScriptsFolder+"/docker/main.yml", inventoryPath, nil)
 }

@@ -74,10 +74,10 @@ func (p KubesprayProvisioner) BuildInventory(infra *model.InfrastructureDeployme
 	return baseInventory, err
 }
 
-func (p KubesprayProvisioner) DeployProduct(inventoryPath string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error {
+func (p KubesprayProvisioner) DeployProduct(inventoryPath string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) (model.Parameters, error) {
 
 	logger := logrus.WithFields(logrus.Fields{
 		"infrastructure": infra.ID,
 	})
-	return ExecutePlaybook(logger, p.kubesprayFolder+"/cluster.yml", inventoryPath, nil)
+	return nil, ExecutePlaybook(logger, p.kubesprayFolder+"/cluster.yml", inventoryPath, nil)
 }

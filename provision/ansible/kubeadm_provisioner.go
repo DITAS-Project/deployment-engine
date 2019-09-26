@@ -79,11 +79,12 @@ func (p KubeadmProvisioner) BuildInventory(infra *model.InfrastructureDeployment
 	return inventory, err
 }
 
-func (p KubeadmProvisioner) DeployProduct(inventoryPath string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error {
+func (p KubeadmProvisioner) DeployProduct(inventoryPath string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) (model.Parameters, error) {
 
 	logger := logrus.WithFields(map[string]interface{}{
 		"infrastructure": infra.ID,
 	})
+	result := make(model.Parameters)
 
 	inventoryFolder := p.parent.GetInventoryFolder(infra.ID)
 
@@ -92,7 +93,7 @@ func (p KubeadmProvisioner) DeployProduct(inventoryPath string, infra *model.Inf
 			"inventory_folder": inventoryFolder,
 		})
 		if err != nil {
-			return err
+			return result, err
 		}
 
 		infra.Products["kubernetes"] = KubernetesConfiguration{
@@ -101,12 +102,13 @@ func (p KubeadmProvisioner) DeployProduct(inventoryPath string, infra *model.Inf
 		repos := utils.GetDockerRepositories()
 		if repos != nil && len(repos) > 0 {
 			args[AnsibleWaitForSSHReadyProperty] = []string{"false"}
-			err = p.parent.Provision(infra, "private_registries", args)
+			out, err := p.parent.Provision(infra, "private_registries", args)
 			if err != nil {
-				return err
+				return out, err
 			}
+			result.AddAll(out)
 		}
-		return nil
+		return result, nil
 	}
 
 	return p.parent.Provision(infra, "kubernetes", args)

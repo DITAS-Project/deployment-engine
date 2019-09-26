@@ -210,7 +210,7 @@ func (m *VDCManager) createDeployment(deployment model.Deployment) (model.Deploy
 }
 
 func (m *VDCManager) DeployVMD(infra model.InfrastructureDeploymentInfo) (string, error) {
-	_, err := m.ProvisionerController.Provision(infra.ID, "vdm", nil, "kubernetes")
+	_, _, err := m.ProvisionerController.Provision(infra.ID, "vdm", nil, "kubernetes")
 	if err != nil {
 		return "", utils.WrapLogAndReturnError(log.WithField("infrastructure", infra.ID), fmt.Sprintf("Error deploying VDM in infrastructure %s", infra.ID), err)
 	}
@@ -318,7 +318,7 @@ func (m *VDCManager) DeployBlueprint(bp blueprint.Blueprint) (VDCInformation, er
 		vdmIP = vdcInfo.VDMIP
 	}
 
-	cafPort, tombstonePort, _, err := m.DeployVDC(bp, infra, vdcID, vdmIP)
+	tombstonePort, cafPort, _, err := m.DeployVDC(bp, infra, vdcID, vdmIP)
 	if err != nil {
 		return vdcInfo, err
 	}
@@ -396,13 +396,13 @@ func (m *VDCManager) doProvisionKubernetes(infra model.InfrastructureDeploymentI
 	logger.Info("SSH ports ready. Deploying Kubernetes")
 
 	args := make(model.Parameters)
-	dep, err = m.ProvisionerController.Provision(infra.ID, "kubeadm", args, "")
+	dep, _, err = m.ProvisionerController.Provision(infra.ID, "kubeadm", args, "")
 	//err := m.provisionKubernetesWithKubespray(deployment.ID, infra)
 	if err != nil {
 		return dep, utils.WrapLogAndReturnError(logger, fmt.Sprintf("Error deploying kubernetes on infrastructure %s", infra.ID), err)
 	}
 
-	dep, err = m.ProvisionerController.Provision(infra.ID, "helm", args, "")
+	dep, _, err = m.ProvisionerController.Provision(infra.ID, "helm", args, "")
 	if err != nil {
 		return dep, utils.WrapLogAndReturnError(logger, fmt.Sprintf("Error deploying helm in infrastructure %s", infra.ID), err)
 	}
@@ -434,13 +434,13 @@ func (m *VDCManager) doProvisionKubernetes(infra model.InfrastructureDeploymentI
 			}
 		}
 
-		dep, err = m.ProvisionerController.Provision(infra.ID, "fluentd", args, "")
+		dep, _, err = m.ProvisionerController.Provision(infra.ID, "fluentd", args, "")
 		if err != nil {
 			return dep, utils.WrapLogAndReturnError(logger, fmt.Sprintf("Error installing fluentd at infrastructure %s", infra.ID), err)
 		}
 	}
 
-	dep, err = m.ProvisionerController.Provision(infra.ID, "rook", args, "kubernetes")
+	dep, _, err = m.ProvisionerController.Provision(infra.ID, "rook", args, "kubernetes")
 	if err != nil {
 		return dep, utils.WrapLogAndReturnError(logger, fmt.Sprintf("Error deploying rook to kubernetes cluster %s", infra.ID), err)
 	}
@@ -493,22 +493,35 @@ func (m *VDCManager) DeployVDC(blueprint blueprint.Blueprint, infra model.Infras
 		return -1, -1, deployment, fmt.Errorf("Error reading kubernetes configuration from infrastructure %s: %w", infra.ID, err)
 	}
 
-	tombstonePort := kubeconfig.GetNewFreePort()
-	cafPort := kubeconfig.GetNewFreePort()
-
-	deployment, err = m.doDeployVDC(infra, blueprint, vdcID, vdmIP, tombstonePort, cafPort)
-	return cafPort, tombstonePort, deployment, err
+	return m.doDeployVDC(infra, blueprint, vdcID, vdmIP)
 }
 
-func (m *VDCManager) doDeployVDC(infra model.InfrastructureDeploymentInfo, bp blueprint.Blueprint, vdcID, vdmIP string, tombstonePort int, cafPort int) (model.InfrastructureDeploymentInfo, error) {
+func (m *VDCManager) doDeployVDC(infra model.InfrastructureDeploymentInfo, bp blueprint.Blueprint, vdcID, vdmIP string) (int, int, model.InfrastructureDeploymentInfo, error) {
 
 	args := make(model.Parameters)
-	args["blueprint"] = bp
-	args["vdcId"] = vdcID
-	args["tombstonePort"] = tombstonePort
-	args["vdmIP"] = vdmIP
-	args["cafPort"] = cafPort
-	return m.ProvisionerController.Provision(infra.ID, "vdc", args, "kubernetes")
+	args[BlueprintProperty] = bp
+	args[VDCIDProperty] = vdcID
+	args[VDMIPProperty] = vdmIP
+
+	infra, out, err := m.ProvisionerController.Provision(infra.ID, "vdc", args, "kubernetes")
+	tombstonePort := -1
+	cafPort := -1
+	ok := false
+	if err != nil {
+		return tombstonePort, cafPort, infra, err
+	}
+
+	tombstonePort, ok = out.GetInt(TombstonePortProperty)
+	if !ok {
+		return tombstonePort, cafPort, infra, errors.New("Can't find tombstone port in deployed VDC")
+	}
+
+	cafPort, ok = out.GetInt(CAFPortProperty)
+	if !ok {
+		return tombstonePort, cafPort, infra, errors.New("Can't find CAF port in deployed VDC")
+	}
+
+	return tombstonePort, cafPort, infra, err
 }
 
 func (m *VDCManager) findVDCInfrastructure(vdcInfo VDCInformation, vdcID, targetInfraID string) (model.InfrastructureDeploymentInfo, error) {
@@ -573,7 +586,7 @@ func (m *VDCManager) CopyVDC(blueprintID, vdcID, targetInfraID string) (VDCConfi
 		return vdcConfig, fmt.Errorf("Error finding target infrastructure %s: %w", targetInfraID, err)
 	}
 
-	cafPort, tombstonePort, targetInfra, err := m.DeployVDC(bp, targetInfra, vdcID, vdmIP)
+	tombstonePort, cafPort, targetInfra, err := m.DeployVDC(bp, targetInfra, vdcID, vdmIP)
 	if err != nil {
 		return vdcConfig, fmt.Errorf("Error creating copy of VDC %s: %w", vdcID, err)
 	}
@@ -637,7 +650,7 @@ func (m *VDCManager) DeployDatasource(blueprintId, vdcID, infraId, datasourceTyp
 		return fmt.Errorf("Can't finde infrastructure %s associated to blueprint %s: %v", infraId, blueprintId, err)
 	}
 
-	_, err = m.ProvisionerController.Provision(infra.ID, datasourceType, args, "kubernetes")
+	_, _, err = m.ProvisionerController.Provision(infra.ID, datasourceType, args, "kubernetes")
 	return err
 }
 

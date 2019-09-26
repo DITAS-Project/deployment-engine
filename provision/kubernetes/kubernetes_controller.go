@@ -122,7 +122,7 @@ func (c *KubernetesConfiguration) LiberatePort(port int) {
 }
 
 type KubernetesProvisioner interface {
-	Provision(config *KubernetesConfiguration, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error
+	Provision(config *KubernetesConfiguration, infra *model.InfrastructureDeploymentInfo, args model.Parameters) (model.Parameters, error)
 }
 
 type KubernetesController struct {
@@ -168,10 +168,12 @@ func (p KubernetesController) initializeConfig(config *KubernetesConfiguration) 
 	}
 }
 
-func (p KubernetesController) Provision(infra *model.InfrastructureDeploymentInfo, product string, args model.Parameters) error {
+func (p KubernetesController) Provision(infra *model.InfrastructureDeploymentInfo, product string, args model.Parameters) (model.Parameters, error) {
+
+	result := make(model.Parameters)
 	rawKubeConfig, ok := infra.Products["kubernetes"]
 	if !ok {
-		return fmt.Errorf("Kubernetes is not installed in infrastructure %s", infra.ID)
+		return result, fmt.Errorf("Kubernetes is not installed in infrastructure %s", infra.ID)
 	}
 
 	if args == nil {
@@ -180,26 +182,27 @@ func (p KubernetesController) Provision(infra *model.InfrastructureDeploymentInf
 
 	provisioner, ok := p.productProvisioners[product]
 	if !ok {
-		return fmt.Errorf("Can't find kubernetes provisioner for product %s", product)
+		return result, fmt.Errorf("Can't find kubernetes provisioner for product %s", product)
 	}
 
 	var kubeConfig KubernetesConfiguration
 	err := utils.TransformObject(rawKubeConfig, &kubeConfig)
 	if err != nil {
-		return fmt.Errorf("Error reading kubernetes configuration: %s", err.Error())
+		return result, fmt.Errorf("Error reading kubernetes configuration: %w", err)
 	}
 
 	if kubeConfig.ConfigurationFile == "" {
-		return errors.New("Can't find the configuration file in the Kubernetes configuration")
+		return result, errors.New("Can't find the configuration file in the Kubernetes configuration")
 	}
 
 	p.initializeConfig(&kubeConfig)
 
-	err = provisioner.Provision(&kubeConfig, infra, args)
+	out, err := provisioner.Provision(&kubeConfig, infra, args)
 	if err != nil {
-		return err
+		return result, err
 	}
+	result.AddAll(out)
 
 	infra.Products["kubernetes"] = kubeConfig
-	return nil
+	return result, nil
 }

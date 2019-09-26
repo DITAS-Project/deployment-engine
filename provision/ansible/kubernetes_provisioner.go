@@ -72,20 +72,23 @@ func (p KubernetesProvisioner) BuildInventory(infra *model.InfrastructureDeploym
 	return result, nil
 }
 
-func (p KubernetesProvisioner) DeployProduct(inventoryPath string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error {
+func (p KubernetesProvisioner) DeployProduct(inventoryPath string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) (model.Parameters, error) {
+
+	result := make(model.Parameters)
 
 	if !infra.ExtraProperties.GetBool(DockerPresentProperty) {
 		args["wait"] = []string{"false"}
-		err := p.parent.Provision(infra, "docker", args)
+		out, err := p.parent.Provision(infra, "docker", args)
 		if err != nil {
-			return err
+			return out, err
 		}
+		result.AddAll(out)
 	}
 
 	logger := logrus.WithField("product", "kubernetes")
 	err := utils.ExecuteCommand(logger, "ansible-galaxy", "install", "geerlingguy.kubernetes")
 	if err != nil {
-		return err
+		return result, err
 	}
 
 	inventoryFolder := p.parent.GetInventoryFolder(infra.ID)
@@ -94,7 +97,7 @@ func (p KubernetesProvisioner) DeployProduct(inventoryPath string, infra *model.
 		"inventory_folder": inventoryFolder,
 	})
 	if err != nil {
-		return err
+		return result, err
 	}
 
 	infra.Products["kubernetes"] = KubernetesConfiguration{
@@ -104,11 +107,12 @@ func (p KubernetesProvisioner) DeployProduct(inventoryPath string, infra *model.
 	repos := utils.GetDockerRepositories()
 	if repos != nil && len(repos) > 0 {
 		args[AnsibleWaitForSSHReadyProperty] = []string{"false"}
-		err = p.parent.Provision(infra, "private_registries", args)
+		out, err := p.parent.Provision(infra, "private_registries", args)
 		if err != nil {
-			return err
+			return result, err
 		}
+		result.AddAll(out)
 	}
 
-	return nil
+	return result, nil
 }

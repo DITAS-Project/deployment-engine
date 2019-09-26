@@ -45,17 +45,18 @@ func NewProvisionerController(defaultProvisioner model.Provisioner, repo persist
 	return &result
 }
 
-func (p *ProvisionerController) Provision(infraID, product string, args model.Parameters, framework string) (model.InfrastructureDeploymentInfo, error) {
+func (p *ProvisionerController) Provision(infraID, product string, args model.Parameters, framework string) (model.InfrastructureDeploymentInfo, model.Parameters, error) {
 
+	result := make(model.Parameters)
 	infra, err := p.Repository.FindInfrastructure(infraID)
 	if err != nil {
 		log.WithError(err).Errorf("Error finding infrastructure %s", infraID)
-		return infra, err
+		return infra, result, err
 	}
 
 	for _, prod := range infra.Products {
 		if prod == product {
-			return infra, fmt.Errorf("Product %s already present in the infrastructure", product)
+			return infra, result, fmt.Errorf("Product %s already present in the infrastructure", product)
 		}
 	}
 
@@ -66,18 +67,20 @@ func (p *ProvisionerController) Provision(infraID, product string, args model.Pa
 
 	provisioner, ok := p.Provisioners[provType]
 	if !ok {
-		return infra, fmt.Errorf("Can't find provisioner for framework %s", provType)
+		return infra, result, fmt.Errorf("Can't find provisioner for framework %s", provType)
 	}
 
 	if args == nil {
 		args = make(model.Parameters)
 	}
 
-	err = provisioner.Provision(&infra, product, args)
+	out, err := provisioner.Provision(&infra, product, args)
 	if err != nil {
 		log.WithError(err).Errorf("Error provisioning product %s", product)
-		return infra, err
+		return infra, out, err
 	}
+	result.AddAll(out)
 
-	return p.Repository.UpdateInfrastructure(infra)
+	infra, err = p.Repository.UpdateInfrastructure(infra)
+	return infra, result, err
 }

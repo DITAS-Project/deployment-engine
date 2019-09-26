@@ -35,6 +35,14 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
+const (
+	VDCIDProperty         = "vdcId"
+	BlueprintProperty     = "blueprint"
+	VDMIPProperty         = "vdmIP"
+	CAFPortProperty       = "cafPort"
+	TombstonePortProperty = "tombstonePort"
+)
+
 type VDCProvisioner struct {
 	configFolder string
 }
@@ -101,54 +109,54 @@ func (p VDCProvisioner) FillEnvVars(dals map[string]blueprint.DALImage, vdcImage
 	return vdcImages, nil
 }
 
-func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error {
+func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, infra *model.InfrastructureDeploymentInfo, args model.Parameters) (model.Parameters, error) {
 
+	result := make(model.Parameters)
 	var err error
 	logger := logrus.WithFields(logrus.Fields{
 		"infrastructure": infra.ID,
 	})
 
-	blueprintRaw, ok := args["blueprint"]
+	blueprintRaw, ok := args[BlueprintProperty]
 	if !ok {
-		return errors.New("Can't find blueprint in parameters")
+		return result, errors.New("Can't find blueprint in parameters")
 	}
 
 	bp := blueprintRaw.(blueprint.Blueprint)
 
-	vdcID, ok := args.GetString("vdcId")
+	vdcID, ok := args.GetString(VDCIDProperty)
 	if !ok {
-		return errors.New("Can't find VDC identifier in parameters")
+		return result, errors.New("Can't find VDC identifier in parameters")
 	}
 
-	vdmIP, ok := args.GetString("vdmIP")
+	vdmIP, ok := args.GetString(VDMIPProperty)
 	if !ok {
-		return fmt.Errorf("It's necessary to pass the VDM IP in order to deploy VDC")
+		return result, fmt.Errorf("It's necessary to pass the VDM IP in order to deploy VDC")
 	}
 
-	cafExternalPort, ok := args.GetInt("cafPort")
-	if !ok {
-		return errors.New("CAF port is mandatory")
-	}
-
-	tombstonePort, ok := args.GetInt("tombstonePort")
-	if !ok {
-		return errors.New("Tombstone port is mandatory")
-	}
-
+	cafExternalPort := config.GetNewFreePort()
 	err = config.ClaimPort(cafExternalPort)
 	if err != nil {
-		return fmt.Errorf("Error reserving port %d: %w", cafExternalPort, err)
-	}
-	err = config.ClaimPort(tombstonePort)
-	if err != nil {
-		return fmt.Errorf("Error reserving port %d: %w", tombstonePort, err)
+		return result, fmt.Errorf("Error reserving port %d: %w", cafExternalPort, err)
 	}
 	defer func() {
 		if err != nil {
 			config.LiberatePort(cafExternalPort)
+		}
+	}()
+	result[CAFPortProperty] = cafExternalPort
+
+	tombstonePort := config.GetNewFreePort()
+	err = config.ClaimPort(tombstonePort)
+	if err != nil {
+		return result, fmt.Errorf("Error reserving port %d: %w", tombstonePort, err)
+	}
+	defer func() {
+		if err != nil {
 			config.LiberatePort(tombstonePort)
 		}
 	}()
+	result[TombstonePortProperty] = tombstonePort
 
 	logger = logger.WithField("VDC", vdcID)
 
@@ -170,24 +178,24 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 
 	imageSet, err = p.FillEnvVars(dals, imageSet)
 	if err != nil {
-		return fmt.Errorf("Error replacing environment variables: %w", err)
+		return result, fmt.Errorf("Error replacing environment variables: %w", err)
 	}
 
 	caf, ok := imageSet["caf"]
 	if !ok {
 		err = errors.New("Can't find CAF image with identifier \"caf\"")
-		return err
+		return result, err
 	}
 	cafPort := caf.InternalPort
 
 	strBp, err := json.Marshal(bp)
 	if err != nil {
-		return fmt.Errorf("Error marshalling blueprint: %s", err.Error())
+		return result, fmt.Errorf("Error marshalling blueprint: %s", err.Error())
 	}
 
 	vars, err := utils.GetVarsFromConfigFolder()
 	if err != nil {
-		return err
+		return result, err
 	}
 	vars["vdcId"] = vdcID
 	vars["caf_port"] = cafPort
@@ -197,7 +205,7 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 	configMap, err := kubernetes.GetConfigMapFromFolder(p.configFolder+"/vdcs", configMapName, vars)
 	if err != nil {
 		logger.WithError(err).Error("Error reading configuration map")
-		return err
+		return result, err
 	}
 
 	configMap.Data["blueprint.json"] = string(strBp)
@@ -205,14 +213,14 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 	kubeClient, err := kubernetes.NewClient(config.ConfigurationFile)
 	if err != nil {
 		logger.WithError(err).Error("Error getting kubernetes client")
-		return err
+		return result, err
 	}
 
 	logger.Info("Creating or updating VDC config map")
 	_, err = kubeClient.CreateOrUpdateConfigMap(logger, DitasNamespace, &configMap)
 
 	if err != nil {
-		return err
+		return result, err
 	}
 
 	vdcLabels := map[string]string{
@@ -243,7 +251,7 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 	_, err = kubeClient.CreateOrUpdateDeployment(logger, DitasNamespace, &vdcDeployment)
 
 	if err != nil {
-		return err
+		return result, err
 	}
 
 	/*ports := make([]corev1.ServicePort, 0)
@@ -287,10 +295,10 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 	logger.Info("Creating or updating VDC service")
 	_, err = kubeClient.CreateOrUpdateService(logger, DitasNamespace, &vdcService)
 	if err != nil {
-		return err
+		return result, err
 	}
 
 	logger.Info("VDC successfully deployed")
 
-	return err
+	return result, err
 }

@@ -47,34 +47,35 @@ func NewVDMProvisioner(scriptsFolder, configVariablesPath, configFolder string) 
 	}
 }
 
-func (p VDMProvisioner) Provision(config *kubernetes.KubernetesConfiguration, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error {
+func (p VDMProvisioner) Provision(config *kubernetes.KubernetesConfiguration, infra *model.InfrastructureDeploymentInfo, args model.Parameters) (model.Parameters, error) {
 
+	result := make(model.Parameters)
 	logger := logrus.WithFields(logrus.Fields{
 		"infrastructure": infra.ID,
 	})
 
 	vars, err := utils.GetVarsFromConfigFolder()
 	if err != nil {
-		return err
+		return result, err
 	}
 
 	configMap, err := kubernetes.GetConfigMapFromFolder(p.configFolder+"/vdm", DitasVDMConfigMapName, vars)
 	if err != nil {
 		logger.WithError(err).Error("Error reading configuration map")
-		return err
+		return result, err
 	}
 
 	kubeClient, err := kubernetes.NewClient(config.ConfigurationFile)
 	if err != nil {
 		logger.WithError(err).Error("Error getting kubernetes client")
-		return err
+		return result, err
 	}
 
 	logger.Info("Creating or updating VDM config map")
 	_, err = kubeClient.CreateOrUpdateConfigMap(logger, DitasNamespace, &configMap)
 
 	if err != nil {
-		return err
+		return result, err
 	}
 
 	vdmLabels := map[string]string{
@@ -98,7 +99,7 @@ func (p VDMProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 	_, err = kubeClient.CreateOrUpdateDeployment(logger, DitasNamespace, &vdmDeployment)
 
 	if err != nil {
-		return err
+		return result, err
 	}
 
 	vdmService := corev1.Service{
@@ -120,12 +121,12 @@ func (p VDMProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 	logger.Info("Creating or updating VDM service")
 	_, err = kubeClient.CreateOrUpdateService(logger, DitasNamespace, &vdmService)
 	if err != nil {
-		return err
+		return result, err
 	}
 
 	config.DeploymentsConfiguration["VDM"] = true
 
 	logger.Info("VDM successfully deployed")
 
-	return err
+	return result, err
 }

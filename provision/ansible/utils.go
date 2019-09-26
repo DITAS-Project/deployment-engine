@@ -36,7 +36,7 @@ func ExecutePlaybook(logger *log.Entry, script string, inventory string, extrava
 		args = append(args, "--extra-vars")
 		vars, err := json.Marshal(extravars)
 		if err != nil {
-			return fmt.Errorf("Error marshaling ansible variables: %s", err.Error())
+			return fmt.Errorf("Error marshaling ansible variables: %w", err)
 		}
 		args = append(args, string(vars))
 	}

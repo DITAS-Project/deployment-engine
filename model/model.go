@@ -260,7 +260,7 @@ type Deployer interface {
 
 //Provisioner is the interface that must implement custom provisioners such as ansible, etc. If some configuration needs to be passed to other provisioners or saved in the database, it should be done by setting them in the Products field of the passed infrastructure
 type Provisioner interface {
-	Provision(infra *InfrastructureDeploymentInfo, product string, args Parameters) error
+	Provision(infra *InfrastructureDeploymentInfo, product string, args Parameters) (Parameters, error)
 }
 
 // Frontend is the interface that must be implemented for any frontend that will serve an API around the functionality of the deployment engine
@@ -346,4 +346,12 @@ func (p Parameters) GetInt(key string) (int, bool) {
 		return 0, ok
 	}
 	return cast.ToInt(elem), ok
+}
+
+func (p Parameters) AddAll(params Parameters) {
+	if params != nil {
+		for k, v := range params {
+			p[k] = v
+		}
+	}
 }

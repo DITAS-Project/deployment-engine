@@ -149,12 +149,12 @@ func (c *Deployer) CreateDeployment(infras []model.InfrastructureType) ([]model.
 	for remaining := len(infras); remaining > 0; remaining-- {
 		infraInfo := <-channel
 		if infraInfo.Error != nil {
-			log.WithError(infraInfo.Error).Errorf("Error creating infrastructure", infraInfo.Info.Name)
+			log.WithError(infraInfo.Error).Errorf("Error creating infrastructure %s", infraInfo.Info.Name)
 			depError = infraInfo.Error
 		} else {
 			infra, err := c.Repository.AddInfrastructure(infraInfo.Info)
 			if err != nil {
-				log.WithError(err).Error("Error adding infrastructure %s")
+				log.WithError(err).Errorf("Error adding infrastructure %s", infraInfo.Info.Name)
 			}
 			result = append(result, infra)
 		}

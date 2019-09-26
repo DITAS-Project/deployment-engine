@@ -44,8 +44,9 @@ type MySQLConfig struct {
 type MySQLProvisioner struct {
 }
 
-func (p MySQLProvisioner) Provision(config *KubernetesConfiguration, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error {
+func (p MySQLProvisioner) Provision(config *KubernetesConfiguration, infra *model.InfrastructureDeploymentInfo, args model.Parameters) (model.Parameters, error) {
 
+	result := make(model.Parameters)
 	logger := logrus.WithFields(logrus.Fields{
 		"infrastructure": infra.ID,
 		"product":        "MySQL",
@@ -64,7 +65,7 @@ func (p MySQLProvisioner) Provision(config *KubernetesConfiguration, infra *mode
 	} else {
 		err := utils.TransformObject(rawConfig, &mySqlConfig)
 		if err != nil {
-			return fmt.Errorf("Error reading MySQL configuration: %s", err.Error())
+			return result, fmt.Errorf("Error reading MySQL configuration: %w", err)
 		}
 	}
 
@@ -81,25 +82,25 @@ func (p MySQLProvisioner) Provision(config *KubernetesConfiguration, infra *mode
 	if ok {
 		databaseName, ok = args.GetString("database")
 		if !ok {
-			return errors.New("Database query parameter is mandatory when username is specified")
+			return result, errors.New("Database query parameter is mandatory when username is specified")
 		}
 
 		userPassword, ok = args.GetString("user_password")
 		if !ok {
 			userPassword, err = password.Generate(10, 3, 2, false, false)
 			if err != nil {
-				return fmt.Errorf("No password specified for user %s and an error occured when trying to generate a new random one: %s", username, err.Error())
+				return result, fmt.Errorf("No password specified for user %s and an error occured when trying to generate a new random one: %w", username, err)
 			}
 		}
 	}
 
 	if err != nil {
-		return err
+		return result, err
 	}
 
 	storageclass, ok := args.GetString("storage_class")
 	if !ok {
-		return errors.New("No storage class specified for persistence")
+		return result, errors.New("No storage class specified for persistence")
 	}
 
 	secrets := []SecretData{
@@ -150,7 +151,7 @@ func (p MySQLProvisioner) Provision(config *KubernetesConfiguration, infra *mode
 	kubernetesClient, err := NewClient(config.ConfigurationFile)
 	if err != nil {
 		logger.WithError(err).Error("Error getting kubernetes client")
-		return err
+		return result, err
 	}
 
 	kubeSecrets := make([]*corev1.Secret, len(secrets))
@@ -162,7 +163,7 @@ func (p MySQLProvisioner) Provision(config *KubernetesConfiguration, infra *mode
 		secretOut, err := kubernetesClient.CreateOrUpdateSecret(logger, apiv1.NamespaceDefault, &secret)
 
 		if err != nil {
-			return err
+			return result, err
 		}
 		kubeSecrets[i] = secretOut
 		if i == 0 {
@@ -185,7 +186,7 @@ func (p MySQLProvisioner) Provision(config *KubernetesConfiguration, infra *mode
 		for _, secretOut := range kubeSecrets {
 			kubernetesClient.Client.CoreV1().Secrets(secretOut.GetNamespace()).Delete(secretOut.GetName(), &defaultDeleteOptions)
 		}
-		return err
+		return result, err
 	}
 	logger.Info("MySQL successfully created")
 
@@ -218,7 +219,7 @@ func (p MySQLProvisioner) Provision(config *KubernetesConfiguration, infra *mode
 			kubernetesClient.Client.CoreV1().Secrets(secretOut.GetNamespace()).Delete(secretOut.GetName(), &defaultDeleteOptions)
 		}
 		config.LiberatePort(servicePort)
-		return err
+		return result, err
 	}
 	logger.Info("MySQL service successfully created")
 
@@ -228,5 +229,5 @@ func (p MySQLProvisioner) Provision(config *KubernetesConfiguration, infra *mode
 
 	config.DeploymentsConfiguration["mysql"] = mySqlConfig
 
-	return nil
+	return result, nil
 }
