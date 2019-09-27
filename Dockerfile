@@ -48,7 +48,6 @@ WORKDIR /root/deployment-engine
 COPY provision/ansible/kubernetes kubernetes
 COPY provision/ansible/common common
 COPY ditas/scripts ditas
-COPY docker/config.properties .
 
 RUN git clone https://github.com/DITAS-Project/VDC-Shared-Config.git
 

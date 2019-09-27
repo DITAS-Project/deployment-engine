@@ -46,17 +46,13 @@ import (
 const (
 	DitasScriptsFolderProperty              = "ditas.folders.scripts"
 	DitasConfigFolderProperty               = "ditas.folders.config"
-	DitasRegistryURLProperty                = "ditas.registry.url"
-	DitasRegistryUsernameProperty           = "ditas.registry.username"
-	DitasRegistryPasswordProperty           = "ditas.registry.password"
 	DitasPersistenceGlusterFSDeployProperty = "ditas.persistence.glusterfs.deploy"
 	DitasPersistenceRookDeployProperty      = "ditas.persistence.rook.deploy"
-	DitasTombstonePortProperty              = "ditas.tombstone.port"
+	DitasVariablesProperty                  = "ditas.variables"
 
 	DitasScriptsFolderDefaultValue     = "ditas/scripts"
 	DitasConfigFolderDefaultValue      = "ditas/VDC-Shared-Config"
 	DitasPersistenceDeployDefaultValue = false
-	DitasTombstonePortDefaultValue     = 30010
 
 	ExtraPropertiesOwnerValue      = "owner"
 	ApplicationDeveloperOwnerValue = "ApplicationDeveloper"
@@ -83,7 +79,6 @@ func NewVDCManager(deployer *infrastructure.Deployer, provisionerController *pro
 	viper.SetDefault(DitasConfigFolderProperty, DitasConfigFolderDefaultValue)
 	viper.SetDefault(DitasPersistenceGlusterFSDeployProperty, DitasPersistenceDeployDefaultValue)
 	viper.SetDefault(DitasPersistenceRookDeployProperty, DitasPersistenceDeployDefaultValue)
-	viper.SetDefault(DitasTombstonePortProperty, DitasTombstonePortDefaultValue)
 
 	configFolder, err := utils.ConfigurationFolder()
 	if err != nil {
@@ -209,8 +204,11 @@ func (m *VDCManager) createDeployment(deployment model.Deployment) (model.Deploy
 	return deploymentInfo, nil
 }
 
-func (m *VDCManager) DeployVMD(infra model.InfrastructureDeploymentInfo) (string, error) {
-	_, _, err := m.ProvisionerController.Provision(infra.ID, "vdm", nil, "kubernetes")
+func (m *VDCManager) DeployVMD(infra model.InfrastructureDeploymentInfo, blueprintID string) (string, error) {
+	args := make(model.Parameters)
+	args[BlueprintIDProperty] = blueprintID
+	args[VariablesProperty] = m.getVarsFromConfig()
+	_, _, err := m.ProvisionerController.Provision(infra.ID, "vdm", args, "kubernetes")
 	if err != nil {
 		return "", utils.WrapLogAndReturnError(log.WithField("infrastructure", infra.ID), fmt.Sprintf("Error deploying VDM in infrastructure %s", infra.ID), err)
 	}
@@ -273,7 +271,7 @@ func (m *VDCManager) DeployBlueprint(bp blueprint.Blueprint) (VDCInformation, er
 	if vdcInfo.VDMIP == "" {
 		infra := m.findDefaultInfra(dataOwnerDeployment)
 
-		vdmIP, err := m.DeployVMD(infra)
+		vdmIP, err := m.DeployVMD(infra, vdcInfo.ID)
 		if err != nil {
 			return vdcInfo, fmt.Errorf("Error deploying VDM in infrastructure %s: %w", infra.ID, err)
 		}
@@ -383,6 +381,10 @@ func (m *VDCManager) findDefaultInfra(deployments ...model.DeploymentInfo) model
 	return deployment, nil
 }*/
 
+func (m *VDCManager) getVarsFromConfig() map[string]interface{} {
+	return viper.GetStringMap(DitasVariablesProperty)
+}
+
 func (m *VDCManager) doProvisionKubernetes(infra model.InfrastructureDeploymentInfo) (model.InfrastructureDeploymentInfo, error) {
 	var dep model.InfrastructureDeploymentInfo
 
@@ -407,10 +409,7 @@ func (m *VDCManager) doProvisionKubernetes(infra model.InfrastructureDeploymentI
 		return dep, utils.WrapLogAndReturnError(logger, fmt.Sprintf("Error deploying helm in infrastructure %s", infra.ID), err)
 	}
 
-	vars, err := utils.GetVarsFromConfigFolder()
-	if err != nil {
-		return dep, utils.WrapLogAndReturnError(logger, "Error reading variables from configuration folder", err)
-	}
+	vars := m.getVarsFromConfig()
 
 	esURL, ok := vars[ElasticSearchUrlVarName]
 	if ok {
@@ -440,10 +439,10 @@ func (m *VDCManager) doProvisionKubernetes(infra model.InfrastructureDeploymentI
 		}
 	}
 
-	dep, _, err = m.ProvisionerController.Provision(infra.ID, "rook", args, "kubernetes")
+	/*dep, _, err = m.ProvisionerController.Provision(infra.ID, "rook", args, "kubernetes")
 	if err != nil {
 		return dep, utils.WrapLogAndReturnError(logger, fmt.Sprintf("Error deploying rook to kubernetes cluster %s", infra.ID), err)
-	}
+	}*/
 
 	return dep, err
 }
@@ -502,6 +501,7 @@ func (m *VDCManager) doDeployVDC(infra model.InfrastructureDeploymentInfo, bp bl
 	args[BlueprintProperty] = bp
 	args[VDCIDProperty] = vdcID
 	args[VDMIPProperty] = vdmIP
+	args[VariablesProperty] = m.getVarsFromConfig()
 
 	infra, out, err := m.ProvisionerController.Provision(infra.ID, "vdc", args, "kubernetes")
 	tombstonePort := -1

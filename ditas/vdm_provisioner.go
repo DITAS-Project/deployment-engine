@@ -21,16 +21,20 @@ package ditas
 import (
 	"deployment-engine/model"
 	"deployment-engine/provision/kubernetes"
-	"deployment-engine/utils"
+	"errors"
 
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 const (
 	DitasNamespace        = "default"
 	DitasVDMConfigMapName = "vdm"
+	BlueprintIDProperty   = "blueprintId"
+
+	CMEExternalPort = 30090
 )
 
 type VDMProvisioner struct {
@@ -54,9 +58,29 @@ func (p VDMProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 		"infrastructure": infra.ID,
 	})
 
-	vars, err := utils.GetVarsFromConfigFolder()
-	if err != nil {
-		return result, err
+	varsRaw, ok := args[VariablesProperty]
+	if !ok {
+		return result, errors.New("Can't find the substitution variables parameter")
+	}
+
+	vars, ok := varsRaw.(map[string]interface{})
+	if !ok {
+		return result, errors.New("Invalid type for substitution variables parameter. Expected map[string]interface{}")
+	}
+
+	blueprintID, ok := args.GetString(BlueprintIDProperty)
+	if !ok {
+		return result, errors.New("Blueprint identifier parameter is mandatory to deploy a VDM")
+	}
+	vars["blueprint_id"] = blueprintID
+
+	cmePortRaw, ok := vars["cme_port"]
+	if !ok {
+		return result, errors.New("cme_port variable is mandatory in configuration")
+	}
+	cmePort, ok := cmePortRaw.(int)
+	if !ok {
+		return result, errors.New("Invalid type for variable cme_port. Expected int")
 	}
 
 	configMap, err := kubernetes.GetConfigMapFromFolder(p.configFolder+"/vdm", DitasVDMConfigMapName, vars)
@@ -87,6 +111,10 @@ func (p VDMProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 		Image:        "ditas/decision-system-for-data-and-computation-movement",
 		InternalPort: 8080,
 	}
+	imageSet["cme"] = kubernetes.ImageInfo{
+		Image:        "ditas/computation-movement-enactor",
+		InternalPort: cmePort,
+	}
 
 	var repSecrets []string
 	if config.RegistriesSecret != "" {
@@ -107,12 +135,14 @@ func (p VDMProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 			Name: "vdm",
 		},
 		Spec: corev1.ServiceSpec{
-			Type:     corev1.ServiceTypeClusterIP,
+			Type:     corev1.ServiceTypeNodePort,
 			Selector: vdmLabels,
 			Ports: []corev1.ServicePort{
 				corev1.ServicePort{
-					Name: "ds4m",
-					Port: 8080,
+					Name:       "cme",
+					NodePort:   CMEExternalPort,
+					Port:       CMEExternalPort,
+					TargetPort: intstr.FromInt(cmePort),
 				},
 			},
 		},

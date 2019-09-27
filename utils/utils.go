@@ -149,18 +149,6 @@ func GetDockerRepositories() map[string]model.DockerRegistry {
 	return result
 }
 
-func GetVarsFromConfigFolder() (map[string]interface{}, error) {
-	generalConfigFolder, err := ConfigurationFolder()
-	if err != nil {
-		return nil, fmt.Errorf("Error getting variables from configuration folder: %w", err)
-	}
-	reader := viper.New()
-	reader.SetConfigName("vars")
-	reader.AddConfigPath(generalConfigFolder)
-	reader.ReadInConfig()
-	return reader.AllSettings(), nil
-}
-
 func WrapLogAndReturnError(log *log.Entry, message string, err error) error {
 	if err != nil {
 		log.WithError(err).Error(message)

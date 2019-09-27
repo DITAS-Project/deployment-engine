@@ -41,6 +41,7 @@ const (
 	VDMIPProperty         = "vdmIP"
 	CAFPortProperty       = "cafPort"
 	TombstonePortProperty = "tombstonePort"
+	VariablesProperty     = "variables"
 )
 
 type VDCProvisioner struct {
@@ -122,7 +123,10 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 		return result, errors.New("Can't find blueprint in parameters")
 	}
 
-	bp := blueprintRaw.(blueprint.Blueprint)
+	bp, ok := blueprintRaw.(blueprint.Blueprint)
+	if !ok {
+		return result, errors.New("Invalid type for blueprint parameter. Expected blueprint.Blueprint")
+	}
 
 	vdcID, ok := args.GetString(VDCIDProperty)
 	if !ok {
@@ -132,6 +136,16 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 	vdmIP, ok := args.GetString(VDMIPProperty)
 	if !ok {
 		return result, fmt.Errorf("It's necessary to pass the VDM IP in order to deploy VDC")
+	}
+
+	varsRaw, ok := args[VariablesProperty]
+	if !ok {
+		return result, errors.New("Can't find the substitution variables parameter")
+	}
+
+	vars, ok := varsRaw.(map[string]interface{})
+	if !ok {
+		return result, errors.New("Invalid type for substitution variables parameter. Expected map[string]interface{}")
 	}
 
 	cafExternalPort := config.GetNewFreePort()
@@ -193,10 +207,6 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 		return result, fmt.Errorf("Error marshalling blueprint: %s", err.Error())
 	}
 
-	vars, err := utils.GetVarsFromConfigFolder()
-	if err != nil {
-		return result, err
-	}
 	vars["vdcId"] = vdcID
 	vars["caf_port"] = cafPort
 
