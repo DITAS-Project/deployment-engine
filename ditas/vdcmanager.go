@@ -310,6 +310,13 @@ func (m *VDCManager) DeployBlueprint(bp blueprint.Blueprint) (VDCInformation, er
 	if err != nil {
 		return vdcInfo, fmt.Errorf("Error transforming deployment information: %w", err)
 	}
+	origInfras := bp.CookbookAppendix.Resources.Infrastructures
+	if origInfras != nil {
+		for _, infra := range origInfras {
+			infra.Provider.Credentials = nil
+		}
+	}
+	bp.CookbookAppendix.Resources.Infrastructures = origInfras
 
 	vdmIP := ""
 	if infra.ID != vdcInfo.VDMInfraID {
