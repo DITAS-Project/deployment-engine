@@ -35,7 +35,7 @@ import (
 )
 
 const (
-	ConfigurationFolderName = "deployment-engine"
+	ConfigurationFolderName = "deployment-engine-config"
 )
 
 type knownHostsLine struct {
