@@ -19,12 +19,12 @@ package infrastructure
 
 import (
 	"deployment-engine/infrastructure/cloudsigma"
+	"deployment-engine/infrastructure/kubernetes"
 	"deployment-engine/model"
 	"deployment-engine/persistence"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -36,9 +36,10 @@ type InfrastructureCreationResult struct {
 
 //Deployer is the main hybrid infrastructure deployer object
 type Deployer struct {
-	Repository    persistence.DeploymentRepository
-	Vault         persistence.Vault
-	PublicKeyPath string
+	Repository        persistence.DeploymentRepository
+	Vault             persistence.Vault
+	PublicKeyPath     string
+	DeploymentsFolder string
 }
 
 func (c *Deployer) transformCredentials(raw, result interface{}) error {
@@ -78,8 +79,8 @@ func (c *Deployer) findProvider(provider model.CloudProviderInfo) (model.Deploye
 		return nil, fmt.Errorf("Either secret ID or provider credentials are mandatory for Provider %v", provider)
 	}
 
-	if strings.ToLower(provider.APIType) == "cloudsigma" {
-
+	switch provider.APIType {
+	case "cloudsigma":
 		var credentials model.BasicAuthSecret
 		err := c.getProviderCredentials(provider, &credentials)
 
@@ -96,6 +97,8 @@ func (c *Deployer) findProvider(provider model.CloudProviderInfo) (model.Deploye
 			return nil, fmt.Errorf("Error initializing deployer for %s: %w", provider.APIType, err)
 		}
 		return *dep, err
+	case "kubernetes":
+		return kubernetes.NewKubernetesDeployer(c.DeploymentsFolder), nil
 	}
 
 	return nil, fmt.Errorf("Can't find a suitable deployer for API type %s", provider.APIType)

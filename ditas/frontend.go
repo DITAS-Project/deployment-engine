@@ -66,8 +66,9 @@ func NewDitasFrontend() (*DitasFrontend, error) {
 	publicKeyPath := os.Getenv("HOME") + "/.ssh/id_rsa.pub"
 
 	deployer := &infrastructure.Deployer{
-		Repository:    repository,
-		PublicKeyPath: publicKeyPath,
+		Repository:        repository,
+		PublicKeyPath:     publicKeyPath,
+		DeploymentsFolder: viper.GetString(ansible.InventoryFolderProperty),
 	}
 
 	controller := provision.NewProvisionerController(provisioner, repository)
@@ -125,8 +126,8 @@ func (a *DitasFrontend) ValidateRequest(request blueprint.Blueprint) error {
 
 	for _, infra := range resources {
 		provider := infra.Provider
-		if provider.APIType != "cloudsigma" {
-			return fmt.Errorf("Invalid provider type %s found in infrastructure %s. Only cloudsigma is supported", provider.APIType, infra.Name)
+		if provider.APIType != "cloudsigma" && provider.APIType != "kubernetes" {
+			return fmt.Errorf("Invalid provider type %s found in infrastructure %s. Only cloudsigma or kubernetes is supported", provider.APIType, infra.Name)
 		}
 
 		_, err := url.ParseRequestURI(provider.APIEndpoint)

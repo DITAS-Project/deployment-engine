@@ -91,7 +91,7 @@ type CloudProviderInfo struct {
 	// Secret identifier to use to log in to the infrastructure manager.
 	SecretID string `json:"secret_id"`
 	// Credentials to access the cloud provider. Either this or secret_id is mandatory. Each cloud provider should define the format of this element.
-	Credentials map[string]string `json:"credentials"`
+	Credentials map[string]interface{} `json:"credentials"`
 }
 
 // InfrastructureType is a set of resources that need to be created or configured to form a cluster

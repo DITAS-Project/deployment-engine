@@ -393,65 +393,69 @@ func (m *VDCManager) getVarsFromConfig() map[string]interface{} {
 }
 
 func (m *VDCManager) doProvisionKubernetes(infra model.InfrastructureDeploymentInfo) (model.InfrastructureDeploymentInfo, error) {
-	var dep model.InfrastructureDeploymentInfo
+	if infra.Provider.APIType != "kubernetes" {
+		var dep model.InfrastructureDeploymentInfo
 
-	logger := log.WithField("infrastructure", infra.ID)
+		logger := log.WithField("infrastructure", infra.ID)
 
-	logger.Info("Waiting for SSH ports to be ready")
-	err := utils.WaitForSSHReady(infra, true)
-	if err != nil {
-		return dep, fmt.Errorf("Error waiting for ssh port to be ready: %w", err)
-	}
-	logger.Info("SSH ports ready. Deploying Kubernetes")
-
-	args := make(model.Parameters)
-	dep, _, err = m.ProvisionerController.Provision(infra.ID, "kubeadm", args, "")
-	//err := m.provisionKubernetesWithKubespray(deployment.ID, infra)
-	if err != nil {
-		return dep, utils.WrapLogAndReturnError(logger, fmt.Sprintf("Error deploying kubernetes on infrastructure %s", infra.ID), err)
-	}
-
-	dep, _, err = m.ProvisionerController.Provision(infra.ID, "helm", args, "")
-	if err != nil {
-		return dep, utils.WrapLogAndReturnError(logger, fmt.Sprintf("Error deploying helm in infrastructure %s", infra.ID), err)
-	}
-
-	vars := m.getVarsFromConfig()
-
-	esURL, ok := vars[ElasticSearchUrlVarName]
-	if ok {
-
-		parsedURL, err := url.Parse(esURL.(string))
+		logger.Info("Waiting for SSH ports to be ready")
+		err := utils.WaitForSSHReady(infra, true)
 		if err != nil {
-			return dep, utils.WrapLogAndReturnError(logger, fmt.Sprintf("Invalid elasticsearch URL: %s", parsedURL), err)
+			return dep, fmt.Errorf("Error waiting for ssh port to be ready: %w", err)
+		}
+		logger.Info("SSH ports ready. Deploying Kubernetes")
+
+		args := make(model.Parameters)
+		dep, _, err = m.ProvisionerController.Provision(infra.ID, "kubeadm", args, "")
+		//err := m.provisionKubernetesWithKubespray(deployment.ID, infra)
+		if err != nil {
+			return dep, utils.WrapLogAndReturnError(logger, fmt.Sprintf("Error deploying kubernetes on infrastructure %s", infra.ID), err)
 		}
 
-		args["elasticsearch.host"] = parsedURL.Hostname()
-		args["elasticsearch.port"] = parsedURL.Port()
+		dep, _, err = m.ProvisionerController.Provision(infra.ID, "helm", args, "")
+		if err != nil {
+			return dep, utils.WrapLogAndReturnError(logger, fmt.Sprintf("Error deploying helm in infrastructure %s", infra.ID), err)
+		}
 
-		esUsername, ok := vars[ElasticSearchUsernameVarName]
+		vars := m.getVarsFromConfig()
+
+		esURL, ok := vars[ElasticSearchUrlVarName]
 		if ok {
-			args["elasticsearch.auth.enabled"] = "true"
-			args["elasticsearch.auth.user"] = esUsername
 
-			esPassword, ok := vars[ElasticSearchPasswordVarName]
+			parsedURL, err := url.Parse(esURL.(string))
+			if err != nil {
+				return dep, utils.WrapLogAndReturnError(logger, fmt.Sprintf("Invalid elasticsearch URL: %s", parsedURL), err)
+			}
+
+			args["elasticsearch.host"] = parsedURL.Hostname()
+			args["elasticsearch.port"] = parsedURL.Port()
+
+			esUsername, ok := vars[ElasticSearchUsernameVarName]
 			if ok {
-				args["elasticsearch.auth.password"] = esPassword
+				args["elasticsearch.auth.enabled"] = "true"
+				args["elasticsearch.auth.user"] = esUsername
+
+				esPassword, ok := vars[ElasticSearchPasswordVarName]
+				if ok {
+					args["elasticsearch.auth.password"] = esPassword
+				}
+			}
+
+			dep, _, err = m.ProvisionerController.Provision(infra.ID, "fluentd", args, "")
+			if err != nil {
+				return dep, utils.WrapLogAndReturnError(logger, fmt.Sprintf("Error installing fluentd at infrastructure %s", infra.ID), err)
 			}
 		}
 
-		dep, _, err = m.ProvisionerController.Provision(infra.ID, "fluentd", args, "")
+		/*dep, _, err = m.ProvisionerController.Provision(infra.ID, "rook", args, "kubernetes")
 		if err != nil {
-			return dep, utils.WrapLogAndReturnError(logger, fmt.Sprintf("Error installing fluentd at infrastructure %s", infra.ID), err)
-		}
+			return dep, utils.WrapLogAndReturnError(logger, fmt.Sprintf("Error deploying rook to kubernetes cluster %s", infra.ID), err)
+		}*/
+
+		return dep, err
 	}
 
-	/*dep, _, err = m.ProvisionerController.Provision(infra.ID, "rook", args, "kubernetes")
-	if err != nil {
-		return dep, utils.WrapLogAndReturnError(logger, fmt.Sprintf("Error deploying rook to kubernetes cluster %s", infra.ID), err)
-	}*/
-
-	return dep, err
+	return infra, nil
 }
 
 func (m *VDCManager) provisionKubernetesParallel(infra model.InfrastructureDeploymentInfo, c chan KubernetesProvisionResult) {
