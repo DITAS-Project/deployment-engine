@@ -10,7 +10,7 @@ ssh -i /opt/keypairs/ditas-testbed-keypair.pem cloudsigma@31.171.247.162 << 'END
 
 sudo docker stop --time 20 deployment-engine || true
 sudo docker rm --force deployment-engine || true
-sudo docker pull ditas/deployment-engine:latest
+sudo docker pull ditas/deployment-engine:staging
 
 sudo docker stop --time 20 mongo || true
 sudo docker rm --force mongo || true
@@ -18,5 +18,5 @@ sudo docker pull mvertes/alpine-mongo:latest
 
 # SET THE PORT MAPPING, link for MongoDB container
 sudo docker run -p 27017:27017 -d --name mongo mvertes/alpine-mongo:latest
-sudo docker run -p 50012:8080 -d --name deployment-engine --link mongo:mongo ditas/deployment-engine:latest
+sudo docker run -p 50012:8090 -v /opt/ditas/dep-engine/config:/root/deployment-engine-config -v /opt/ditas/dep-engine/ssh-certs:/root/.ssh -d --name deployment-engine --link mongo:mongo ditas/deployment-engine:staging
 ENDSSH

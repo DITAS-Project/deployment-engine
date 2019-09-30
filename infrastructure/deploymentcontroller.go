@@ -152,6 +152,7 @@ func (c *Deployer) CreateDeployment(infras []model.InfrastructureType) ([]model.
 			log.WithError(infraInfo.Error).Errorf("Error creating infrastructure %s", infraInfo.Info.Name)
 			depError = infraInfo.Error
 		} else {
+			infraInfo.Info.Provider.Credentials = nil
 			infra, err := c.Repository.AddInfrastructure(infraInfo.Info)
 			if err != nil {
 				log.WithError(err).Errorf("Error adding infrastructure %s", infraInfo.Info.Name)
