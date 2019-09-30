@@ -11,7 +11,7 @@ ENV GO111MODULE=on
 
 RUN CGO_ENABLED=0 GOOS=linux go build -a -o /usr/bin/deployment-engine
 
-FROM alpine:3.8
+FROM alpine:latest
 
 ENV BUILD_PACKAGES \
   openssh-client \
