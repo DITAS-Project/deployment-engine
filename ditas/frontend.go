@@ -26,7 +26,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"net/url"
 	"os"
 
 	blueprint "github.com/DITAS-Project/blueprint-go"
@@ -130,10 +129,10 @@ func (a *DitasFrontend) ValidateRequest(request blueprint.Blueprint) error {
 			return fmt.Errorf("Invalid provider type %s found in infrastructure %s. Only cloudsigma or kubernetes is supported", provider.APIType, infra.Name)
 		}
 
-		_, err := url.ParseRequestURI(provider.APIEndpoint)
+		/*_, err := url.ParseRequestURI(provider.APIEndpoint)
 		if err != nil {
 			return fmt.Errorf("The provider endpoint for infrastructure %s is not a valid URL", infra.Name)
-		}
+		}*/
 
 		if (provider.Credentials == nil || len(provider.Credentials) == 0) && (provider.SecretID == "") {
 			return fmt.Errorf("Credentials or secret identifier are required for provider of infastructure %s", infra.Name)
@@ -143,72 +142,74 @@ func (a *DitasFrontend) ValidateRequest(request blueprint.Blueprint) error {
 			return fmt.Errorf("No resources provided for infrastructure %s", infra.Name)
 		}
 
-		resNames := make([]string, 0, len(infra.Resources))
-		masterFound := false
-		storageSpace := int64(0)
-		for _, res := range infra.Resources {
+		if provider.APIType != "kubernetes" {
+			resNames := make([]string, 0, len(infra.Resources))
+			masterFound := false
+			storageSpace := int64(0)
+			for _, res := range infra.Resources {
 
-			for j := 0; j < len(resNames); j++ {
-				if resNames[j] == res.Name {
-					return fmt.Errorf("Name of resource %s is not unique in infrastructure %s", res.Name, infra.Name)
+				for j := 0; j < len(resNames); j++ {
+					if resNames[j] == res.Name {
+						return fmt.Errorf("Name of resource %s is not unique in infrastructure %s", res.Name, infra.Name)
+					}
 				}
-			}
 
-			resNames = append(resNames, res.Name)
+				resNames = append(resNames, res.Name)
 
-			minCPU := 2000
-			minRAM := int64(2048)
-			minDisk := int64(20480)
-			if res.Role == "master" {
-				masterFound = true
-				minCPU = minCPU * 2
-				minDisk = minDisk * 2
-				minRAM = minRAM * 2
-			}
+				minCPU := 2000
+				minRAM := int64(2048)
+				minDisk := int64(20480)
+				if res.Role == "master" {
+					masterFound = true
+					minCPU = minCPU * 2
+					minDisk = minDisk * 2
+					minRAM = minRAM * 2
+				}
 
-			if res.CPU < minCPU {
-				return fmt.Errorf("A minimum of %d CPU is needed for resource %s in infrastructure %s", minCPU, res.Name, infra.Name)
-			}
+				if res.CPU < minCPU {
+					return fmt.Errorf("A minimum of %d CPU is needed for resource %s in infrastructure %s", minCPU, res.Name, infra.Name)
+				}
 
-			if res.RAM < minRAM {
-				return fmt.Errorf("A minimum of %d RAM is needed for resource %s in infrastructure %s", minRAM, res.Name, infra.Name)
-			}
+				if res.RAM < minRAM {
+					return fmt.Errorf("A minimum of %d RAM is needed for resource %s in infrastructure %s", minRAM, res.Name, infra.Name)
+				}
 
-			if res.Disk < minDisk {
-				return fmt.Errorf("A minimum of %d size for the boot disk is needed for resource %s in infrastructure %s", minDisk, res.Name, infra.Name)
-			}
+				if res.Disk < minDisk {
+					return fmt.Errorf("A minimum of %d size for the boot disk is needed for resource %s in infrastructure %s", minDisk, res.Name, infra.Name)
+				}
 
-			if res.ImageId == "" {
-				return fmt.Errorf("Empty boot disk found for resource %s in infrastructure %s", res.Name, infra.Name)
-			}
+				if res.ImageId == "" {
+					return fmt.Errorf("Empty boot disk found for resource %s in infrastructure %s", res.Name, infra.Name)
+				}
 
-			if res.Drives != nil {
-				driveNames := make([]string, 0, len(res.Drives))
-				for _, drive := range res.Drives {
-					for j := 0; j < len(driveNames); j++ {
-						if driveNames[j] == drive.Name {
-							return fmt.Errorf("Name of drive %s is not unique in resource %s of infrastructure %s", drive.Name, res.Name, infra.Name)
+				if res.Drives != nil {
+					driveNames := make([]string, 0, len(res.Drives))
+					for _, drive := range res.Drives {
+						for j := 0; j < len(driveNames); j++ {
+							if driveNames[j] == drive.Name {
+								return fmt.Errorf("Name of drive %s is not unique in resource %s of infrastructure %s", drive.Name, res.Name, infra.Name)
+							}
 						}
+
+						driveNames = append(driveNames, drive.Name)
+
+						minDisk := int64(5120)
+						if drive.Size < minDisk {
+							return fmt.Errorf("Size of drive %s in resource %s of infrastructure %s is smaller than the minimum drive size %d", drive.Name, res.Name, infra.Name, minDisk)
+						}
+
+						storageSpace += drive.Size
 					}
-
-					driveNames = append(driveNames, drive.Name)
-
-					minDisk := int64(5120)
-					if drive.Size < minDisk {
-						return fmt.Errorf("Size of drive %s in resource %s of infrastructure %s is smaller than the minimum drive size %d", drive.Name, res.Name, infra.Name, minDisk)
-					}
-
-					storageSpace += drive.Size
 				}
 			}
-		}
 
-		if !masterFound {
-			return fmt.Errorf("Can't find a node with role 'master' in infrastructure %s", infra.Name)
-		}
+			if !masterFound {
+				return fmt.Errorf("Can't find a node with role 'master' in infrastructure %s", infra.Name)
+			}
 
-		if storageSpace == 0 {
-			return fmt.Errorf("Resources in infrastructure %s don't have space for persistence. Please, include at least one data drive in some resources with at least 5GB of space", infra.Name)
+			if storageSpace == 0 {
+				return fmt.Errorf("Resources in infrastructure %s don't have space for persistence. Please, include at least one data drive in some resources with at least 5GB of space", infra.Name)
+			}
 		}
 
 	}
