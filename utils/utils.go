@@ -158,8 +158,7 @@ func WrapLogAndReturnError(log *log.Entry, message string, err error) error {
 	return errors.New(message)
 }
 
-func connectSSH(host model.NodeInfo, signer ssh.Signer) (knownHostsLine, error) {
-	var result knownHostsLine
+func connectSSH(host model.NodeInfo, signer ssh.Signer, f *os.File) error {
 	config := &ssh.ClientConfig{
 		User:              host.Username,
 		HostKeyAlgorithms: []string{ssh.SigAlgoRSA},
@@ -167,41 +166,47 @@ func connectSSH(host model.NodeInfo, signer ssh.Signer) (knownHostsLine, error) 
 			ssh.PublicKeys(signer),
 		},
 		HostKeyCallback: ssh.HostKeyCallback(func(hostname string, remote net.Addr, key ssh.PublicKey) error {
-			result.hosts = []string{remote.String()}
-			result.pubKey = key
+			if f != nil {
+				return addToKnownHosts(f, remote.String(), key)
+			}
 			return nil
 		}),
 	}
 
-	_, timeout, _ := WaitForStatusChange("not_connected", 60*time.Second, func() (string, error) {
-		_, connError := ssh.Dial("tcp", host.IP+":22", config)
+	_, timeout, err := WaitForStatusChange("not_connected", 60*time.Second, func() (string, error) {
+		client, connError := ssh.Dial("tcp", host.IP+":22", config)
 		if connError != nil {
 			return "not_connected", nil
+		}
+
+		session, err := client.NewSession()
+		if err != nil {
+			return "connected", fmt.Errorf("Error getting a new session: %w", err)
+		}
+		cmd := fmt.Sprintf("sudo sh -c 'echo \"%s %s\" >> /etc/hosts'", host.IP, host.Hostname)
+
+		err = session.Run(cmd)
+		if err != nil {
+			return "not_connected", fmt.Errorf("Error adding hostname: %w", err)
 		}
 		return "connected", nil
 	})
 	if timeout {
-		return result, fmt.Errorf("Timeout connecting to host %s", host.Hostname)
+		return fmt.Errorf("Timeout connecting to host %s", host.Hostname)
 	}
 
-	return result, nil
+	return err
 }
 
-func addToKnownHosts(knownHostsLocation string, hosts []knownHostsLine) error {
-
-	f, err := os.OpenFile(knownHostsLocation,
-		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+func addToKnownHosts(f *os.File, host string, key ssh.PublicKey) error {
+	line := knownhosts.Line([]string{host}, key)
+	_, err := fmt.Fprintln(f, line)
 	if err != nil {
-		return err
+		return fmt.Errorf("Error writing host %s line to known hosts: %w", host, err)
 	}
-	defer f.Close()
-
-	for _, host := range hosts {
-		line := knownhosts.Line(host.hosts, host.pubKey)
-		_, err = fmt.Fprintln(f, line)
-		if err != nil {
-			return fmt.Errorf("Error writing host %v line to known hosts: %w", host.hosts, err)
-		}
+	err = f.Sync()
+	if err != nil {
+		return fmt.Errorf("Error writing known hosts content: %w", err)
 	}
 
 	return nil
@@ -247,20 +252,24 @@ func WaitForSSHReady(infra model.InfrastructureDeploymentInfo, addToKNownHosts b
 		return err
 	}
 
-	toAppend := make([]knownHostsLine, 0)
-	for _, hosts := range infra.Nodes {
-		for _, host := range hosts {
-			line, err := connectSSH(host, signer)
-			if err != nil {
-				return err
-			}
-			toAppend = append(toAppend, line)
-		}
-
-	}
+	var f *os.File
 
 	if addToKNownHosts {
-		return addToKnownHosts(knownHostsLocation, toAppend)
+		f, err = os.OpenFile(knownHostsLocation,
+			os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+	}
+
+	for _, hosts := range infra.Nodes {
+		for _, host := range hosts {
+			err := connectSSH(host, signer, f)
+			if err != nil {
+				return WrapLogAndReturnError(log.NewEntry(log.New()), fmt.Sprintf("Error connecting to host %s", host.IP), err)
+			}
+		}
 	}
 
 	return nil
