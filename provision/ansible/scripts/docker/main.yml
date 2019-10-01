@@ -3,6 +3,8 @@
 
   vars:
     docker_install_compose: false
+    docker_users:
+      - "{{ hostvars[inventory_hostname].ansible_user }}"
 
   roles:
     - geerlingguy.docker
