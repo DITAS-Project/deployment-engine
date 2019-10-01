@@ -11,22 +11,7 @@ ENV GO111MODULE=on
 
 RUN CGO_ENABLED=0 GOOS=linux go build -a -o /usr/bin/deployment-engine
 
-FROM alpine:latest
-
-ENV BUILD_PACKAGES \
-  openssh-client \
-  sshpass \
-  git \
-  ansible
-
-# Upgrading apk and system
-RUN apk update && apk upgrade 
-
-# Adding runtime packages
-RUN apk add --no-cache ${BUILD_PACKAGES}
-
-# Cleaning up
-RUN rm -rf /var/cache/apk/*
+FROM ansible/ansible-runner:latest
 
 # Adding hosts for convenience
 RUN mkdir -p /etc/ansible /ansible
