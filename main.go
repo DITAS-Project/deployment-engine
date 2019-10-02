@@ -87,5 +87,8 @@ func main() {
 		return
 	}
 
-	log.Fatal(frontend.Run(":" + viper.GetString(FrontendPortProperty)))
+	port := viper.GetString(FrontendPortProperty)
+	log.Infof("Starting deployment engine on port %s", port)
+
+	log.Fatal(frontend.Run(":" + port))
 }

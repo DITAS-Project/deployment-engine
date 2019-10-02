@@ -366,7 +366,7 @@ func (m *VDCManager) findDefaultInfra(deployments ...model.DeploymentInfo) model
 	var infra model.InfrastructureDeploymentInfo
 	for _, deployment := range deployments {
 		if deployment != nil && len(deployment) > 0 {
-			for _, infra := range deployment {
+			for _, infra = range deployment {
 				if infra.ExtraProperties.GetBool("ditas_default") {
 					return infra
 				}
