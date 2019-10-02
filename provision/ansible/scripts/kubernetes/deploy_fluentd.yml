@@ -1,5 +1,6 @@
 ---
   - hosts: [master]
+    gather_facts: no
     tasks:
       - name: Copy variables file
         copy:

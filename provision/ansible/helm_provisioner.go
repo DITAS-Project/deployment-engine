@@ -35,7 +35,7 @@ func NewHelmProvisioner(parent *Provisioner) HelmProvisioner {
 }
 
 func (p HelmProvisioner) BuildInventory(infra *model.InfrastructureDeploymentInfo, args model.Parameters) (Inventory, error) {
-	return p.parent.Provisioners["kubeadm"].BuildInventory(infra, args)
+	return DefaultKubernetesInventory(*infra), nil
 }
 
 func (p HelmProvisioner) DeployProduct(inventoryPath string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) (model.Parameters, error) {

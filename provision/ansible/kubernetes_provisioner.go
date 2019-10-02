@@ -24,7 +24,8 @@ import (
 )
 
 const (
-	DockerPresentProperty = "ansible_docker_installed"
+	DockerPresentProperty       = "ansible_docker_installed"
+	KubeadmPreinstalledProperty = "kubeadm_preinstalled_image"
 )
 
 type KubernetesProvisioner struct {
@@ -61,43 +62,51 @@ func (p KubernetesProvisioner) buildHost(host model.NodeInfo) InventoryHost {
 }
 
 func (p KubernetesProvisioner) BuildInventory(infra *model.InfrastructureDeploymentInfo, args model.Parameters) (Inventory, error) {
-	result := Inventory{
-		Hosts: make([]InventoryHost, 0),
-	}
-
-	infra.ForEachNode(func(node model.NodeInfo) {
-		result.Hosts = append(result.Hosts, p.buildHost(node))
-	})
-
-	return result, nil
+	return DefaultKubernetesInventory(*infra), nil
 }
 
 func (p KubernetesProvisioner) DeployProduct(inventoryPath string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) (model.Parameters, error) {
 
 	result := make(model.Parameters)
+	logger := logrus.WithField("product", "kubernetes").WithField("infrastructure", infra.ID)
 
-	if !infra.ExtraProperties.GetBool(DockerPresentProperty) {
-		args["wait"] = []string{"false"}
-		out, err := p.parent.Provision(infra, "docker", args)
+	if infra.ExtraProperties.GetBool(KubeadmPreinstalledProperty) {
+
+		err := ExecutePlaybook(logger, p.parent.ScriptsFolder+"/kubernetes/kubeadm.yml", inventoryPath, nil)
 		if err != nil {
-			return out, err
+			return result, err
 		}
-		result.AddAll(out)
-	}
 
-	logger := logrus.WithField("product", "kubernetes")
-	err := utils.ExecuteCommand(logger, "ansible-galaxy", "install", "geerlingguy.kubernetes")
-	if err != nil {
-		return result, err
+	} else {
+
+		if !infra.ExtraProperties.GetBool(DockerPresentProperty) {
+			args["wait"] = []string{"false"}
+			out, err := p.parent.Provision(infra, "docker", args)
+			if err != nil {
+				return out, err
+			}
+			result.AddAll(out)
+		}
+
+		logger := logrus.WithField("product", "kubernetes")
+		err := utils.ExecuteCommand(logger, "ansible-galaxy", "install", "geerlingguy.kubernetes")
+		if err != nil {
+			return result, err
+		}
+
+		err = ExecutePlaybook(logger, p.parent.ScriptsFolder+"/kubernetes/main.yml", inventoryPath, nil)
+		if err != nil {
+			return result, err
+		}
 	}
 
 	inventoryFolder := p.parent.GetInventoryFolder(infra.ID)
-
-	err = ExecutePlaybook(logger, p.parent.ScriptsFolder+"/kubernetes/main.yml", inventoryPath, map[string]string{
+	err := ExecutePlaybook(logger, p.parent.ScriptsFolder+"/kubernetes/get_k8s_config.yml", inventoryPath, map[string]string{
 		"inventory_folder": inventoryFolder,
 	})
+
 	if err != nil {
-		return result, err
+		return result, utils.WrapLogAndReturnError(logger, "Error getting k8s configuration", err)
 	}
 
 	infra.Products["kubernetes"] = KubernetesConfiguration{

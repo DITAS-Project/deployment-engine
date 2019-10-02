@@ -85,9 +85,9 @@ func New() (*Provisioner, error) {
 	}
 
 	result.Provisioners = map[string]ProductProvisioner{
+		"hosts":              NewHostsProvisioner(&result),
 		"docker":             NewDockerProvisioner(&result),
 		"kubernetes":         NewKubernetesProvisioner(&result),
-		"kubeadm":            NewKubeadmProvisioner(&result),
 		"gluster-kubernetes": NewGlusterfsProvisioner(&result),
 		"k3s":                NewK3sProvisioner(&result),
 		"private_registries": NewRegistryProvisioner(&result),
@@ -233,19 +233,6 @@ func (p Provisioner) Provision(infra *model.InfrastructureDeploymentInfo, produc
 	if provisioner == nil {
 		return result, fmt.Errorf("Product %s not supported by this deployer", product)
 	}
-
-	/*wait, ok := args.GetBool(AnsibleWaitForSSHReadyProperty)
-	if ok && wait {
-		err := p.WaitForSSHPortReady(infra, args)
-		if err != nil {
-			log.WithError(err).Error("Error waiting for infrastructure to be ready")
-			return err
-		}
-	}*/
-	/*err := utils.WaitForSSHReady(*infra, true)
-	if err != nil {
-		return fmt.Errorf("Error waiting for ssh port to be ready: %w", err)
-	}*/
 
 	inventory, err := provisioner.BuildInventory(infra, args)
 	if err != nil {

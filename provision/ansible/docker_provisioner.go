@@ -33,27 +33,8 @@ func NewDockerProvisioner(parent *Provisioner) DockerProvisioner {
 	}
 }
 
-func (p DockerProvisioner) buildHost(host model.NodeInfo) InventoryHost {
-	return InventoryHost{
-		Name: host.Hostname,
-		Vars: map[string]string{
-			"ansible_host": host.IP,
-			"ansible_user": host.Username,
-		},
-	}
-}
-
 func (p DockerProvisioner) BuildInventory(infra *model.InfrastructureDeploymentInfo, args model.Parameters) (Inventory, error) {
-
-	result := Inventory{
-		Hosts: make([]InventoryHost, 0),
-	}
-
-	infra.ForEachNode(func(node model.NodeInfo) {
-		result.Hosts = append(result.Hosts, p.buildHost(node))
-	})
-
-	return result, nil
+	return DefaultAllInventory(*infra), nil
 }
 
 func (p DockerProvisioner) DeployProduct(inventoryPath string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) (model.Parameters, error) {

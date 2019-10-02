@@ -1,38 +1,10 @@
 ---
   - hosts: [master]
     become: yes
+    gather_facts: no
     tasks:
       - name: using kubernetes init and gathering output info
         shell: kubeadm init --pod-network-cidr=10.244.0.0/16
-
-  - hosts: [master]
-    gather_facts: no
-    tasks:
-
-      - name: create .kube directory
-        file:
-          path: $HOME/.kube
-          state: directory
-          mode: 0755
-
-      - name: copy admin.conf to user's kube config
-        become: yes
-        become_user: root
-        become_method: sudo
-        copy:
-          src: /etc/kubernetes/admin.conf
-          dest: /home/{{ hostvars[inventory_hostname].ansible_user }}/.kube/config
-          remote_src: yes
-          owner: "{{ hostvars[inventory_hostname].ansible_user }}"
-      
-      - name: Fetch config file locally
-        become: yes
-        become_user: root
-        become_method: sudo
-        fetch:
-          src: /etc/kubernetes/admin.conf
-          dest: "{{ inventory_folder }}/config"
-          flat: yes
 
       - name: Add Flannel network
         shell: kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/a70459be0084506e4ec919aa1c114638878db11b/Documentation/kube-flannel.yml
@@ -50,7 +22,7 @@
       - name: Getting slaves join command
         debug: msg={{ kube_join.stdout }}
         when: "'kubeadm join' in kube_join.stdout"
-
+      
   - hosts: [slaves]
     become: yes
     gather_facts: no

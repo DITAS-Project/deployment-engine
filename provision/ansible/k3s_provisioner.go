@@ -41,7 +41,7 @@ func NewK3sProvisioner(parent *Provisioner) K3sProvisioner {
 }
 
 func (p K3sProvisioner) BuildInventory(infra *model.InfrastructureDeploymentInfo, args model.Parameters) (Inventory, error) {
-	return p.parent.Provisioners["kubeadm"].BuildInventory(infra, args)
+	return DefaultKubernetesInventory(*infra), nil
 }
 
 func (p K3sProvisioner) DeployProduct(inventoryPath string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) (model.Parameters, error) {

@@ -65,7 +65,7 @@ func NewGlusterfsProvisioner(parent *Provisioner) GlusterfsProvisioner {
 }
 
 func (p GlusterfsProvisioner) BuildInventory(infra *model.InfrastructureDeploymentInfo, args model.Parameters) (Inventory, error) {
-	return p.parent.Provisioners["kubeadm"].BuildInventory(infra, args)
+	return DefaultKubernetesInventory(*infra), nil
 }
 
 func (p GlusterfsProvisioner) toGlusterFSDevices(devices []model.DriveInfo) []string {

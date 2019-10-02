@@ -21,11 +21,3 @@
 
   roles:
     - geerlingguy.kubernetes
-
-  tasks:
-  - name: Fetch config file locally
-    fetch:
-      src: /etc/kubernetes/admin.conf
-      dest: "{{ inventory_folder }}/config"
-      flat: yes
-    when: kubernetes_role == 'master'

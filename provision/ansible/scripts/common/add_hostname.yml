@@ -1,43 +1,46 @@
 ---
-  # - hosts: [all]
-  #   gather_facts: no
-  #   vars:
-  #     ansible_ssh_extra_args: "-o StrictHostKeyChecking=no"
-  #   tasks:
-  #     - name: Wait for port 22 to be ready
-  #       wait_for_connection:
+  - hosts: [all]
+    gather_facts: no
+    vars:
+      ansible_ssh_extra_args: "-o StrictHostKeyChecking=no"
+    tasks:
+      - name: Wait for port 22 to be ready
+        wait_for_connection:
 
-  # - hosts: localhost
-  #   connection: local
+  - hosts: localhost
+    connection: local
+    gather_facts: no
+    vars:
+      ssh_known_hosts_command: "ssh-keyscan -T 10"
+      ssh_known_hosts_file: "{{ lookup('env','HOME') + '/.ssh/known_hosts' }}"
+      ssh_known_hosts: "{{ hostvars }}"
 
-  #   vars:
-  #     ssh_known_hosts_command: "ssh-keyscan -T 10"
-  #     ssh_known_hosts_file: "{{ lookup('env','HOME') + '/.ssh/known_hosts' }}"
-  #     ssh_known_hosts: "{{ hostvars }}"
-
-  #   tasks:
-  #   - name: Remove current hosts keys
-  #     shell: "ssh-keygen -R {{ hostvars[item].ansible_host }}"
-  #     with_items: "{{ ssh_known_hosts }}"
+    tasks:
+    - name: Remove current hosts keys
+      shell: "ssh-keygen -R {{ hostvars[item].ansible_host }}"
+      with_items: "{{ ssh_known_hosts }}"
       
-  #   - name: For each host, scan for its ssh public key
-  #     shell: "ssh-keyscan -trsa {{ hostvars[item].ansible_host }}"
-  #     with_items: "{{ ssh_known_hosts }}"
-  #     register: ssh_known_host_results
-  #     retries: 10
-  #     delay: 5
+    - name: For each host, scan for its ssh public key
+      shell: "ssh-keyscan -trsa {{ hostvars[item].ansible_host }}"
+      with_items: "{{ ssh_known_hosts }}"
+      register: ssh_known_host_results
+      retries: 10
+      delay: 5
 
-  #   - name: Add/update the public key in the '{{ ssh_known_hosts_file }}'
-  #     known_hosts:
-  #       name: "{{ hostvars[item.item].ansible_host }}"
-  #       key: "{{ item.stdout }}"
-  #       path: "{{ ssh_known_hosts_file }}"
-  #     with_items: "{{ ssh_known_host_results.results }}"
+    - name: Add/update the public key in the '{{ ssh_known_hosts_file }}'
+      known_hosts:
+        name: "{{ hostvars[item.item].ansible_host }}"
+        key: "{{ item.stdout }}"
+        path: "{{ ssh_known_hosts_file }}"
+      with_items: "{{ ssh_known_host_results.results }}"
   
   - hosts: all
     gather_facts: no
     become: yes
     tasks:
+      - name: Set hostname
+        hostname:
+          name: "{{ inventory_hostname }}"
       - name: Update /etc/hosts from inventory
         lineinfile: dest=/etc/hosts regexp='.*{{item}}$' line='{{ hostvars[item].ansible_host }} {{ item }}' state=present
         with_items: "{{ hostvars }}"

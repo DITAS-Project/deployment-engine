@@ -8,3 +8,7 @@
 
   roles:
     - geerlingguy.docker
+
+  tasks:
+  - name: reset ssh connection to allow user changes to affect 'current login user'
+    meta: reset_connection

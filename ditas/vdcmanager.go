@@ -403,10 +403,16 @@ func (m *VDCManager) doProvisionKubernetes(infra model.InfrastructureDeploymentI
 		if err != nil {
 			return dep, fmt.Errorf("Error waiting for ssh port to be ready: %w", err)
 		}
-		logger.Info("SSH ports ready. Deploying Kubernetes")
+		logger.Info("SSH ports ready")
+
+		logger.Info("Setting correct host name")
 
 		args := make(model.Parameters)
-		dep, _, err = m.ProvisionerController.Provision(infra.ID, "kubeadm", args, "")
+		dep, _, err = m.ProvisionerController.Provision(infra.ID, "hosts", args, "")
+
+		logger.Info("Installing Kubernetes")
+
+		dep, _, err = m.ProvisionerController.Provision(infra.ID, "kubernetes", args, "")
 		//err := m.provisionKubernetesWithKubespray(deployment.ID, infra)
 		if err != nil {
 			return dep, utils.WrapLogAndReturnError(logger, fmt.Sprintf("Error deploying kubernetes on infrastructure %s", infra.ID), err)

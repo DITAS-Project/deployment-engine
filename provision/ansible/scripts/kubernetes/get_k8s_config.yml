@@ -1,0 +1,30 @@
+---
+  - hosts: [master]
+    gather_facts: no
+    tasks:
+
+      - name: create .kube directory
+        file:
+          path: $HOME/.kube
+          state: directory
+          mode: 0755
+
+      - name: copy admin.conf to user's kube config
+        become: yes
+        become_user: root
+        become_method: sudo
+        copy:
+          src: /etc/kubernetes/admin.conf
+          dest: /home/{{ hostvars[inventory_hostname].ansible_user }}/.kube/config
+          remote_src: yes
+          owner: "{{ hostvars[inventory_hostname].ansible_user }}"
+      
+      - name: Fetch config file locally
+        become: yes
+        become_user: root
+        become_method: sudo
+        fetch:
+          src: /etc/kubernetes/admin.conf
+          dest: "{{ inventory_folder }}/config"
+          flat: yes
+          
