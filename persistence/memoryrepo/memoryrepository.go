@@ -20,6 +20,7 @@ import (
 	"deployment-engine/model"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -50,7 +51,7 @@ func (m *MemoryRepository) UpdateInfrastructure(infra model.InfrastructureDeploy
 	if infra.ID == "" {
 		return model.InfrastructureDeploymentInfo{}, errors.New("Trying to update infrastructure without identifier")
 	}
-
+	infra.UpdateTime = time.Now()
 	m.infrastructures[infra.ID] = infra
 	return infra, nil
 }
@@ -63,7 +64,6 @@ func (m *MemoryRepository) UpdateInfrastructureStatus(infrastructureID, status s
 	}
 
 	infra.Status = status
-
 	return m.UpdateInfrastructure(infra)
 }
 
@@ -72,6 +72,7 @@ func (m *MemoryRepository) AddInfrastructure(infra model.InfrastructureDeploymen
 	if infra.ID == "" {
 		infra.ID = uuid.New().String()
 	}
+	infra.CreationTime = time.Now()
 	return m.UpdateInfrastructure(infra)
 }
 

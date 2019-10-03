@@ -6,8 +6,19 @@
       - name: using kubernetes init and gathering output info
         shell: kubeadm init --pod-network-cidr=10.244.0.0/16
 
+      - name: Ensure .kube directory exists.
+        file:
+          path: ~/.kube
+          state: directory
+
+      - name: Symlink the kubectl admin.conf to ~/.kube/conf.
+        file:
+          src: /etc/kubernetes/admin.conf
+          dest: ~/.kube/config
+          state: link
+
       - name: Add Flannel network
-        shell: kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/a70459be0084506e4ec919aa1c114638878db11b/Documentation/kube-flannel.yml
+        shell: kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/2140ac876ef134e0ed5af15c65e414cf26827915/Documentation/kube-flannel.yml
 
       - name: taint cluster to allow pod deployments on master
         shell: kubectl taint nodes --all node-role.kubernetes.io/master-

@@ -9,7 +9,9 @@ import (
 	"io/ioutil"
 	"os"
 	"reflect"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-test/deep"
 	log "github.com/sirupsen/logrus"
@@ -31,21 +33,21 @@ func TestMain(m *testing.M) {
 }
 
 func TestRepository(t *testing.T) {
-	//if *integrationMongo {
-	t.Log("Running MongoDB integration tests")
-	viper.SetDefault(mongorepo.VaultPassphraseName, "my test passphrase")
-	repo, err := mongorepo.CreateRepositoryNative()
-	if err != nil {
-		log.Fatalf("Error creating repository: %s", err.Error())
+	if *integrationMongo {
+		t.Log("Running MongoDB integration tests")
+		viper.SetDefault(mongorepo.VaultPassphraseName, "my test passphrase")
+		repo, err := mongorepo.CreateRepositoryNative()
+		if err != nil {
+			log.Fatalf("Error creating repository: %s", err.Error())
+		}
+		repo.SetDatabase("deployment_engine_test")
+		err = repo.ClearDatabase()
+		if err != nil {
+			log.Fatalf("Error clearing database")
+		}
+		depRepos = append(depRepos, repo)
+		vaults = append(vaults, repo)
 	}
-	repo.SetDatabase("deployment_engine_test")
-	err = repo.ClearDatabase()
-	if err != nil {
-		log.Fatalf("Error clearing database")
-	}
-	depRepos = append(depRepos, repo)
-	vaults = append(vaults, repo)
-	//}
 	t.Run("Deployments", testDeployment)
 	t.Run("Vault", testVault)
 }
@@ -63,14 +65,28 @@ func readInfra(path string) (model.InfrastructureDeploymentInfo, error) {
 
 func testInfra(t *testing.T, function func() (model.InfrastructureDeploymentInfo, error), infra model.InfrastructureDeploymentInfo, errorMsg string) model.InfrastructureDeploymentInfo {
 	after, err := function()
+	infra.UpdateTime = after.UpdateTime
 	if err != nil {
 		t.Fatalf("%s: %s", errorMsg, err.Error())
 	}
 	if diff := deep.Equal(after, infra); diff != nil {
-		t.Error(errorMsg)
-		t.Fatal(diff)
+		// Equality in dates are problematic due to different timezones and so so we ignore it here
+		onlyTime := true
+		for i := 0; i < len(diff) && onlyTime; i++ {
+			onlyTime = strings.Contains(diff[i], "CreationTime") || strings.Contains(diff[i], "UpdateTime")
+		}
+		if !onlyTime {
+			t.Error(errorMsg)
+			t.Fatal(diff)
+		}
 	}
 	return after
+}
+
+func testTime(t *testing.T, action string, before, after time.Time) {
+	if after.Before(before.Truncate(time.Millisecond)) {
+		t.Fatalf("Update time %s found before reference time %s after %s", after.Format(time.RFC3339Nano), before.Truncate(time.Millisecond).Format(time.RFC3339Nano), action)
+	}
 }
 
 func testDeployment(t *testing.T) {
@@ -82,13 +98,28 @@ func testDeployment(t *testing.T) {
 		}
 		infra.Products = make(map[string]interface{})
 
+		timeBefore := time.Now()
 		after, err := repo.AddInfrastructure(infra)
 		if err != nil {
 			t.Fatalf("Error inserting infrastructure %v: %s", infra, err.Error())
 		}
+		infra.CreationTime = after.CreationTime
+		infra.UpdateTime = after.UpdateTime
 
 		if infra.ID == "" {
 			infra.ID = after.ID
+		}
+
+		if !timeBefore.Before(after.CreationTime) {
+			t.Fatal("Creation time is set before the reference time")
+		}
+
+		if !timeBefore.Before(after.UpdateTime) {
+			t.Fatal("Update time is set before the reference time")
+		}
+
+		if after.UpdateTime.Before(after.CreationTime) {
+			t.Fatal("Update time is set before creation time")
 		}
 
 		if diff := deep.Equal(infra, after); diff != nil {
@@ -103,14 +134,20 @@ func testDeployment(t *testing.T) {
 		after.Name = "New Name"
 		infra.Status = "completed"
 		infra.Name = "New Name"
+		beforeUpdate := time.Now()
 		after = testInfra(t, func() (model.InfrastructureDeploymentInfo, error) {
 			return repo.UpdateInfrastructure(after)
 		}, infra, "Error updating infrastructure")
 
+		testTime(t, "infrastructure update", beforeUpdate, after.UpdateTime)
+
 		infra.Status = "done"
+		beforeUpdate = time.Now()
 		after = testInfra(t, func() (model.InfrastructureDeploymentInfo, error) {
 			return repo.UpdateInfrastructureStatus(infra.ID, "done")
 		}, infra, "Error updating infrastructure status")
+
+		testTime(t, "status update", beforeUpdate, after.UpdateTime)
 
 		testConfig := map[string]interface{}{
 			"testProperty": "testValue",
@@ -118,9 +155,12 @@ func testDeployment(t *testing.T) {
 		infra.Products = map[string]interface{}{
 			"kubernetes": testConfig,
 		}
+		beforeUpdate = time.Now()
 		after = testInfra(t, func() (model.InfrastructureDeploymentInfo, error) {
 			return repo.AddProductToInfrastructure(infra.ID, "kubernetes", testConfig)
 		}, infra, "Error adding product to infrastructure")
+
+		testTime(t, "adding product", beforeUpdate, after.UpdateTime)
 
 		after = testInfra(t, func() (model.InfrastructureDeploymentInfo, error) {
 			return repo.DeleteInfrastructure(infra.ID)
@@ -145,16 +185,16 @@ func testVault(t *testing.T) {
 			},
 		}
 
-		secretId, err := repo.AddSecret(testSecret)
+		secretID, err := repo.AddSecret(testSecret)
 		if err != nil {
 			t.Fatalf("Error saving secret %s", err.Error())
 		}
 
-		if secretId == "" {
+		if secretID == "" {
 			t.Fatalf("Created secret id is empty")
 		}
 
-		secret, err := repo.GetSecret(secretId)
+		secret, err := repo.GetSecret(secretID)
 		if err != nil {
 			t.Fatalf("Error getting secret %s", err.Error())
 		}
@@ -172,12 +212,12 @@ func testVault(t *testing.T) {
 			},
 		}
 
-		err = repo.UpdateSecret(secretId, newSecret)
+		err = repo.UpdateSecret(secretID, newSecret)
 		if err != nil {
 			t.Fatalf("Error updating secret: %s", err.Error())
 		}
 
-		secret, err = repo.GetSecret(secretId)
+		secret, err = repo.GetSecret(secretID)
 		if err != nil {
 			t.Fatalf("Error getting secret %s", err.Error())
 		}
@@ -186,14 +226,14 @@ func testVault(t *testing.T) {
 			t.Fatalf("Retrieved secret %v is different than the updated one %s", secret, newSecret)
 		}
 
-		err = repo.DeleteSecret(secretId)
+		err = repo.DeleteSecret(secretID)
 		if err != nil {
 			t.Fatalf("Error deleting secret: %s", err.Error())
 		}
 
-		secret, err = repo.GetSecret(secretId)
+		secret, err = repo.GetSecret(secretID)
 		if err == nil {
-			t.Fatalf("Secret %s was deleted but could be retrieved", secretId)
+			t.Fatalf("Secret %s was deleted but could be retrieved", secretID)
 		}
 	}
 }

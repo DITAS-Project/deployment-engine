@@ -42,7 +42,12 @@ type KubernetesConfiguration struct {
 }
 
 // GetNewFreePort gets a port which hasn't been used in this kubernetes installation
-func (c *KubernetesConfiguration) GetNewFreePort() int {
+func (c *KubernetesConfiguration) GetNewFreePort() (result int) {
+
+	// Reserve the new free port
+	defer func() {
+		c.ClaimPort(result)
+	}()
 
 	// Initialize with the first available port
 	if c.UsedPorts == nil || len(c.UsedPorts) == 0 {
@@ -96,12 +101,13 @@ func (c *KubernetesConfiguration) ClaimPort(port int) error {
 	if idx == len(c.UsedPorts) {
 		c.UsedPorts = append(c.UsedPorts, port)
 	} else {
-		if c.UsedPorts[idx] == port {
+		current := c.UsedPorts[idx]
+		if current == port {
 			return fmt.Errorf("Port %d is already in use", port)
 		}
-
-		base := append(c.UsedPorts[:idx], port)
-		c.UsedPorts = append(base, c.UsedPorts[idx:]...)
+		c.UsedPorts = append(c.UsedPorts, 0)
+		copy(c.UsedPorts[idx+1:], c.UsedPorts[idx:])
+		c.UsedPorts[idx] = port
 	}
 
 	return nil

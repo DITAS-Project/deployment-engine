@@ -23,6 +23,7 @@ import (
 	"crypto/sha256"
 	"deployment-engine/model"
 	"fmt"
+	"time"
 
 	"go.mongodb.org/mongo-driver/mongo/options"
 
@@ -158,12 +159,15 @@ func (m *MongoRepository) AddInfrastructure(infra model.InfrastructureDeployment
 	if infra.Products == nil {
 		infra.Products = make(map[string]interface{})
 	}
+	infra.CreationTime = time.Now()
+	infra.UpdateTime = time.Now()
 	return infra, m.insert(deploymentCollection, infra)
 }
 
 //UpdateInfrastructure updates as a whole an existing infrastructure in a deployment
 func (m *MongoRepository) UpdateInfrastructure(infra model.InfrastructureDeploymentInfo) (model.InfrastructureDeploymentInfo, error) {
 	var updated model.InfrastructureDeploymentInfo
+	infra.UpdateTime = time.Now()
 	err := m.replace(deploymentCollection, infra.ID, infra, &updated)
 	return updated, err
 }
@@ -190,7 +194,8 @@ func (m *MongoRepository) UpdateInfrastructureStatus(infrastructureID, status st
 	var result model.InfrastructureDeploymentInfo
 	err := m.update(deploymentCollection, infrastructureID, bson.M{
 		"$set": bson.M{
-			"status": status,
+			"status":     status,
+			"updatetime": time.Now(),
 		},
 	}, &result)
 	return result, err
@@ -202,6 +207,7 @@ func (m *MongoRepository) AddProductToInfrastructure(infrastructureID, product s
 	err := m.update(deploymentCollection, infrastructureID, bson.M{
 		"$set": bson.M{
 			fmt.Sprintf("products.%s", product): config,
+			"updatetime":                        time.Now(),
 		},
 	}, &updated)
 	return updated, err

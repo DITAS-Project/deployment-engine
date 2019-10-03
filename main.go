@@ -72,7 +72,8 @@ func main() {
 
 	vault, err := getVault(viper.GetString(VaultProperty), viper.GetString(RepositoryProperty), repository)
 	if err != nil {
-		log.WithError(err).Error("Error getting vault")
+		log.WithError(err).Error("Error getting provisioner")
+		return
 	}
 
 	frontend, err := getFrontend(viper.GetString(FrontendProperty), repository, vault)

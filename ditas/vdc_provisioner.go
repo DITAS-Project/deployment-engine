@@ -149,8 +149,7 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 	}
 
 	cafExternalPort := config.GetNewFreePort()
-	err = config.ClaimPort(cafExternalPort)
-	if err != nil {
+	if cafExternalPort < 0 {
 		return result, fmt.Errorf("Error reserving port %d: %w", cafExternalPort, err)
 	}
 	defer func() {
@@ -161,8 +160,7 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 	result[CAFPortProperty] = cafExternalPort
 
 	tombstonePort := config.GetNewFreePort()
-	err = config.ClaimPort(tombstonePort)
-	if err != nil {
+	if tombstonePort < 0 {
 		return result, fmt.Errorf("Error reserving port %d: %w", tombstonePort, err)
 	}
 	defer func() {

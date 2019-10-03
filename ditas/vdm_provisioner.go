@@ -21,6 +21,7 @@ package ditas
 import (
 	"deployment-engine/model"
 	"deployment-engine/provision/kubernetes"
+	"deployment-engine/utils"
 	"errors"
 
 	"github.com/sirupsen/logrus"
@@ -85,14 +86,13 @@ func (p VDMProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 
 	configMap, err := kubernetes.GetConfigMapFromFolder(p.configFolder+"/vdm", DitasVDMConfigMapName, vars)
 	if err != nil {
-		logger.WithError(err).Error("Error reading configuration map")
-		return result, err
+		return result, utils.WrapLogAndReturnError(logger, "Error reading configuration map", err)
 	}
 
 	kubeClient, err := kubernetes.NewClient(config.ConfigurationFile)
 	if err != nil {
 		logger.WithError(err).Error("Error getting kubernetes client")
-		return result, err
+		return result, utils.WrapLogAndReturnError(logger, "Error getting kubernetes client", err)
 	}
 
 	logger.Info("Creating or updating VDM config map")
@@ -146,6 +146,12 @@ func (p VDMProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 				},
 			},
 		},
+	}
+
+	err = config.ClaimPort(CMEExternalPort)
+	if err != nil {
+		config.LiberatePort(CMEExternalPort)
+		return result, utils.WrapLogAndReturnError(logger, "Error reserving CME port", err)
 	}
 
 	logger.Info("Creating or updating VDM service")

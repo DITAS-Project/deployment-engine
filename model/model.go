@@ -19,6 +19,7 @@ package model
 import (
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/spf13/cast"
 )
@@ -197,6 +198,10 @@ type InfrastructureDeploymentInfo struct {
 	Status string `json:"status"`
 	// Configuration of installed products, indexed by product name, in this infrastructure.
 	Products map[string]interface{} `json:"products"`
+	// CreationTime is the time this infrastructure has been created
+	CreationTime time.Time `json:"creation_time"`
+	// UpdateTime is the last time this infrastructure has been updated
+	UpdateTime time.Time `json:"update_time"`
 	// Extra properties to pass to the provider or the provisioner
 	ExtraProperties ExtraPropertiesType `json:"extra_properties"`
 }
