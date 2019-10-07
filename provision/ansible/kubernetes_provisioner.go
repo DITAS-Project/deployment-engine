@@ -35,6 +35,7 @@ type KubernetesProvisioner struct {
 type KubernetesConfiguration struct {
 	ConfigurationFile string
 	RegistriesSecret  string
+	Managed           bool
 }
 
 func NewKubernetesProvisioner(parent *Provisioner) *KubernetesProvisioner {
@@ -111,6 +112,7 @@ func (p KubernetesProvisioner) DeployProduct(inventoryPath string, infra *model.
 
 	infra.Products["kubernetes"] = KubernetesConfiguration{
 		ConfigurationFile: inventoryFolder + "/config",
+		Managed:           true,
 	}
 
 	repos := utils.GetDockerRepositories()

@@ -489,6 +489,41 @@ func (c KubernetesClient) CreateKubectlCommand(logger *logrus.Entry, action stri
 	}, true, "kubectl", finalArgs...)
 }
 
+func (c KubernetesClient) ListServices() (map[string]*corev1.ServiceList, error) {
+	nsList, err := c.Client.CoreV1().Namespaces().List(metav1.ListOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("Error getting k8s namespace list: %w", err)
+	}
+
+	result := make(map[string]*corev1.ServiceList)
+
+	for _, namespace := range nsList.Items {
+		result[namespace.Name], err = c.Client.CoreV1().Services(namespace.Name).List(metav1.ListOptions{})
+		if err != nil {
+			return result, fmt.Errorf("Error getting services of namespace %s: %w", namespace.Name, err)
+		}
+	}
+	return result, nil
+}
+
+func (c KubernetesClient) GetUsedNodePorts() ([]int, error) {
+	svcs, err := c.ListServices()
+	if err != nil {
+		return nil, fmt.Errorf("Error getting list of services: %w", err)
+	}
+	ports := make([]int, 0)
+	for _, svcList := range svcs {
+		for _, svc := range svcList.Items {
+			if svc.Spec.Type == corev1.ServiceTypeNodePort {
+				for _, currentPorts := range svc.Spec.Ports {
+					ports = append(ports, int(currentPorts.NodePort))
+				}
+			}
+		}
+	}
+	return ports, nil
+}
+
 func (c KubernetesClient) ExecuteKubectlCommand(logger *logrus.Entry, action string, args ...string) error {
 	return c.CreateKubectlCommand(logger, action, args...).Run()
 }

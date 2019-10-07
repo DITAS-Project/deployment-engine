@@ -105,9 +105,22 @@ func (d KubernetesDeployer) DeployInfrastructure(infra model.InfrastructureType)
 		return deployment, utils.WrapLogAndReturnError(logger, "Error writing kubernetes configuration file", err)
 	}
 
-	deployment.Products["kubernetes"] = map[string]string{
+	kubeConfig := map[string]interface{}{
 		"configurationfile": configPath,
 	}
+
+	registriesSecretRaw, ok := infra.Provider.Credentials["registries_secret"]
+	if ok {
+		registriesSecret, ok := registriesSecretRaw.(string)
+		if !ok {
+			return deployment, utils.WrapLogAndReturnError(logger, "Error getting kubernetes registries secret value. It must be a string", err)
+		}
+		kubeConfig["registriessecret"] = registriesSecret
+	}
+
+	kubeConfig["managed"] = false
+
+	deployment.Products["kubernetes"] = kubeConfig
 
 	deployment.Nodes = d.transformNodes(infra.Resources)
 

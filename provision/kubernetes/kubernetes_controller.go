@@ -37,6 +37,7 @@ const (
 type KubernetesConfiguration struct {
 	ConfigurationFile        string
 	RegistriesSecret         string
+	Managed                  bool
 	UsedPorts                sort.IntSlice
 	DeploymentsConfiguration map[string]interface{}
 }
@@ -125,6 +126,11 @@ func (c *KubernetesConfiguration) LiberatePort(port int) {
 			c.UsedPorts = append(c.UsedPorts[:idx], c.UsedPorts[idx+1:]...)
 		}
 	}
+}
+
+func (c *KubernetesConfiguration) SetUsedPorts(ports []int) {
+	c.UsedPorts = ports
+	c.UsedPorts.Sort()
 }
 
 type KubernetesProvisioner interface {

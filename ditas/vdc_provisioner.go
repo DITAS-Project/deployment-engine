@@ -148,6 +148,20 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 		return result, errors.New("Invalid type for substitution variables parameter. Expected map[string]interface{}")
 	}
 
+	kubeClient, err := kubernetes.NewClient(config.ConfigurationFile)
+	if err != nil {
+		logger.WithError(err).Error("Error getting kubernetes client")
+		return result, err
+	}
+
+	if !config.Managed {
+		ports, err := kubeClient.GetUsedNodePorts()
+		if err != nil {
+			return result, utils.WrapLogAndReturnError(logger, "Error getting list of used ports", err)
+		}
+		config.SetUsedPorts(ports)
+	}
+
 	cafExternalPort := config.GetNewFreePort()
 	if cafExternalPort < 0 {
 		return result, fmt.Errorf("Error reserving port %d: %w", cafExternalPort, err)
@@ -218,12 +232,6 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 
 	configMap.Data["blueprint.json"] = string(strBp)
 
-	kubeClient, err := kubernetes.NewClient(config.ConfigurationFile)
-	if err != nil {
-		logger.WithError(err).Error("Error getting kubernetes client")
-		return result, err
-	}
-
 	logger.Info("Creating or updating VDC config map")
 	_, err = kubeClient.CreateOrUpdateConfigMap(logger, DitasNamespace, &configMap)
 
@@ -242,14 +250,22 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 
 	vdcDeployment := kubernetes.GetDeploymentDescription(vdcID, int32(1), int64(30), vdcLabels, imageSet, configMapName, "/etc/ditas", repoSecrets)
 
+	hostAlias := make([]corev1.HostAlias, 0, len(bp.InternalStructure.DALImages)+1)
+	for dalName, dalInfo := range bp.InternalStructure.DALImages {
+		hostAlias = append(hostAlias, corev1.HostAlias{
+			IP:        dalInfo.OriginalIP,
+			Hostnames: []string{dalName},
+		})
+	}
+
 	if vdmIP != "" {
-		hostAlias := []corev1.HostAlias{
-			corev1.HostAlias{
-				IP:        vdmIP,
-				Hostnames: []string{"vdm"},
-			},
+		hostAlias := append(hostAlias, corev1.HostAlias{
+			IP:        vdmIP,
+			Hostnames: []string{"vdm"},
+		})
+		if len(hostAlias) > 0 {
+			vdcDeployment.Spec.Template.Spec.HostAliases = hostAlias
 		}
-		vdcDeployment.Spec.Template.Spec.HostAliases = hostAlias
 	}
 
 	shareNamespace := true

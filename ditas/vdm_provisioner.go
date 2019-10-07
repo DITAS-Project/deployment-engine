@@ -95,6 +95,14 @@ func (p VDMProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 		return result, utils.WrapLogAndReturnError(logger, "Error getting kubernetes client", err)
 	}
 
+	if !config.Managed {
+		ports, err := kubeClient.GetUsedNodePorts()
+		if err != nil {
+			return result, utils.WrapLogAndReturnError(logger, "Error getting list of used ports", err)
+		}
+		config.SetUsedPorts(ports)
+	}
+
 	logger.Info("Creating or updating VDM config map")
 	_, err = kubeClient.CreateOrUpdateConfigMap(logger, DitasNamespace, &configMap)
 
