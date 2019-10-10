@@ -64,6 +64,7 @@ func main() {
 	viper.SetConfigName("config")
 	viper.ReadInConfig()
 
+	log.Info("Read configuration values: %v", viper.AllSettings())
 	/*repository, err := getRepository(viper.GetString(RepositoryProperty))
 	if err != nil {
 		log.WithError(err).Error("Error getting repository")
