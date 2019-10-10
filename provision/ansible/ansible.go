@@ -31,7 +31,7 @@ const (
 	KubesprayFolderProperty = "ansible.folders.kubespray"
 
 	InventoryFolderDefaultValue = "/tmp/ansible_inventories"
-	ScriptsFolderDefaultValue   = "provision/ansible"
+	ScriptsFolderDefaultValue   = "ansible"
 
 	AnsibleWaitForSSHReadyProperty = "wait_for_ssh_ready"
 	KubesprayFolderDefaultValue    = "provision/ansible/kubespray"

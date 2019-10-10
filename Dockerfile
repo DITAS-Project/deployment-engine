@@ -46,7 +46,8 @@ COPY --from=builder /usr/bin/deployment-engine /usr/bin/deployment-engine
 RUN mkdir /root/deployment-engine
 
 WORKDIR /root/deployment-engine
-COPY provision/ansible/scripts scripts
+COPY provision/ansible/scripts ansible
+COPY provision/kubernetes/scripts kubernetes
 COPY ditas/scripts ditas
 
 RUN git clone https://github.com/DITAS-Project/VDC-Shared-Config.git

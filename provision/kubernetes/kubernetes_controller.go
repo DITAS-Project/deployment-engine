@@ -28,7 +28,7 @@ import (
 
 const (
 	ScriptsFolderProperty     = "kubernetes.folders.scripts"
-	ScriptsFolderDefaultValue = "provision/kubernetes/scripts"
+	ScriptsFolderDefaultValue = "kubernetes"
 
 	NodePortStart = 30000
 	NodePortEnd   = 32767
