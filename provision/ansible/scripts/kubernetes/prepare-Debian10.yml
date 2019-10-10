@@ -1,0 +1,19 @@
+---
+- name: Install firewall management packages
+  apt:
+    name: "{{ packages }}"
+  vars:
+    packages:
+    - iptables
+    - arptables
+    - ebtables
+
+- name: Set iptables to legacy mode
+  alternatives:
+    name: "{{ item }}"
+    path: /usr/sbin/{{ item }}-legacy
+  loop:
+    - iptables
+    - ip6tables
+    - arptables
+    - ebtables

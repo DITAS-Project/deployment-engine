@@ -78,6 +78,7 @@ func (d KubernetesDeployer) transformNodes(nodes []model.ResourceType) map[strin
 func (d KubernetesDeployer) DeployInfrastructure(infra model.InfrastructureType) (model.InfrastructureDeploymentInfo, error) {
 	deployment := model.InfrastructureDeploymentInfo{
 		ID:              uuid.New().String(),
+		Name:            infra.Name,
 		Products:        make(map[string]interface{}),
 		ExtraProperties: infra.ExtraProperties,
 		Nodes:           make(map[string][]model.NodeInfo),

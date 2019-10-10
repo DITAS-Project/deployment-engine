@@ -252,20 +252,27 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 
 	hostAlias := make([]corev1.HostAlias, 0, len(bp.InternalStructure.DALImages)+1)
 	for dalName, dalInfo := range bp.InternalStructure.DALImages {
-		hostAlias = append(hostAlias, corev1.HostAlias{
-			IP:        dalInfo.OriginalIP,
-			Hostnames: []string{dalName},
-		})
+		dalOriginalIP := dalInfo.OriginalIP
+		if customIP, ok := dalInfo.ClusterOriginalIPs[infra.Name]; ok {
+			dalOriginalIP = customIP
+		}
+		if dalOriginalIP != "" {
+			hostAlias = append(hostAlias, corev1.HostAlias{
+				IP:        dalOriginalIP,
+				Hostnames: []string{dalName},
+			})
+		}
 	}
 
 	if vdmIP != "" {
-		hostAlias := append(hostAlias, corev1.HostAlias{
+		hostAlias = append(hostAlias, corev1.HostAlias{
 			IP:        vdmIP,
 			Hostnames: []string{"vdm"},
 		})
-		if len(hostAlias) > 0 {
-			vdcDeployment.Spec.Template.Spec.HostAliases = hostAlias
-		}
+	}
+
+	if len(hostAlias) > 0 {
+		vdcDeployment.Spec.Template.Spec.HostAliases = hostAlias
 	}
 
 	shareNamespace := true

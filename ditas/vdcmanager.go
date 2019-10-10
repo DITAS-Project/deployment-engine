@@ -28,12 +28,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"strings"
 
 	blueprint "github.com/DITAS-Project/blueprint-go"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
-	"gopkg.in/mgo.v2/bson"
+	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"net/url"
 
@@ -44,19 +44,19 @@ import (
 )
 
 const (
-	DitasScriptsFolderProperty              = "ditas.folders.scripts"
-	DitasConfigFolderProperty               = "ditas.folders.config"
-	DitasPersistenceGlusterFSDeployProperty = "ditas.persistence.glusterfs.deploy"
-	DitasPersistenceRookDeployProperty      = "ditas.persistence.rook.deploy"
-	DitasVariablesProperty                  = "ditas.variables"
+	DitasScriptsFolderProperty   = "ditas.folders.scripts"
+	DitasConfigFolderProperty    = "ditas.folders.config"
+	DitasVariablesProperty       = "ditas.variables"
+	DitasPersistenceTypeProperty = "ditas.persistence.type"
 
-	DitasScriptsFolderDefaultValue     = "ditas/scripts"
-	DitasConfigFolderDefaultValue      = "ditas/VDC-Shared-Config"
-	DitasPersistenceDeployDefaultValue = false
+	DitasScriptsFolderDefaultValue = "ditas/scripts"
+	DitasConfigFolderDefaultValue  = "ditas/VDC-Shared-Config"
 
 	ExtraPropertiesOwnerValue      = "owner"
 	ApplicationDeveloperOwnerValue = "ApplicationDeveloper"
 	DataAdministratorOwnerValue    = "DataAdministrator"
+	PersistenceTypeRookValue       = "rook"
+	PersistenceTypeGlusterFSValue  = "glusterfs"
 )
 
 type VDCManager struct {
@@ -77,8 +77,6 @@ func NewVDCManager(deployer *infrastructure.Deployer, provisionerController *pro
 	viper.SetDefault(mongorepo.MongoDBURLName, mongorepo.MongoDBURLDefault)
 	viper.SetDefault(DitasScriptsFolderProperty, DitasScriptsFolderDefaultValue)
 	viper.SetDefault(DitasConfigFolderProperty, DitasConfigFolderDefaultValue)
-	viper.SetDefault(DitasPersistenceGlusterFSDeployProperty, DitasPersistenceDeployDefaultValue)
-	viper.SetDefault(DitasPersistenceRookDeployProperty, DitasPersistenceDeployDefaultValue)
 
 	configFolder, err := utils.ConfigurationFolder()
 	if err != nil {
@@ -453,10 +451,25 @@ func (m *VDCManager) doProvisionKubernetes(infra model.InfrastructureDeploymentI
 			}
 		}
 
-		/*dep, _, err = m.ProvisionerController.Provision(infra.ID, "rook", args, "kubernetes")
-		if err != nil {
-			return dep, utils.WrapLogAndReturnError(logger, fmt.Sprintf("Error deploying rook to kubernetes cluster %s", infra.ID), err)
-		}*/
+		persistenceType := viper.GetString(DitasPersistenceTypeProperty)
+		if persistenceType != "" {
+			persistenceToDeploy := ""
+			framework := ""
+			switch strings.ToLower(persistenceType) {
+			case PersistenceTypeRookValue:
+				persistenceToDeploy = "rook"
+				framework = "kubernetes"
+			case PersistenceTypeGlusterFSValue:
+				persistenceToDeploy = "gluster-kubernetes"
+			}
+
+			if persistenceToDeploy != "" {
+				dep, _, err = m.ProvisionerController.Provision(infra.ID, persistenceToDeploy, args, framework)
+				if err != nil {
+					return dep, utils.WrapLogAndReturnError(logger, fmt.Sprintf("Error deploying %s to kubernetes cluster %s", persistenceToDeploy, infra.ID), err)
+				}
+			}
+		}
 
 		return dep, err
 	}

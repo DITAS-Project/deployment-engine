@@ -34,7 +34,7 @@
         debug: msg={{ kube_join.stdout }}
         when: "'kubeadm join' in kube_join.stdout"
       
-  - hosts: [slaves]
+  - hosts: [slave]
     become: yes
     gather_facts: no
     strategy: free
