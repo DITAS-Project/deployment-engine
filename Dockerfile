@@ -17,7 +17,8 @@ ENV BUILD_PACKAGES \
   openssh-client \
   sshpass \
   git \
-  ansible 
+  ansible \
+  curl 
 
 # Upgrading apk and system
 RUN apk update && apk upgrade 
@@ -49,6 +50,9 @@ COPY provision/ansible/scripts scripts
 COPY ditas/scripts ditas
 
 RUN git clone https://github.com/DITAS-Project/VDC-Shared-Config.git
+
+RUN curl -LO https://storage.googleapis.com/kubernetes-release/release/v1.15.3/bin/linux/amd64/kubectl
+RUN chmod u+x kubectl && mv kubectl /bin/kubectl
 
 VOLUME /root
 EXPOSE 8080
