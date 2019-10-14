@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strconv"
+	"strings"
 
 	"deployment-engine/utils"
 
@@ -29,6 +31,8 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
 )
+
+const availablePortRangeProperty = "available_ports_range"
 
 type KubernetesDeployer struct {
 	deploymentsFolder string
@@ -120,6 +124,32 @@ func (d KubernetesDeployer) DeployInfrastructure(infra model.InfrastructureType)
 	}
 
 	kubeConfig["managed"] = false
+
+	portRangeIn, ok := infra.ExtraProperties[availablePortRangeProperty]
+	if ok {
+		portRange := strings.Split(portRangeIn, "-")
+		if portRange == nil || len(portRange) != 2 {
+			return deployment, fmt.Errorf("Port range must be in the format 'portStart-portEnd' but found %s", portRangeIn)
+		}
+
+		minPort, err := strconv.Atoi(portRange[0])
+		if err != nil {
+			return deployment, fmt.Errorf("Invalid port range start value %s: %w", portRange[0], err)
+		}
+
+		maxPort, err := strconv.Atoi(portRange[1])
+		if err != nil {
+			return deployment, fmt.Errorf("Invalid port range end value %s: %w", portRange[1], err)
+		}
+
+		kubeConfig["portrange"] = struct {
+			PortStart int
+			PortEnd   int
+		}{
+			minPort,
+			maxPort,
+		}
+	}
 
 	deployment.Products["kubernetes"] = kubeConfig
 
