@@ -112,7 +112,7 @@ func (p GenericServiceProvisioner) Provision(config *KubernetesConfiguration, in
 		repoSecrets = []string{config.RegistriesSecret}
 	}
 
-	pod := GetDeploymentDescription(fmt.Sprintf("%s-deployment", name), int32(replicas), terminationPeriod, labels, images, "", "", repoSecrets)
+	pod := GetDeploymentDescription(fmt.Sprintf("%s-deployment", name), int32(replicas), terminationPeriod, labels, images, "", "", repoSecrets, nil)
 
 	_, err = client.CreateOrUpdateDeployment(logger, apiv1.NamespaceDefault, &pod)
 	if err != nil {

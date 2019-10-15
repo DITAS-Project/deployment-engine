@@ -53,6 +53,7 @@ type SecretData struct {
 type VolumeData struct {
 	Name         string
 	MountPoint   string
+	PVCName      string
 	StorageClass string
 	Size         string
 }
@@ -278,21 +279,50 @@ func GetPodSpecDescrition(labels map[string]string, terminationPeriod int64, ima
 		}
 		result.Spec.ImagePullSecrets = secrets
 	}
+
+	if volumes != nil {
+		podVolumes := make([]corev1.Volume, 0)
+		for _, volume := range volumes {
+			if volume.PVCName != "" {
+				podVolumes = append(podVolumes, corev1.Volume{
+					Name: volume.Name,
+					VolumeSource: corev1.VolumeSource{
+						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+							ClaimName: volume.PVCName,
+						},
+					},
+				})
+			}
+		}
+		if len(podVolumes) > 0 {
+			result.Spec.Volumes = podVolumes
+		}
+	}
 	return result
 }
 
-func GetDeploymentDescription(name string, replicas int32, terminationPeriod int64, labels map[string]string, images ImageSet, configMap, configMountPoint string, repositorySecrets []string) appsv1.Deployment {
+func GetDeploymentDescription(name string, replicas int32, terminationPeriod int64, labels map[string]string, images ImageSet, configMap, configMountPoint string, repositorySecrets []string, volumes []VolumeData) appsv1.Deployment {
 
 	var volumeData []VolumeData
+	if volumes != nil {
+		volumeData = volumes
+	} else {
+		volumeData = make([]VolumeData, 0)
+	}
+
 	hasConfig := false
 	if configMap != "" && configMountPoint != "" {
 		hasConfig = true
-		volumeData = []VolumeData{VolumeData{Name: "config", MountPoint: configMountPoint}}
+		volumeConfig := VolumeData{Name: "config", MountPoint: configMountPoint}
+		volumeData = append(volumeData, volumeConfig)
 	}
 
 	podTemplate := GetPodSpecDescrition(labels, terminationPeriod, images, nil, volumeData, repositorySecrets)
 
 	if hasConfig {
+		if podTemplate.Spec.Volumes == nil {
+			podTemplate.Spec.Volumes = make([]corev1.Volume, 0, 1)
+		}
 		configVolume := corev1.Volume{
 			Name: "config",
 			VolumeSource: corev1.VolumeSource{
@@ -303,7 +333,7 @@ func GetDeploymentDescription(name string, replicas int32, terminationPeriod int
 				},
 			},
 		}
-		podTemplate.Spec.Volumes = []corev1.Volume{configVolume}
+		podTemplate.Spec.Volumes = append(podTemplate.Spec.Volumes, configVolume)
 	}
 
 	return appsv1.Deployment{
@@ -322,31 +352,42 @@ func GetDeploymentDescription(name string, replicas int32, terminationPeriod int
 
 }
 
+func GetPersistentVolumeClaim(volume VolumeData) (corev1.PersistentVolumeClaim, error) {
+	var result corev1.PersistentVolumeClaim
+	if volume.StorageClass == "" || volume.Size == "" {
+		return result, fmt.Errorf("Storage class and volume size are mandatory for volume %s", volume.Name)
+	}
+
+	quantitySize, err := resource.ParseQuantity(volume.Size)
+	if err != nil {
+		return result, fmt.Errorf("Invalid size %s of volume %s", volume.Size, volume.Name)
+	}
+
+	return corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: volume.Name,
+		},
+		Spec: corev1.PersistentVolumeClaimSpec{
+			AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+			StorageClassName: &volume.StorageClass,
+			Resources: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceStorage: quantitySize,
+				},
+			},
+		},
+	}, nil
+}
+
 func GetStatefulSetDescription(name string, replicas int32, terminationPeriod int64, labels map[string]string, images ImageSet, secrets []SecretData, volumes []VolumeData, repositorySecrets []string) appsv1.StatefulSet {
 
 	volumesClaims := make([]corev1.PersistentVolumeClaim, 0)
 	for _, volume := range volumes {
-		if volume.StorageClass != "" && volume.Size != "" {
-			quantitySize, err := resource.ParseQuantity(volume.Size)
-			if err == nil {
-				volumesClaims = append(volumesClaims, corev1.PersistentVolumeClaim{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: volume.Name,
-					},
-					Spec: corev1.PersistentVolumeClaimSpec{
-						AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
-						StorageClassName: &volume.StorageClass,
-						Resources: corev1.ResourceRequirements{
-							Requests: corev1.ResourceList{
-								corev1.ResourceStorage: quantitySize,
-							},
-						},
-					},
-				})
-			} else {
-				logrus.WithError(err).Errorf("Invalid size %s of volume %s", volume.Size, volume.Name)
-			}
+		claim, err := GetPersistentVolumeClaim(volume)
+		if err != nil {
+			logrus.WithError(err).Errorf("Error generating claim for volume %s", volume.Name)
 		}
+		volumesClaims = append(volumesClaims, claim)
 	}
 
 	return appsv1.StatefulSet{
@@ -480,6 +521,21 @@ func (c KubernetesClient) CreateOrUpdateStatefulSet(logger *logrus.Entry, namesp
 			return depClient.Create(set)
 		})
 	return result.(*appsv1.StatefulSet), err
+}
+
+func (c KubernetesClient) CreateOrUpdatePVC(logger *logrus.Entry, namespace string, pvc *corev1.PersistentVolumeClaim) (*corev1.PersistentVolumeClaim, error) {
+	depClient := c.Client.CoreV1().PersistentVolumeClaims(namespace)
+	name := pvc.ObjectMeta.Name
+	result, err := CreateOrUpdateResource(logger.WithField("resource", "PVC").WithField("name", name), name,
+		func() (interface{}, error) {
+			return depClient.Get(name, metav1.GetOptions{})
+		},
+		depClient.Delete,
+		func() (interface{}, error) {
+			return depClient.Create(pvc)
+		})
+
+	return result.(*corev1.PersistentVolumeClaim), err
 }
 
 func (c KubernetesClient) CreateKubectlCommand(logger *logrus.Entry, action string, args ...string) *exec.Cmd {

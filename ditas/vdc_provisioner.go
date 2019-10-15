@@ -45,12 +45,14 @@ const (
 )
 
 type VDCProvisioner struct {
-	configFolder string
+	configFolder   string
+	imagesVersions map[string]string
 }
 
-func NewVDCProvisioner(configFolder string) *VDCProvisioner {
+func NewVDCProvisioner(configFolder string, imagesVersions map[string]string) *VDCProvisioner {
 	return &VDCProvisioner{
-		configFolder: configFolder,
+		configFolder:   configFolder,
+		imagesVersions: imagesVersions,
 	}
 }
 
@@ -108,6 +110,14 @@ func (p VDCProvisioner) FillEnvVars(dals map[string]blueprint.DALImage, vdcImage
 		}
 	}
 	return vdcImages, nil
+}
+
+func (p VDCProvisioner) GetImageVersion(imageName string) string {
+	version, ok := p.imagesVersions[imageName]
+	if !ok {
+		return "latest"
+	}
+	return version
 }
 
 func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, infra *model.InfrastructureDeploymentInfo, args model.Parameters) (model.Parameters, error) {
@@ -191,14 +201,14 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 	var imageSet kubernetes.ImageSet
 	utils.TransformObject(bp.InternalStructure.VDCImages, &imageSet)
 	imageSet["sla-manager"] = kubernetes.ImageInfo{
-		Image: "ditas/slalite",
+		Image: fmt.Sprintf("ditas/slalite:%s", p.GetImageVersion("slalite")),
 	}
 	imageSet["request-monitor"] = kubernetes.ImageInfo{
-		Image:        "ditas/vdc-request-monitor:production",
+		Image:        fmt.Sprintf("ditas/vdc-request-monitor:%s", p.GetImageVersion("vdc-request-monitor")),
 		InternalPort: 80,
 	}
 	imageSet["logging-agent"] = kubernetes.ImageInfo{
-		Image:        "ditas/vdc-logging-agent:production",
+		Image:        fmt.Sprintf("ditas/vdc-logging-agent:%s", p.GetImageVersion("vdc-logging-agent")),
 		InternalPort: 8484,
 	}
 
@@ -221,6 +231,7 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 
 	vars["vdcId"] = vdcID
 	vars["caf_port"] = cafPort
+	vars["infrastructure_id"] = infra.ID
 
 	configMapName := fmt.Sprintf("%s-configmap", vdcID)
 
@@ -248,7 +259,7 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 		repoSecrets = []string{config.RegistriesSecret}
 	}
 
-	vdcDeployment := kubernetes.GetDeploymentDescription(vdcID, int32(1), int64(30), vdcLabels, imageSet, configMapName, "/etc/ditas", repoSecrets)
+	vdcDeployment := kubernetes.GetDeploymentDescription(vdcID, int32(1), int64(30), vdcLabels, imageSet, configMapName, "/etc/ditas", repoSecrets, nil)
 
 	hostAlias := make([]corev1.HostAlias, 0, len(bp.InternalStructure.DALImages)+1)
 	for dalName, dalInfo := range bp.InternalStructure.DALImages {

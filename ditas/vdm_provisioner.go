@@ -23,6 +23,7 @@ import (
 	"deployment-engine/provision/kubernetes"
 	"deployment-engine/utils"
 	"errors"
+	"fmt"
 
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
@@ -42,13 +43,15 @@ type VDMProvisioner struct {
 	scriptsFolder       string
 	configVariablesPath string
 	configFolder        string
+	imagesVersions      map[string]string
 }
 
-func NewVDMProvisioner(scriptsFolder, configVariablesPath, configFolder string) VDMProvisioner {
+func NewVDMProvisioner(scriptsFolder, configVariablesPath, configFolder string, imagesVersions map[string]string) VDMProvisioner {
 	return VDMProvisioner{
 		scriptsFolder:       scriptsFolder,
 		configVariablesPath: configVariablesPath,
 		configFolder:        configFolder,
+		imagesVersions:      imagesVersions,
 	}
 }
 
@@ -129,7 +132,26 @@ func (p VDMProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 		repSecrets = []string{config.RegistriesSecret}
 	}
 
-	vdmDeployment := kubernetes.GetDeploymentDescription("vdm", int32(1), int64(30), vdmLabels, imageSet, DitasVDMConfigMapName, "/etc/ditas", repSecrets)
+	vdmPVC := kubernetes.VolumeData{
+		Name:         "ds4m",
+		MountPoint:   "/var/ditas/vdm",
+		PVCName:      "ds4m",
+		StorageClass: "rook-ceph-block-single",
+		Size:         "100Mi",
+	}
+
+	pvc, err := kubernetes.GetPersistentVolumeClaim(vdmPVC)
+	if err != nil {
+		return result, fmt.Errorf("Error getting PVC description for DS4M: %w", err)
+	}
+
+	logger.Infof("Creating PVC %s", pvc.Name)
+	_, err = kubeClient.CreateOrUpdatePVC(logger, DitasNamespace, &pvc)
+	if err != nil {
+		return result, fmt.Errorf("Error creating PVC %s: %w", pvc.Name, err)
+	}
+
+	vdmDeployment := kubernetes.GetDeploymentDescription("vdm", int32(1), int64(30), vdmLabels, imageSet, DitasVDMConfigMapName, "/etc/ditas", repSecrets, []kubernetes.VolumeData{vdmPVC})
 
 	logger.Info("Creating or updating VDM pod")
 	_, err = kubeClient.CreateOrUpdateDeployment(logger, DitasNamespace, &vdmDeployment)

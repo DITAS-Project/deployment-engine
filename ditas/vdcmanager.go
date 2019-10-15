@@ -48,6 +48,7 @@ const (
 	DitasConfigFolderProperty    = "ditas.folders.config"
 	DitasVariablesProperty       = "ditas.variables"
 	DitasPersistenceTypeProperty = "ditas.persistence.type"
+	ImagesVersionsProperty       = "ditas.images"
 
 	DitasScriptsFolderDefaultValue = "ditas/scripts"
 	DitasConfigFolderDefaultValue  = "ditas/VDC-Shared-Config"
@@ -102,9 +103,11 @@ func NewVDCManager(deployer *infrastructure.Deployer, provisionerController *pro
 	ditasPodsConfigFolder := viper.GetString(DitasConfigFolderProperty)
 	vdcCollection := db.Collection("vdcs")
 
+	imagesVersion := viper.GetStringMapString(ImagesVersionsProperty)
+
 	kubeProvisioner := kubernetes.NewKubernetesController()
-	kubeProvisioner.AddProvisioner("vdm", NewVDMProvisioner(scriptsFolder, configVarsPath, ditasPodsConfigFolder))
-	kubeProvisioner.AddProvisioner("vdc", NewVDCProvisioner(ditasPodsConfigFolder))
+	kubeProvisioner.AddProvisioner("vdm", NewVDMProvisioner(scriptsFolder, configVarsPath, ditasPodsConfigFolder, imagesVersion))
+	kubeProvisioner.AddProvisioner("vdc", NewVDCProvisioner(ditasPodsConfigFolder, imagesVersion))
 
 	provisionerController.Provisioners["kubernetes"] = kubeProvisioner
 
