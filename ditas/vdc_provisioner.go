@@ -42,6 +42,8 @@ const (
 	CAFPortProperty       = "cafPort"
 	TombstonePortProperty = "tombstonePort"
 	VariablesProperty     = "variables"
+
+	DUEVDCTestPort = 30005
 )
 
 type VDCProvisioner struct {
@@ -194,6 +196,12 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 	}()
 	result[TombstonePortProperty] = tombstonePort
 
+	err = config.ClaimPort(DUEVDCTestPort)
+	if err != nil {
+		config.LiberatePort(DUEVDCTestPort)
+		return result, err
+	}
+
 	logger = logger.WithField("VDC", vdcID)
 
 	dals := bp.InternalStructure.DALImages
@@ -210,6 +218,10 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 	imageSet["logging-agent"] = kubernetes.ImageInfo{
 		Image:        fmt.Sprintf("ditas/vdc-logging-agent:%s", p.GetImageVersion("vdc-logging-agent")),
 		InternalPort: 8484,
+	}
+	imageSet["due-vdc"] = kubernetes.ImageInfo{
+		Image:        fmt.Sprintf("ditas/due-vdc:%s", p.GetImageVersion("due-vdc")),
+		InternalPort: 5000,
 	}
 
 	imageSet, err = p.FillEnvVars(dals, imageSet)
@@ -320,6 +332,12 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 			NodePort:   int32(tombstonePort),
 			TargetPort: intstr.FromInt(3000),
 			Name:       "tombstone",
+		},
+		corev1.ServicePort{
+			Port:       int32(DUEVDCTestPort),
+			NodePort:   int32(DUEVDCTestPort),
+			TargetPort: intstr.FromInt(5000),
+			Name:       "due",
 		},
 	}
 
