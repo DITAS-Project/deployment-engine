@@ -460,9 +460,33 @@ func (m *VDCManager) doProvisionKubernetes(infra model.InfrastructureDeploymentI
 		}
 
 		// 5. Deploy traefik (Ingress manager to expose metrics endpoints without opening tons of ports. May provide load balancing if necessary)
+		logger.Info("Deploying Traefik to the cluster")
 		dep, _, err = m.ProvisionerController.Provision(infra.ID, "traefik", args, "kubernetes")
 		if err != nil {
 			return dep, utils.WrapLogAndReturnError(logger, "Error deploying traefik ingress controller", err)
+		}
+		logger.Info("Successfully deployed Traefik")
+
+		// 6. Deploy Kube State Metrics to expose monitoring data of the cluster to Data Analytics
+		logger.Info("Deploying Kube State Metrics")
+		dep, _, err = m.ProvisionerController.Provision(infra.ID, "kube-state-metrics", args, "kubernetes")
+		if err != nil {
+			return dep, utils.WrapLogAndReturnError(logger, "Error deploying Kube State Metrics", err)
+		}
+		logger.Info("Successfully deployed Kube State Metrics")
+
+		// 7. Expose Kube State Metrics through Traefik at /k8s prefix
+		args[kubernetes.TraefikProvisionMode] = kubernetes.TraefikRedirectMode
+		args[kubernetes.TraefikRedirectionPrefix] = "/k8s"
+		args[kubernetes.TraefikRedirectionEntryPoint] = "web"
+		args[kubernetes.TraefikRedirectionServiceName] = "kube-state-metrics"
+		args[kubernetes.TraefikRedirectionServicePort] = 8080
+		args[kubernetes.TraefikRedirectionServiceNamespace] = "kube-system"
+
+		logger.Info("Exposing Kube State Merrics through Traefik")
+		dep, _, err = m.ProvisionerController.Provision(infra.ID, "traefik", args, "kubernetes")
+		if err != nil {
+			return dep, utils.WrapLogAndReturnError(logger, "Error exposing Kube State Metrics", err)
 		}
 
 		persistenceType := viper.GetString(DitasPersistenceTypeProperty)
@@ -478,7 +502,7 @@ func (m *VDCManager) doProvisionKubernetes(infra model.InfrastructureDeploymentI
 			}
 
 			if persistenceToDeploy != "" {
-				// 6. Deploy persistence solution. Rook (moderately fast deployment ~3-5min) or GlusterFS (moderately slow ~10-12min)
+				// 8. Deploy persistence solution. Rook (moderately fast deployment ~3-5min) or GlusterFS (moderately slow ~10-12min)
 				logger.Infof("Deploying persistence solution %s", persistenceToDeploy)
 				dep, _, err = m.ProvisionerController.Provision(infra.ID, persistenceToDeploy, args, framework)
 				if err != nil {
@@ -487,7 +511,7 @@ func (m *VDCManager) doProvisionKubernetes(infra model.InfrastructureDeploymentI
 				logger.Infof("Deployed persistence solution %s successfully", persistenceToDeploy)
 
 				if persistenceToDeploy == "rook" {
-					// 7. Expose Rook metrics through Traefik
+					// 9. Expose Rook metrics through Traefik
 
 					args[kubernetes.TraefikProvisionMode] = kubernetes.TraefikRedirectMode
 					args[kubernetes.TraefikRedirectionPrefix] = "/rook"

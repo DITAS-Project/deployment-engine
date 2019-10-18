@@ -179,6 +179,9 @@ func NewKubernetesController() *KubernetesController {
 			"traefik": TraefikProvisioner{
 				scriptsFolder: scriptsFolder,
 			},
+			"kube-state-metrics": KSMProvisioner{
+				scriptsFolder: scriptsFolder,
+			},
 		},
 	}
 }
