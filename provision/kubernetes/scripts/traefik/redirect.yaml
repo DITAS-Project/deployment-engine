@@ -1,0 +1,29 @@
+# Strip prefix /foobar and /fiibar
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: {{.service}}-redirect
+  namespace: {{.svc_namespace}}
+spec:
+  stripPrefix:
+    prefixes:
+      - {{.prefix}}
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: {{.service}}-redirect
+  namespace: {{.svc_namespace}}
+spec:
+  entryPoints:
+    - {{.traefik_port}}
+  routes:
+  - match: PathPrefix(`{{.prefix}}`)
+    kind: Rule
+    services:
+    - name: {{.service}}
+      port: {{.port}}
+      namespace: {{.svc_namespace}}
+    middlewares:
+    - name: {{.service}}-redirect
+      namespace: {{.svc_namespace}}

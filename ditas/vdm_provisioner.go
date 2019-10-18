@@ -36,7 +36,9 @@ const (
 	DitasVDMConfigMapName = "vdm"
 	BlueprintIDProperty   = "blueprintId"
 
-	CMEExternalPort = 30090
+	CMEExternalPort  = 30090
+	DS4MExternalPort = 30003
+	DS4MInternalPort = 30003
 )
 
 type VDMProvisioner struct {
@@ -53,6 +55,14 @@ func NewVDMProvisioner(scriptsFolder, configVariablesPath, configFolder string, 
 		configFolder:        configFolder,
 		imagesVersions:      imagesVersions,
 	}
+}
+
+func (p VDMProvisioner) GetImageVersion(imageName string) string {
+	version, ok := p.imagesVersions[imageName]
+	if !ok {
+		return "latest"
+	}
+	return version
 }
 
 func (p VDMProvisioner) Provision(config *kubernetes.KubernetesConfiguration, infra *model.InfrastructureDeploymentInfo, args model.Parameters) (model.Parameters, error) {
@@ -119,11 +129,11 @@ func (p VDMProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 
 	imageSet := make(kubernetes.ImageSet)
 	imageSet["ds4m"] = kubernetes.ImageInfo{
-		Image:        "ditas/decision-system-for-data-and-computation-movement",
-		InternalPort: 8080,
+		Image:        fmt.Sprintf("ditas/decision-system-for-data-and-computation-movement:%s", p.GetImageVersion("ds4m")),
+		InternalPort: DS4MInternalPort,
 	}
 	imageSet["cme"] = kubernetes.ImageInfo{
-		Image:        "ditas/computation-movement-enactor",
+		Image:        fmt.Sprintf("ditas/computation-movement-enactor:%s", p.GetImageVersion("cme")),
 		InternalPort: cmePort,
 	}
 
@@ -174,6 +184,12 @@ func (p VDMProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 					Port:       CMEExternalPort,
 					TargetPort: intstr.FromInt(cmePort),
 				},
+				corev1.ServicePort{
+					Name:       "ds4m",
+					NodePort:   DS4MExternalPort,
+					Port:       DS4MExternalPort,
+					TargetPort: intstr.FromInt(DS4MInternalPort),
+				},
 			},
 		},
 	}
@@ -182,6 +198,13 @@ func (p VDMProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 	if err != nil {
 		config.LiberatePort(CMEExternalPort)
 		return result, utils.WrapLogAndReturnError(logger, "Error reserving CME port", err)
+	}
+
+	err = config.ClaimPort(DS4MExternalPort)
+	if err != nil {
+		config.LiberatePort(DS4MExternalPort)
+		config.LiberatePort(CMEExternalPort)
+		return result, utils.WrapLogAndReturnError(logger, "Error reserving DS4M port", err)
 	}
 
 	logger.Info("Creating or updating VDM service")

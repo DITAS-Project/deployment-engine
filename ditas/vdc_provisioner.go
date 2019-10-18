@@ -244,6 +244,7 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 	vars["vdcId"] = vdcID
 	vars["caf_port"] = cafPort
 	vars["infrastructure_id"] = infra.ID
+	vars["ds4m_port"] = DS4MExternalPort
 
 	configMapName := fmt.Sprintf("%s-configmap", vdcID)
 

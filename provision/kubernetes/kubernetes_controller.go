@@ -67,7 +67,7 @@ func (c *KubernetesConfiguration) GetNewFreePort() (result int) {
 	}()
 
 	// Initialize with the first available port
-	if c.UsedPorts == nil || len(c.UsedPorts) == 0 {
+	if c.UsedPorts == nil || len(c.UsedPorts) == 0 || c.UsedPorts[0] > c.PortRange.PortStart {
 		return c.PortRange.PortStart
 	}
 
@@ -176,6 +176,9 @@ func NewKubernetesController() *KubernetesController {
 			},
 			"mysql":    MySQLProvisioner{},
 			"services": GenericServiceProvisioner{},
+			"traefik": TraefikProvisioner{
+				scriptsFolder: scriptsFolder,
+			},
 		},
 	}
 }

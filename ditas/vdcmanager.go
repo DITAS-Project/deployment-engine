@@ -152,6 +152,7 @@ func (m *VDCManager) transformDeploymentInfo(ID string, src model.DeploymentInfo
 		return target, fmt.Errorf("Error transforming deployment to blueprint format: %w", err)
 	}
 	for _, infra := range bpInfras {
+		infra.Provider.Credentials = nil
 		target.Infrastructures[infra.ID] = infra
 	}
 	return target, err
@@ -408,17 +409,20 @@ func (m *VDCManager) doProvisionKubernetes(infra model.InfrastructureDeploymentI
 
 		logger.Info("Setting correct host name")
 
+		// 1. Add new keys to .ssh/known_hosts
 		args := make(model.Parameters)
 		dep, _, err = m.ProvisionerController.Provision(infra.ID, "hosts", args, "")
 
 		logger.Info("Installing Kubernetes")
 
+		// 2. Deploy Kubernetes
 		dep, _, err = m.ProvisionerController.Provision(infra.ID, "kubernetes", args, "")
 		//err := m.provisionKubernetesWithKubespray(deployment.ID, infra)
 		if err != nil {
 			return dep, utils.WrapLogAndReturnError(logger, fmt.Sprintf("Error deploying kubernetes on infrastructure %s", infra.ID), err)
 		}
 
+		// 3. Deploy Helm (needed for fluentd and very convenient to deploy software)
 		dep, _, err = m.ProvisionerController.Provision(infra.ID, "helm", args, "")
 		if err != nil {
 			return dep, utils.WrapLogAndReturnError(logger, fmt.Sprintf("Error deploying helm in infrastructure %s", infra.ID), err)
@@ -448,10 +452,17 @@ func (m *VDCManager) doProvisionKubernetes(infra model.InfrastructureDeploymentI
 				}
 			}
 
+			// 4. Deploy fluentd (Log Analysis Service)
 			dep, _, err = m.ProvisionerController.Provision(infra.ID, "fluentd", args, "")
 			if err != nil {
 				return dep, utils.WrapLogAndReturnError(logger, fmt.Sprintf("Error installing fluentd at infrastructure %s", infra.ID), err)
 			}
+		}
+
+		// 5. Deploy traefik (Ingress manager to expose metrics endpoints without opening tons of ports. May provide load balancing if necessary)
+		dep, _, err = m.ProvisionerController.Provision(infra.ID, "traefik", args, "kubernetes")
+		if err != nil {
+			return dep, utils.WrapLogAndReturnError(logger, "Error deploying traefik ingress controller", err)
 		}
 
 		persistenceType := viper.GetString(DitasPersistenceTypeProperty)
@@ -467,9 +478,29 @@ func (m *VDCManager) doProvisionKubernetes(infra model.InfrastructureDeploymentI
 			}
 
 			if persistenceToDeploy != "" {
+				// 6. Deploy persistence solution. Rook (moderately fast deployment ~3-5min) or GlusterFS (moderately slow ~10-12min)
+				logger.Infof("Deploying persistence solution %s", persistenceToDeploy)
 				dep, _, err = m.ProvisionerController.Provision(infra.ID, persistenceToDeploy, args, framework)
 				if err != nil {
 					return dep, utils.WrapLogAndReturnError(logger, fmt.Sprintf("Error deploying %s to kubernetes cluster %s", persistenceToDeploy, infra.ID), err)
+				}
+				logger.Infof("Deployed persistence solution %s successfully", persistenceToDeploy)
+
+				if persistenceToDeploy == "rook" {
+					// 7. Expose Rook metrics through Traefik
+
+					args[kubernetes.TraefikProvisionMode] = kubernetes.TraefikRedirectMode
+					args[kubernetes.TraefikRedirectionPrefix] = "/rook"
+					args[kubernetes.TraefikRedirectionEntryPoint] = "web"
+					args[kubernetes.TraefikRedirectionServiceName] = "rook-ceph-mgr"
+					args[kubernetes.TraefikRedirectionServicePort] = 9283
+					args[kubernetes.TraefikRedirectionServiceNamespace] = "rook-ceph"
+
+					logger.Info("Exposing Rook metrics through Traefik")
+					dep, _, err = m.ProvisionerController.Provision(infra.ID, "traefik", args, "kubernetes")
+					if err != nil {
+						return dep, utils.WrapLogAndReturnError(logger, "Error exposing rook metrics", err)
+					}
 				}
 			}
 		}

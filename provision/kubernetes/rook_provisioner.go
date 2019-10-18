@@ -22,7 +22,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"text/template"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -38,7 +37,9 @@ type RookCluster struct {
 }
 
 type RookProvisioner struct {
-	scriptsFolder string
+	scriptsFolder    string
+	httpExternalPort string
+	sslExternalPort  string
 }
 
 func (p RookProvisioner) GetHostCapacity(node model.NodeInfo) (int64, error) {
@@ -110,33 +111,11 @@ func (p RookProvisioner) Provision(config *KubernetesConfiguration, infra *model
 
 	logger.Info("Creating Ceph cluster in Rook")
 	fileName := "cluster.yaml.tmpl"
-	clusterDefinition, err := template.New(fileName).ParseFiles(p.scriptsFolder + "/rook/" + fileName)
+	err = kubeClient.ExecuteDeployTemplate(logger, fileName, p.scriptsFolder+"/rook/"+fileName, map[string]interface{}{
+		"num_mons": numMons,
+	})
 	if err != nil {
-		logger.WithError(err).Error("Error reading cluster template file")
-		return result, err
-	}
-
-	cmd := kubeClient.CreateKubectlCommand(logger, "create", "-f", "-")
-	writer, err := cmd.StdinPipe()
-	if err != nil {
-		logger.WithError(err).Error("Error getting input pipe for command")
-		return result, err
-	}
-
-	go func() {
-		defer writer.Close()
-		err = clusterDefinition.Execute(writer, map[string]interface{}{
-			"num_mons": numMons,
-		})
-		if err != nil {
-			logger.WithError(err).Error("Error executing deployment template")
-		}
-	}()
-
-	err = cmd.Run()
-	if err != nil {
-		logger.WithError(err).Error("Error creating cluster")
-		return result, err
+		return result, utils.WrapLogAndReturnError(logger, "Error creating cluster", err)
 	}
 
 	logger.Info("Creating Non-High Available storage class")

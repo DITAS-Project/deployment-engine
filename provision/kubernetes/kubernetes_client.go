@@ -587,3 +587,31 @@ func (c KubernetesClient) ExecuteKubectlCommand(logger *logrus.Entry, action str
 func (c KubernetesClient) ExecuteDeployScript(logger *logrus.Entry, script string) error {
 	return c.ExecuteKubectlCommand(logger, "create", "-f", script)
 }
+
+func (c KubernetesClient) ExecuteDeployTemplate(logger *logrus.Entry, name, templateFile string, vars map[string]interface{}) error {
+	clusterDefinition, err := template.New(name).ParseFiles(templateFile)
+	if err != nil {
+		return utils.WrapLogAndReturnError(logger, fmt.Sprintf("Error reading template file %s", templateFile), err)
+	}
+
+	cmd := c.CreateKubectlCommand(logger, "create", "-f", "-")
+	writer, err := cmd.StdinPipe()
+	if err != nil {
+		return utils.WrapLogAndReturnError(logger, "Error getting input pipe for command", err)
+	}
+
+	go func() {
+		defer writer.Close()
+		err = clusterDefinition.Execute(writer, vars)
+		if err != nil {
+			logger.WithError(err).Error("Error executing deployment template")
+		}
+	}()
+
+	err = cmd.Run()
+	if err != nil {
+		return utils.WrapLogAndReturnError(logger, fmt.Sprintf("Error executing template file %s", templateFile), err)
+	}
+
+	return nil
+}
