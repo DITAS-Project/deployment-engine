@@ -43,7 +43,7 @@ const (
 	TombstonePortProperty = "tombstonePort"
 	VariablesProperty     = "variables"
 
-	DUEVDCTestPort = 30005
+	//DUEVDCTestPort = 30005
 )
 
 type VDCProvisioner struct {
@@ -196,11 +196,15 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 	}()
 	result[TombstonePortProperty] = tombstonePort
 
-	err = config.ClaimPort(DUEVDCTestPort)
-	if err != nil {
-		config.LiberatePort(DUEVDCTestPort)
-		return result, err
+	DUEVDCTestPort := config.GetNewFreePort()
+	if DUEVDCTestPort < 0 {
+		return result, errors.New("Can't find a free port for DUE testing")
 	}
+	defer func() {
+		if err != nil {
+			config.LiberatePort(DUEVDCTestPort)
+		}
+	}()
 
 	logger = logger.WithField("VDC", vdcID)
 

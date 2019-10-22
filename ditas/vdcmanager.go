@@ -591,6 +591,11 @@ func (m *VDCManager) doDeployVDC(infra model.InfrastructureDeploymentInfo, bp bl
 	args[VDMIPProperty] = vdmIP
 	args[VariablesProperty] = m.getVarsFromConfig()
 
+	for i, infra := range bp.CookbookAppendix.Resources.Infrastructures {
+		infra.Provider.Credentials = nil
+		bp.CookbookAppendix.Resources.Infrastructures[i] = infra
+	}
+
 	infra, out, err := m.ProvisionerController.Provision(infra.ID, "vdc", args, "kubernetes")
 	tombstonePort := -1
 	cafPort := -1
@@ -676,7 +681,7 @@ func (m *VDCManager) CopyVDC(blueprintID, vdcID, targetInfraID string) (VDCConfi
 
 	tombstonePort, cafPort, targetInfra, err := m.DeployVDC(bp, targetInfra, vdcID, vdmIP)
 	if err != nil {
-		return vdcConfig, fmt.Errorf("Error creating copy of VDC %s: %w", vdcID, err)
+		return vdcConfig, fmt.Errorf("Error creating copy of VDC %s in infrastructure %s: %w", vdcID, targetInfra.ID, err)
 	}
 
 	masterIP, err := targetInfra.GetMasterIP()
