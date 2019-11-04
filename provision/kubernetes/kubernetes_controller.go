@@ -175,6 +175,7 @@ func NewKubernetesController() *KubernetesController {
 				scriptsFolder: scriptsFolder,
 			},
 			"mysql":    MySQLProvisioner{},
+			"minio":    MinioProvisioner{},
 			"services": GenericServiceProvisioner{},
 			"traefik": TraefikProvisioner{
 				scriptsFolder: scriptsFolder,

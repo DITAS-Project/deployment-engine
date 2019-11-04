@@ -82,6 +82,9 @@ type ImageInfo struct {
 	// required: true
 	Image string `json:"image"`
 
+	// Args is a list of arguments to pass to the container when it starts
+	Args []string `json:"args"`
+
 	// Environment is a map of environment variables whose key is the variable name and value is the variable value
 	Environment map[string]string `json:"environment"`
 }
@@ -252,6 +255,7 @@ func GetContainersDescription(images ImageSet, secrets []SecretData, volumes []V
 				},
 			}
 		}
+		container.Args = containerInfo.Args
 
 		containers = append(containers, container)
 	}
@@ -379,13 +383,13 @@ func GetPersistentVolumeClaim(volume VolumeData) (corev1.PersistentVolumeClaim, 
 	}, nil
 }
 
-func GetStatefulSetDescription(name string, replicas int32, terminationPeriod int64, labels map[string]string, images ImageSet, secrets []SecretData, volumes []VolumeData, repositorySecrets []string) appsv1.StatefulSet {
+func GetStatefulSetDescription(name string, replicas int32, terminationPeriod int64, labels map[string]string, images ImageSet, secrets []SecretData, volumes []VolumeData, repositorySecrets []string) (appsv1.StatefulSet, error) {
 
 	volumesClaims := make([]corev1.PersistentVolumeClaim, 0)
 	for _, volume := range volumes {
 		claim, err := GetPersistentVolumeClaim(volume)
 		if err != nil {
-			logrus.WithError(err).Errorf("Error generating claim for volume %s", volume.Name)
+			return appsv1.StatefulSet{}, utils.WrapLogAndReturnError(logrus.WithField("volume", volume.Name), "Error generating claim for volume", err)
 		}
 		volumesClaims = append(volumesClaims, claim)
 	}
@@ -403,7 +407,7 @@ func GetStatefulSetDescription(name string, replicas int32, terminationPeriod in
 			Template:             GetPodSpecDescrition(labels, terminationPeriod, images, secrets, volumes, repositorySecrets),
 			VolumeClaimTemplates: volumesClaims,
 		},
-	}
+	}, nil
 }
 
 func CreateOrUpdateResource(logger *logrus.Entry, name string, getter func() (interface{}, error), deleter func(string, *metav1.DeleteOptions) error, creater func() (interface{}, error)) (interface{}, error) {

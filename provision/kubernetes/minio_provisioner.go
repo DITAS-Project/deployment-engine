@@ -31,30 +31,30 @@ import (
 )
 
 const (
-	MySQLRootPasswordSecret = "mysql-root-pw-secret"
-	MySQLUserPasswordSecret = "mysql-user-pw-secret"
+	MinioAccessKeySecret = "minio-access-key-secret"
+	MinioSecretKeySecret = "minio-secret-key-secret"
 )
 
-type InstanceConfig struct {
-	Port         int
-	RootSecretID string
-	UserSecretID string
+type MinioInstanceConfig struct {
+	Port              int
+	AccessKeySecretID string
+	SecretKeySecretID string
 }
 
-type MySQLConfig struct {
-	NumInstances int                       `json:"num_instances"`
-	Instances    map[string]InstanceConfig `json:"instances"`
+type MinioConfig struct {
+	NumInstances int                            `json:"num_instances"`
+	Instances    map[string]MinioInstanceConfig `json:"instances"`
 }
 
-type MySQLProvisioner struct {
+type MinioProvisioner struct {
 }
 
-func (p MySQLProvisioner) Provision(config *KubernetesConfiguration, infra *model.InfrastructureDeploymentInfo, args model.Parameters) (model.Parameters, error) {
+func (p MinioProvisioner) Provision(config *KubernetesConfiguration, infra *model.InfrastructureDeploymentInfo, args model.Parameters) (model.Parameters, error) {
 
 	result := make(model.Parameters)
 	logger := logrus.WithFields(logrus.Fields{
 		"infrastructure": infra.ID,
-		"product":        "MySQL",
+		"product":        "minio",
 	})
 
 	var err error
@@ -63,99 +63,76 @@ func (p MySQLProvisioner) Provision(config *KubernetesConfiguration, infra *mode
 		return result, errors.New("Persistent volume size is mandatory")
 	}
 
-	var mySQLConfig MySQLConfig
-	rawConfig, ok := config.DeploymentsConfiguration["mysql"]
+	var minioConfig MinioConfig
+	rawConfig, ok := config.DeploymentsConfiguration["minio"]
 	if !ok {
-		mySQLConfig = MySQLConfig{
+		minioConfig = MinioConfig{
 			NumInstances: 0,
-			Instances:    make(map[string]InstanceConfig),
+			Instances:    make(map[string]MinioInstanceConfig),
 		}
 	} else {
-		err := utils.TransformObject(rawConfig, &mySQLConfig)
+		err := utils.TransformObject(rawConfig, &minioConfig)
 		if err != nil {
 			return result, fmt.Errorf("Error reading MySQL configuration: %w", err)
 		}
 	}
 
-	var instanceConfig InstanceConfig
+	var instanceConfig MinioInstanceConfig
 
-	dsID := fmt.Sprintf("mysql%d", mySQLConfig.NumInstances)
-	instanceConfig.RootSecretID = dsID + "-root-pw"
+	dsID := fmt.Sprintf("minio%d", minioConfig.NumInstances)
+	instanceConfig.AccessKeySecretID = dsID + "-access-key"
+	instanceConfig.SecretKeySecretID = dsID + "-secret-key"
 	volumeID := dsID + "-data"
-
-	rootPassword, err := password.Generate(10, 3, 2, false, false)
-	var userPassword string
-	var databaseName string
-	username, ok := args.GetString("username")
-	if ok {
-		databaseName, ok = args.GetString("database")
-		if !ok {
-			return result, errors.New("Database query parameter is mandatory when username is specified")
-		}
-
-		userPassword, ok = args.GetString("user_password")
-		if !ok {
-			userPassword, err = password.Generate(10, 3, 2, false, false)
-			if err != nil {
-				return result, fmt.Errorf("No password specified for user %s and an error occured when trying to generate a new random one: %w", username, err)
-			}
-		}
-	}
-
-	if err != nil {
-		return result, err
-	}
 
 	storageclass, ok := args.GetString("storage_class")
 	if !ok {
 		return result, errors.New("No storage class specified for persistence")
 	}
 
+	accessKey, err := password.Generate(10, 4, 0, false, false)
+	if err != nil {
+		return result, fmt.Errorf("Error generating access key: %w", err)
+	}
+
+	secretKey, err := password.Generate(10, 4, 0, false, false)
+	if err != nil {
+		return result, fmt.Errorf("Error generating secret key: %w", err)
+	}
+
 	secrets := []SecretData{
 		SecretData{
-			SecretID: instanceConfig.RootSecretID,
+			SecretID: instanceConfig.AccessKeySecretID,
 			EnvVars: map[string]string{
-				"MYSQL_ROOT_PASSWORD": "password",
+				"MINIO_ACCESS_KEY": "password",
 			},
 			Data: map[string]string{
-				"password": rootPassword,
+				"password": accessKey,
+			},
+		},
+		SecretData{
+			SecretID: instanceConfig.SecretKeySecretID,
+			EnvVars: map[string]string{
+				"MINIO_SECRET_KEY": "password",
+			},
+			Data: map[string]string{
+				"password": secretKey,
 			},
 		},
 	}
-	result[MySQLRootPasswordSecret] = instanceConfig.RootSecretID
-
-	if userPassword != "" {
-		userSecretID := fmt.Sprintf("%s-%s-pw", dsID, username)
-		secrets = append(secrets, SecretData{
-			SecretID: userSecretID,
-			EnvVars: map[string]string{
-				"MYSQL_PASSWORD": "password",
-			},
-			Data: map[string]string{
-				"password": userPassword,
-			},
-		})
-		instanceConfig.UserSecretID = userSecretID
-		result[MySQLUserPasswordSecret] = userSecretID
-	}
+	result[MinioAccessKeySecret] = instanceConfig.AccessKeySecretID
+	result[MinioSecretKeySecret] = instanceConfig.SecretKeySecretID
 
 	volume := VolumeData{
 		Name:         volumeID,
-		MountPoint:   "/var/lib/mysql",
+		MountPoint:   "/data",
 		StorageClass: storageclass,
 		Size:         size,
 	}
 
-	imageEnv := make(map[string]string)
-	if username != "" {
-		imageEnv["MYSQL_USER"] = username
-		imageEnv["MYSQL_DATABASE"] = databaseName
-	}
-
 	image := ImageInfo{
-		InternalPort: 3306,
-		Image:        "mysql/mysql-server",
-		Environment:  imageEnv,
+		InternalPort: 9000,
+		Image:        "minio/minio",
+		Args:         []string{"server", "/data"},
 	}
 
 	labels := map[string]string{"component": dsID}
@@ -178,17 +155,12 @@ func (p MySQLProvisioner) Provision(config *KubernetesConfiguration, infra *mode
 			return result, err
 		}
 		kubeSecrets[i] = secretOut
-		if i == 0 {
-			instanceConfig.RootSecretID = secretData.SecretID
-		} else {
-			instanceConfig.UserSecretID = secretData.SecretID
-		}
 		logger.Infof("Secret %s successfully created", secretData.SecretID)
 
 	}
 
 	defaultDeleteOptions := metav1.DeleteOptions{}
-	podDescription, err := GetStatefulSetDescription(dsID, 1, 30, labels, ImageSet{"mysql": image}, secrets, []VolumeData{volume}, nil)
+	podDescription, err := GetStatefulSetDescription(dsID, 1, 30, labels, ImageSet{"minio": image}, secrets, []VolumeData{volume}, nil)
 	if err != nil {
 		for _, secretOut := range kubeSecrets {
 			kubernetesClient.Client.CoreV1().Secrets(secretOut.GetNamespace()).Delete(secretOut.GetName(), &defaultDeleteOptions)
@@ -196,7 +168,7 @@ func (p MySQLProvisioner) Provision(config *KubernetesConfiguration, infra *mode
 		return result, err
 	}
 
-	logger.Info("Creating MySQL pod")
+	logger.Info("Creating Minio pod")
 	podOut, err := kubernetesClient.CreateOrUpdateStatefulSet(logger, apiv1.NamespaceDefault, &podDescription)
 
 	if err != nil {
@@ -205,7 +177,7 @@ func (p MySQLProvisioner) Provision(config *KubernetesConfiguration, infra *mode
 		}
 		return result, err
 	}
-	logger.Info("MySQL successfully created")
+	logger.Info("Minio successfully created")
 
 	if val, _ := args.GetBool("expose"); val {
 		servicePort := config.GetNewFreePort()
@@ -228,7 +200,7 @@ func (p MySQLProvisioner) Provision(config *KubernetesConfiguration, infra *mode
 			},
 		}
 
-		logger.Info("Creating MySQL service")
+		logger.Info("Creating Minio service")
 		_, err = kubernetesClient.CreateOrUpdateService(logger, apiv1.NamespaceDefault, &dsService)
 
 		if err != nil {
@@ -239,13 +211,13 @@ func (p MySQLProvisioner) Provision(config *KubernetesConfiguration, infra *mode
 			config.LiberatePort(servicePort)
 			return result, err
 		}
-		logger.Info("MySQL service successfully created")
+		logger.Info("Minio service successfully created")
 		instanceConfig.Port = servicePort
 	}
 
-	mySQLConfig.NumInstances++
-	mySQLConfig.Instances[dsID] = instanceConfig
-	config.DeploymentsConfiguration["mysql"] = mySQLConfig
+	minioConfig.NumInstances++
+	minioConfig.Instances[dsID] = instanceConfig
+	config.DeploymentsConfiguration["minio"] = minioConfig
 
 	return result, nil
 }

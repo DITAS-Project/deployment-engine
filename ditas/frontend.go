@@ -328,13 +328,13 @@ func (a *DitasFrontend) createDatasource(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
-	err := a.VDCManagerInstance.DeployDatasource(blueprintID, vdcID, infraID, datasource, restfrontend.GetParameters(r.URL.Query()))
+	result, err := a.VDCManagerInstance.DeployDatasource(blueprintID, vdcID, infraID, datasource, restfrontend.GetParameters(r.URL.Query()))
 	if err != nil {
 		restfrontend.RespondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	restfrontend.RespondWithJSON(w, http.StatusNoContent, nil)
+	restfrontend.RespondWithJSON(w, http.StatusNoContent, result)
 	return
 }
 

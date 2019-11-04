@@ -731,20 +731,23 @@ func (m *VDCManager) doDeleteVDC(infra *model.InfrastructureDeploymentInfo, vdcI
 	return err
 }
 
-func (m *VDCManager) DeployDatasource(blueprintId, vdcID, infraId, datasourceType string, args model.Parameters) error {
+func (m *VDCManager) DeployDatasource(blueprintId, vdcID, infraId, datasourceType string, args model.Parameters) (model.Parameters, error) {
 	var blueprintInfo VDCInformation
+	var result model.Parameters
 	err := m.Collection.FindOne(context.Background(), bson.M{"_id": blueprintId}).Decode(&blueprintInfo)
 	if err != nil {
-		return fmt.Errorf("Can't find information for blueprint %s: %s", blueprintId, err.Error())
+		return result, fmt.Errorf("Can't find information for blueprint %s: %s", blueprintId, err.Error())
 	}
 
 	infra, err := m.findVDCInfrastructure(blueprintInfo, vdcID, infraId)
 	if err != nil {
-		return fmt.Errorf("Can't finde infrastructure %s associated to blueprint %s: %v", infraId, blueprintId, err)
+		return result, fmt.Errorf("Can't finde infrastructure %s associated to blueprint %s: %v", infraId, blueprintId, err)
 	}
 
-	_, _, err = m.ProvisionerController.Provision(infra.ID, datasourceType, args, "kubernetes")
-	return err
+	args["storage_class"] = "rook-ceph-block-single"
+
+	_, result, err = m.ProvisionerController.Provision(infra.ID, datasourceType, args, "kubernetes")
+	return result, err
 }
 
 func (m *VDCManager) GetVDCInformation(blueprintID, vdcID string) (VDCConfiguration, error) {
