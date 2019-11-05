@@ -8,14 +8,13 @@ The REST interface and the internal business logic relies in a series of concept
 
 - **Resource:** A resource is a Virtual Machine that needs to be created in a cloud provider. The information that needs to be passed is described in the `ResourceType` struct.
 - **Infrastructure:** An infrastructure is a set of resources that need to be created in a particular cloud provider. The required properties are described in `InfrastructureType` struct.
-- **Deployment:** A deployment represents an hybrid cloud or cloud-edge deployment formed by one or more infrastructures. For example, a deployment may compromise a set of VMs in AWS's EC2, another one in Google Cloud Platform and several machines already running in an edge location. The required properties are defined in `Deployment` struct.
-- **Product:** A product is a software component that needs to be provisioned in one infrastructure. For example, `kubernetes` product will install Kubernetes in a particular infrastructure.
+- **Deployment:** A deployment is a set of infrastructures that need to be created.
+- **Product:** A product is a software component that needs to be provisioned in one infrastructure. For example, `kubernetes` product will install Kubernetes in a particular infrastructure creating a kubernetes cluster among them.
 
 ### Output object
 
 - **Node:** A node is a Virtual Machine that has been created and it's running in a cloud provider. It's described in `NodeInfo` struct
-- **Infrastructure Deployment:** Just as the input object, it represents a set of nodes that were successfully created in a cloud provider, separated by master and slaves. Each infrastructure has the unique identifier inside the deployment that was provided as input. It's described in `InfrastructureDeploymentInfo` struct.
-- **Deployment information:** Represents an hybrid deployment. Just as its counterpart, it contains a list if infrastructures that were created. It's described in `DeploymentInfo` struct.
+- **Infrastructure Deployment:** Just as the input object, it represents a set of nodes that were successfully created in a cloud provider, indexed by their roles. Each infrastructure has a unique identifier that can be used to refer to them as a single cluster. It's described in `InfrastructureDeploymentInfo` struct.
 
 ## REST API
 
