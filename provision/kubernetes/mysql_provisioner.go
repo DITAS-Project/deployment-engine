@@ -27,7 +27,6 @@ import (
 	apiv1 "k8s.io/api/core/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 const (
@@ -122,7 +121,6 @@ func (p MySQLProvisioner) Provision(config *KubernetesConfiguration, infra *mode
 			},
 		},
 	}
-	result[MySQLRootPasswordSecret] = instanceConfig.RootSecretID
 
 	if userPassword != "" {
 		userSecretID := fmt.Sprintf("%s-%s-pw", dsID, username)
@@ -136,7 +134,6 @@ func (p MySQLProvisioner) Provision(config *KubernetesConfiguration, infra *mode
 			},
 		})
 		instanceConfig.UserSecretID = userSecretID
-		result[MySQLUserPasswordSecret] = userSecretID
 	}
 
 	volume := VolumeData{
@@ -207,45 +204,40 @@ func (p MySQLProvisioner) Provision(config *KubernetesConfiguration, infra *mode
 	}
 	logger.Info("MySQL successfully created")
 
-	if val, _ := args.GetBool("expose"); val {
-		servicePort := config.GetNewFreePort()
-		dsService := corev1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: dsID,
-			},
-			Spec: corev1.ServiceSpec{
-				Type:     corev1.ServiceTypeClusterIP,
-				Selector: labels,
-				Ports: []corev1.ServicePort{
-					corev1.ServicePort{
-						Name: dsID,
-						Port: int32(servicePort),
-						TargetPort: intstr.IntOrString{
-							IntVal: int32(3306),
-						},
-					},
+	dsService := corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: dsID,
+		},
+		Spec: corev1.ServiceSpec{
+			Type:     corev1.ServiceTypeClusterIP,
+			Selector: labels,
+			Ports: []corev1.ServicePort{
+				corev1.ServicePort{
+					Name: dsID,
+					Port: int32(3306),
 				},
 			},
-		}
-
-		logger.Info("Creating MySQL service")
-		_, err = kubernetesClient.CreateOrUpdateService(logger, apiv1.NamespaceDefault, &dsService)
-
-		if err != nil {
-			kubernetesClient.Client.AppsV1().StatefulSets(podOut.GetNamespace()).Delete(podOut.GetName(), &defaultDeleteOptions)
-			for _, secretOut := range kubeSecrets {
-				kubernetesClient.Client.CoreV1().Secrets(secretOut.GetNamespace()).Delete(secretOut.GetName(), &defaultDeleteOptions)
-			}
-			config.LiberatePort(servicePort)
-			return result, err
-		}
-		logger.Info("MySQL service successfully created")
-		instanceConfig.Port = servicePort
+		},
 	}
+
+	logger.Info("Creating MySQL service")
+	_, err = kubernetesClient.CreateOrUpdateService(logger, apiv1.NamespaceDefault, &dsService)
+
+	if err != nil {
+		kubernetesClient.Client.AppsV1().StatefulSets(podOut.GetNamespace()).Delete(podOut.GetName(), &defaultDeleteOptions)
+		for _, secretOut := range kubeSecrets {
+			kubernetesClient.Client.CoreV1().Secrets(secretOut.GetNamespace()).Delete(secretOut.GetName(), &defaultDeleteOptions)
+		}
+	}
+	logger.Info("MySQL service successfully created")
+	instanceConfig.Port = 3306
 
 	mySQLConfig.NumInstances++
 	mySQLConfig.Instances[dsID] = instanceConfig
 	config.DeploymentsConfiguration["mysql"] = mySQLConfig
+
+	result["id"] = dsID
+	result["config"] = instanceConfig
 
 	return result, nil
 }

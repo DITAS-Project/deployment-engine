@@ -27,7 +27,6 @@ import (
 	apiv1 "k8s.io/api/core/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 const (
@@ -119,8 +118,6 @@ func (p MinioProvisioner) Provision(config *KubernetesConfiguration, infra *mode
 			},
 		},
 	}
-	result[MinioAccessKeySecret] = instanceConfig.AccessKeySecretID
-	result[MinioSecretKeySecret] = instanceConfig.SecretKeySecretID
 
 	volume := VolumeData{
 		Name:         volumeID,
@@ -179,45 +176,41 @@ func (p MinioProvisioner) Provision(config *KubernetesConfiguration, infra *mode
 	}
 	logger.Info("Minio successfully created")
 
-	if val, _ := args.GetBool("expose"); val {
-		servicePort := config.GetNewFreePort()
-		dsService := corev1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: dsID,
-			},
-			Spec: corev1.ServiceSpec{
-				Type:     corev1.ServiceTypeClusterIP,
-				Selector: labels,
-				Ports: []corev1.ServicePort{
-					corev1.ServicePort{
-						Name: dsID,
-						Port: int32(servicePort),
-						TargetPort: intstr.IntOrString{
-							IntVal: int32(3306),
-						},
-					},
+	dsService := corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: dsID,
+		},
+		Spec: corev1.ServiceSpec{
+			Type:     corev1.ServiceTypeClusterIP,
+			Selector: labels,
+			Ports: []corev1.ServicePort{
+				corev1.ServicePort{
+					Name: dsID,
+					Port: 9000,
 				},
 			},
-		}
-
-		logger.Info("Creating Minio service")
-		_, err = kubernetesClient.CreateOrUpdateService(logger, apiv1.NamespaceDefault, &dsService)
-
-		if err != nil {
-			kubernetesClient.Client.AppsV1().StatefulSets(podOut.GetNamespace()).Delete(podOut.GetName(), &defaultDeleteOptions)
-			for _, secretOut := range kubeSecrets {
-				kubernetesClient.Client.CoreV1().Secrets(secretOut.GetNamespace()).Delete(secretOut.GetName(), &defaultDeleteOptions)
-			}
-			config.LiberatePort(servicePort)
-			return result, err
-		}
-		logger.Info("Minio service successfully created")
-		instanceConfig.Port = servicePort
+		},
 	}
+
+	logger.Info("Creating Minio service")
+	_, err = kubernetesClient.CreateOrUpdateService(logger, apiv1.NamespaceDefault, &dsService)
+
+	if err != nil {
+		kubernetesClient.Client.AppsV1().StatefulSets(podOut.GetNamespace()).Delete(podOut.GetName(), &defaultDeleteOptions)
+		for _, secretOut := range kubeSecrets {
+			kubernetesClient.Client.CoreV1().Secrets(secretOut.GetNamespace()).Delete(secretOut.GetName(), &defaultDeleteOptions)
+		}
+		return result, err
+	}
+	logger.Info("Minio service successfully created")
+	instanceConfig.Port = 9000
 
 	minioConfig.NumInstances++
 	minioConfig.Instances[dsID] = instanceConfig
 	config.DeploymentsConfiguration["minio"] = minioConfig
+
+	result["id"] = dsID
+	result["config"] = minioConfig
 
 	return result, nil
 }

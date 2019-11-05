@@ -24,10 +24,17 @@ const (
 	ElasticSearchPasswordVarName = "elasticsearch_password"
 )
 
+type DataSourceInformation struct {
+	Type          string
+	ID            string
+	Configuration interface{}
+}
+
 type InfrastructureInformation struct {
 	IP            string
 	TombstonePort int
 	CAFPort       int
+	Datasources   map[string]DataSourceInformation
 }
 
 type VDCConfiguration struct {

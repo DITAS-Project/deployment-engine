@@ -1,0 +1,17 @@
+ansible:
+  folders:
+    inventory: /root/deployment-engine-config/deployments
+    scripts: /root/deployment-engine/ansible
+
+mongodb:
+  url: mongodb://mongo:27017
+
+kubernetes:
+  folders:
+    scripts: /root/deployment-engine/kubernetes
+  traefik:
+    service:
+      ports:
+        http: 30100
+        ssl: 30143
+      type: NodePort

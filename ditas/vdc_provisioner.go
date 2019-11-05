@@ -25,8 +25,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strconv"
-	"strings"
 
 	blueprint "github.com/DITAS-Project/blueprint-go"
 	"github.com/sirupsen/logrus"
@@ -56,62 +54,6 @@ func NewVDCProvisioner(configFolder string, imagesVersions map[string]string) *V
 		configFolder:   configFolder,
 		imagesVersions: imagesVersions,
 	}
-}
-
-// FillEnvVars runs over the VDC images trying to find environment variables whose value is specified as ${var_name} and expand it with the corresponding value
-// Variables supported:
-// - dal.<dal_name>.name: Hostname of a DAL that will resolve directly to the DAL IP
-// - dal.<dal_name>.<dal_image_name>.port: External port of an image in a DAL
-func (p VDCProvisioner) FillEnvVars(dals map[string]blueprint.DALImage, vdcImages kubernetes.ImageSet) (kubernetes.ImageSet, error) {
-	for imageName, vdcImage := range vdcImages {
-		if vdcImage.Environment != nil {
-			for variable, value := range vdcImage.Environment {
-				if strings.HasPrefix(value, "${") && strings.HasSuffix(value, "}") {
-					// ENV var value is a variable. Let's strip the ${} surrounding
-					varName := value[2 : len(value)-1]
-					varPath := strings.Split(varName, ".")
-					if len(varPath) < 3 {
-						return vdcImages, fmt.Errorf("Invalid variable name %s found in environment of VDC image %s", varName, imageName)
-					}
-					if varPath[0] == "dal" {
-						// The first part refers to a dal. Let's find its information
-						dalName := varPath[1]
-						dalInfo, ok := dals[dalName]
-						if !ok {
-							return vdcImages, fmt.Errorf("Can't find DAL with name %s to expand variable %s in VDC image %s", dalName, varName, imageName)
-						}
-						var finalValue string
-						if len(varPath) == 3 {
-							// Length of 3 and it starts with dal. Only dal.<dal_name>.name is supported
-							if varPath[2] == "name" {
-								finalValue = dalName
-							} else {
-								return vdcImages, fmt.Errorf("Unrecognized variable %s found in VDC image %s", varName, imageName)
-							}
-						} else {
-							// Length > 3. It has to be dal.<dal_name>.<image_name>.port or error
-							dalImageName := varPath[2]
-							dalImageInfo, ok := dalInfo.Images[dalImageName]
-							if !ok {
-								return vdcImages, fmt.Errorf("Can't find image %s in DAL %s information to expand variable %s of VDC image %s", dalImageName, dalName, varName, imageName)
-							}
-							if varPath[3] == "port" {
-								if dalImageInfo.ExternalPort == nil {
-									return vdcImages, fmt.Errorf("Empty external port found in image %s of DAL %s when trying to expand variable %s of VDC image %s", dalImageName, dalName, varName, imageName)
-								}
-								finalValue = strconv.FormatInt(*dalImageInfo.ExternalPort, 10)
-							}
-						}
-						if finalValue != "" {
-							vdcImage.Environment[variable] = finalValue
-						}
-					}
-				}
-			}
-			vdcImages[imageName] = vdcImage
-		}
-	}
-	return vdcImages, nil
 }
 
 func (p VDCProvisioner) GetImageVersion(imageName string) string {
@@ -228,10 +170,7 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 		InternalPort: 5000,
 	}
 
-	imageSet, err = p.FillEnvVars(dals, imageSet)
-	if err != nil {
-		return result, fmt.Errorf("Error replacing environment variables: %w", err)
-	}
+	FillEnvVars(dals, imageSet, vars)
 
 	caf, ok := imageSet["caf"]
 	if !ok {

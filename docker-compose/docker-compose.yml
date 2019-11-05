@@ -1,0 +1,17 @@
+version: '3'
+services:
+
+  mongo:
+    image: mvertes/alpine-mongo
+    
+  deployment-engine:
+    image: deployment-engine
+    ports:
+      - 8080:8080
+    links:
+      - mongo:mongo
+    volumes: 
+      - ./config:/root/deployment-engine-config
+      - ./ssh:/root/.ssh
+    depends_on:
+      - mongo

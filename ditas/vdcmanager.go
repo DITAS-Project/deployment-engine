@@ -731,22 +731,85 @@ func (m *VDCManager) doDeleteVDC(infra *model.InfrastructureDeploymentInfo, vdcI
 	return err
 }
 
-func (m *VDCManager) DeployDatasource(blueprintId, vdcID, infraId, datasourceType string, args model.Parameters) (model.Parameters, error) {
+func (m *VDCManager) saveDatasourceInformation(dsID, dsType, vdcID string, infra model.InfrastructureDeploymentInfo, params model.Parameters, vdcInformation VDCInformation) error {
+	vdcInfo, ok := vdcInformation.VDCs[vdcID]
+	if !ok {
+		return fmt.Errorf("Can't find VDC %s in the abstract blueprint information", vdcID)
+	}
+
+	infraInfo, ok := vdcInfo.Infrastructures[infra.ID]
+	if !ok {
+		master, err := infra.GetFirstNodeOfRole("master")
+		if err != nil {
+			return fmt.Errorf("Can't find the master of cluster %s: %w", infra.ID, err)
+		}
+
+		infraInfo = InfrastructureInformation{
+			IP: master.IP,
+		}
+	}
+
+	if infraInfo.Datasources == nil {
+		infraInfo.Datasources = make(map[string]DataSourceInformation)
+	}
+
+	createdID, ok := params.GetString("id")
+	if !ok {
+		return errors.New("Can't find the identifier of the created datasource in output")
+	}
+
+	dsConfig, ok := params["config"]
+	if !ok {
+		return fmt.Errorf("Can't find the configuration of the newly created datasource %s", createdID)
+	}
+
+	infraInfo.Datasources[dsID] = DataSourceInformation{
+		Type:          dsType,
+		ID:            createdID,
+		Configuration: dsConfig,
+	}
+
+	vdcInfo.Infrastructures[infra.ID] = infraInfo
+	vdcInformation.VDCs[vdcID] = vdcInfo
+
+	_, err := m.Collection.ReplaceOne(context.Background(), bson.M{"_id": vdcInformation.ID}, vdcInformation, options.Replace())
+
+	return err
+}
+
+func (m *VDCManager) DeployDatasource(blueprintId, vdcID, infraID, datasourceType string, args model.Parameters) (model.Parameters, error) {
 	var blueprintInfo VDCInformation
 	var result model.Parameters
+
+	dsID, ok := args.GetString("id")
+	if !ok {
+		return result, errors.New("A unique identifier is expected in the query parameter 'id'")
+	}
+
 	err := m.Collection.FindOne(context.Background(), bson.M{"_id": blueprintId}).Decode(&blueprintInfo)
 	if err != nil {
 		return result, fmt.Errorf("Can't find information for blueprint %s: %s", blueprintId, err.Error())
 	}
 
-	infra, err := m.findVDCInfrastructure(blueprintInfo, vdcID, infraId)
+	infra, err := m.findVDCInfrastructure(blueprintInfo, vdcID, infraID)
 	if err != nil {
-		return result, fmt.Errorf("Can't finde infrastructure %s associated to blueprint %s: %v", infraId, blueprintId, err)
+		return result, fmt.Errorf("Can't find infrastructure %s associated to blueprint %s: %v", infraID, blueprintId, err)
 	}
 
 	args["storage_class"] = "rook-ceph-block-single"
 
+	logger := log.WithField("datasource", datasourceType)
+
 	_, result, err = m.ProvisionerController.Provision(infra.ID, datasourceType, args, "kubernetes")
+	if err != nil {
+		return result, utils.WrapLogAndReturnError(logger, "Error creating datasource", err)
+	}
+
+	err = m.saveDatasourceInformation(dsID, datasourceType, vdcID, infra, result, blueprintInfo)
+	if err != nil {
+		return result, utils.WrapLogAndReturnError(logger, "Error saving datasource configuration", err)
+	}
+
 	return result, err
 }
 
