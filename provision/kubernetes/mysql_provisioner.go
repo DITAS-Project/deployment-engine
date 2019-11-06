@@ -36,13 +36,14 @@ const (
 
 type InstanceConfig struct {
 	Port         int
+	Username     string
 	RootSecretID string
 	UserSecretID string
 }
 
 type MySQLConfig struct {
-	NumInstances int                       `json:"num_instances"`
-	Instances    map[string]InstanceConfig `json:"instances"`
+	NumInstances int
+	Instances    map[string]InstanceConfig
 }
 
 type MySQLProvisioner struct {
@@ -133,6 +134,7 @@ func (p MySQLProvisioner) Provision(config *KubernetesConfiguration, infra *mode
 				"password": userPassword,
 			},
 		})
+		instanceConfig.Username = username
 		instanceConfig.UserSecretID = userSecretID
 	}
 

@@ -777,7 +777,7 @@ func (m *VDCManager) saveDatasourceInformation(dsID, dsType, vdcID string, infra
 	return err
 }
 
-func (m *VDCManager) DeployDatasource(blueprintId, vdcID, infraID, datasourceType string, args model.Parameters) (model.Parameters, error) {
+func (m *VDCManager) DeployDatasource(blueprintID, vdcID, infraID, datasourceType string, args model.Parameters) (model.Parameters, error) {
 	var blueprintInfo VDCInformation
 	var result model.Parameters
 
@@ -786,14 +786,27 @@ func (m *VDCManager) DeployDatasource(blueprintId, vdcID, infraID, datasourceTyp
 		return result, errors.New("A unique identifier is expected in the query parameter 'id'")
 	}
 
-	err := m.Collection.FindOne(context.Background(), bson.M{"_id": blueprintId}).Decode(&blueprintInfo)
+	err := m.Collection.FindOne(context.Background(), bson.M{"_id": blueprintID}).Decode(&blueprintInfo)
 	if err != nil {
-		return result, fmt.Errorf("Can't find information for blueprint %s: %s", blueprintId, err.Error())
+		return result, fmt.Errorf("Can't find information for blueprint %s: %s", blueprintID, err.Error())
+	}
+
+	vdcInfo, ok := blueprintInfo.VDCs[vdcID]
+	if !ok {
+		return result, fmt.Errorf("Can't find information about vdc %s of blueprint %s", vdcID, blueprintID)
+	}
+
+	infraInfo, ok := vdcInfo.Infrastructures[infraID]
+	if ok {
+		_, found := infraInfo.Datasources[dsID]
+		if found {
+			return result, fmt.Errorf("A datasource with identifier %s has been found in infrastructure %s", dsID, infraID)
+		}
 	}
 
 	infra, err := m.findVDCInfrastructure(blueprintInfo, vdcID, infraID)
 	if err != nil {
-		return result, fmt.Errorf("Can't find infrastructure %s associated to blueprint %s: %v", infraID, blueprintId, err)
+		return result, fmt.Errorf("Can't find infrastructure %s associated to blueprint %s: %v", infraID, blueprintID, err)
 	}
 
 	args["storage_class"] = "rook-ceph-block-single"

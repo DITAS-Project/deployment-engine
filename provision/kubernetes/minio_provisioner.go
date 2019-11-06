@@ -41,8 +41,8 @@ type MinioInstanceConfig struct {
 }
 
 type MinioConfig struct {
-	NumInstances int                            `json:"num_instances"`
-	Instances    map[string]MinioInstanceConfig `json:"instances"`
+	NumInstances int
+	Instances    map[string]MinioInstanceConfig
 }
 
 type MinioProvisioner struct {
@@ -210,7 +210,7 @@ func (p MinioProvisioner) Provision(config *KubernetesConfiguration, infra *mode
 	config.DeploymentsConfiguration["minio"] = minioConfig
 
 	result["id"] = dsID
-	result["config"] = minioConfig
+	result["config"] = instanceConfig
 
 	return result, nil
 }
