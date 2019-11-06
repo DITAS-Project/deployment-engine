@@ -150,8 +150,6 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 
 	logger = logger.WithField("VDC", vdcID)
 
-	dals := bp.InternalStructure.DALImages
-
 	var imageSet kubernetes.ImageSet
 	utils.TransformObject(bp.InternalStructure.VDCImages, &imageSet)
 	imageSet["sla-manager"] = kubernetes.ImageInfo{
@@ -169,8 +167,6 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 		Image:        fmt.Sprintf("ditas/due-vdc:%s", p.GetImageVersion("due-vdc")),
 		InternalPort: 5000,
 	}
-
-	FillEnvVars(dals, imageSet, vars)
 
 	caf, ok := imageSet["caf"]
 	if !ok {
@@ -215,8 +211,6 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 		repoSecrets = []string{config.RegistriesSecret}
 	}
 
-	vdcDeployment := kubernetes.GetDeploymentDescription(vdcID, int32(1), int64(30), vdcLabels, imageSet, configMapName, "/etc/ditas", repoSecrets, nil)
-
 	hostAlias := make([]corev1.HostAlias, 0, len(bp.InternalStructure.DALImages)+1)
 	for dalName, dalInfo := range bp.InternalStructure.DALImages {
 		dalOriginalIP := dalInfo.OriginalIP
@@ -229,6 +223,12 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 				Hostnames: []string{dalName},
 			})
 		}
+		for imageName, imageInfo := range dalInfo.Images {
+			if imageInfo.ExternalPort != nil {
+				varName := fmt.Sprintf("dal.%s.%s.port", dalName, imageName)
+				vars[varName] = fmt.Sprintf("%d", *imageInfo.ExternalPort)
+			}
+		}
 	}
 
 	if vdmIP != "" {
@@ -237,6 +237,10 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 			Hostnames: []string{"vdm"},
 		})
 	}
+
+	kubernetes.ReplaceEnvVars(imageSet, vars)
+
+	vdcDeployment := kubernetes.GetDeploymentDescription(vdcID, int32(1), int64(30), vdcLabels, imageSet, configMapName, "/etc/ditas", repoSecrets, nil)
 
 	if len(hostAlias) > 0 {
 		vdcDeployment.Spec.Template.Spec.HostAliases = hostAlias
