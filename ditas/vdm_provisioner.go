@@ -137,7 +137,7 @@ func (p VDMProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 		InternalPort: cmePort,
 	}
 	imageSet["data-analytics"] = kubernetes.ImageInfo{
-		Image:        fmt.Sprintf("ditas/data-analytics:%s", p.GetImageVersion("data-analytics")),
+		Image:        fmt.Sprintf("ditas/data_analytics:%s", p.GetImageVersion("data-analytics")),
 		InternalPort: cmePort,
 	}
 

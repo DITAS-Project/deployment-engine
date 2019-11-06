@@ -334,7 +334,7 @@ func (a *DitasFrontend) createDatasource(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
-	restfrontend.RespondWithJSON(w, http.StatusNoContent, result)
+	restfrontend.RespondWithJSON(w, http.StatusCreated, result)
 	return
 }
 

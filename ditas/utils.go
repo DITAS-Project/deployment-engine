@@ -25,6 +25,13 @@ import (
 	"strconv"
 
 	blueprint "github.com/DITAS-Project/blueprint-go"
+	"github.com/google/uuid"
+	"github.com/sethvargo/go-password/password"
+	"github.com/sirupsen/logrus"
+)
+
+const (
+	RandomVariable = "random"
 )
 
 // expandVariable gets a potential variable name and a set of values indexed by variable name and returns its value if found.
@@ -34,6 +41,14 @@ import (
 func expandVariable(varValue string, values map[string]interface{}) string {
 	if values != nil {
 		return os.Expand(varValue, func(variable string) string {
+			if variable == RandomVariable {
+				pw, err := password.Generate(10, 3, 1, false, false)
+				if err != nil {
+					logrus.WithError(err).Error("Error generating random password for environment variable. Generating a UUID instead")
+					return uuid.New().String()
+				}
+				return pw
+			}
 			val, ok := values[variable]
 			if ok {
 				return fmt.Sprintf("%v", val)
