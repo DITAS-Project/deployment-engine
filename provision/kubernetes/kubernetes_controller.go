@@ -174,8 +174,18 @@ func NewKubernetesController() *KubernetesController {
 			"rook": RookProvisioner{
 				scriptsFolder: scriptsFolder,
 			},
-			"mysql":    MySQLProvisioner{},
-			"minio":    MinioProvisioner{},
+			"mysql": DatasourceProvisioner{
+				Configurer:      MySQLConfigurer{},
+				DatabaseType:    MySQLType,
+				InternalPort:    3306,
+				VolumeMountPath: "/var/lib/mysql",
+			},
+			"minio": DatasourceProvisioner{
+				Configurer:      MinioConfigurer{},
+				DatabaseType:    MinioType,
+				InternalPort:    9000,
+				VolumeMountPath: "/data",
+			},
 			"services": GenericServiceProvisioner{},
 			"traefik": TraefikProvisioner{
 				scriptsFolder: scriptsFolder,

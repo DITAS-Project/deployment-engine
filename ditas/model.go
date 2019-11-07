@@ -18,6 +18,8 @@
 
 package ditas
 
+import "deployment-engine/provision/kubernetes"
+
 const (
 	ElasticSearchUrlVarName      = "elasticsearch_url"
 	ElasticSearchUsernameVarName = "elasticsearch_user"
@@ -25,9 +27,9 @@ const (
 )
 
 type DataSourceInformation struct {
-	Type          string
-	ID            string
-	Configuration interface{}
+	Type    string
+	Vars    map[string]string
+	Secrets map[string]kubernetes.EnvSecret
 }
 
 type InfrastructureInformation struct {

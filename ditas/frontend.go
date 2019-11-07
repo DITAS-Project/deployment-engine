@@ -105,7 +105,8 @@ func (a DitasFrontend) Run(addr string) error {
 
 func (a *DitasFrontend) initializeRoutes() {
 	a.Router.POST("/blueprint", a.createDep)
-	a.Router.POST("/blueprint/:blueprintId/datasource", a.createDatasource)
+	a.Router.POST("/blueprint/:blueprintId/vdc/:vdcId/:infraId/datasource", a.createDatasource)
+	a.Router.POST("/blueprint/:blueprintId/vdc/:vdcId/:infraId/dal", a.createDal)
 	a.Router.PUT("/blueprint/:blueprintId/vdc/:vdcId", a.moveVDC)
 	a.Router.GET("/blueprint/:blueprintId/vdc/:vdcId", a.getVDCInfo)
 	//a.Router.HandleFunc("/deployment/{depId}/{infraId}", a.DefaultFrontend.deleteInfra).Methods("DELETE")
@@ -311,18 +312,18 @@ func (a *DitasFrontend) createDatasource(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
-	vdcID := r.URL.Query().Get("vdcId")
+	vdcID := p.ByName("vdcId")
 	if vdcID == "" {
 		restfrontend.RespondWithError(w, http.StatusBadRequest, "VDC identifier is mandatory")
 	}
 
-	infraID := r.URL.Query().Get("infraId")
+	infraID := p.ByName("infraId")
 	if infraID == "" {
 		restfrontend.RespondWithError(w, http.StatusBadRequest, "Infrastructure identifier is mandatory")
 		return
 	}
 
-	datasource := r.URL.Query().Get("datasource")
+	datasource := r.URL.Query().Get("type")
 	if datasource == "" {
 		restfrontend.RespondWithError(w, http.StatusBadRequest, "Datasource type is mandatory")
 		return
@@ -357,5 +358,39 @@ func (a *DitasFrontend) getVDCInfo(w http.ResponseWriter, r *http.Request, p htt
 	}
 
 	restfrontend.RespondWithJSON(w, http.StatusOK, vdcInfo)
+	return
+}
+
+func (a *DitasFrontend) createDal(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	blueprintID := p.ByName("blueprintId")
+	if blueprintID == "" {
+		restfrontend.RespondWithError(w, http.StatusBadRequest, "Blueprint identifier is mandatory")
+		return
+	}
+
+	vdcID := p.ByName("vdcId")
+	if vdcID == "" {
+		restfrontend.RespondWithError(w, http.StatusBadRequest, "VDC identifier is mandatory")
+	}
+
+	infraID := p.ByName("infraId")
+	if infraID == "" {
+		restfrontend.RespondWithError(w, http.StatusBadRequest, "Infrastructure identifier is mandatory")
+		return
+	}
+
+	dalID := r.URL.Query().Get("id")
+	if dalID == "" {
+		restfrontend.RespondWithError(w, http.StatusBadRequest, "DAL identifier is mandatory")
+		return
+	}
+
+	result, err := a.VDCManagerInstance.DeployDAL(blueprintID, vdcID, infraID, dalID)
+	if err != nil {
+		restfrontend.RespondWithError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	restfrontend.RespondWithJSON(w, http.StatusCreated, result)
 	return
 }

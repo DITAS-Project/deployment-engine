@@ -44,10 +44,14 @@ import (
 )
 
 type SecretData struct {
-	EnvVars    map[string]string
-	MountPaths map[string]string
-	SecretID   string
-	Data       map[string]string
+	SecretID string
+	Data     map[string]string
+}
+
+type EnvSecret struct {
+	EnvName  string
+	SecretID string
+	Key      string
 }
 
 type VolumeData struct {
@@ -87,6 +91,9 @@ type ImageInfo struct {
 
 	// Environment is a map of environment variables whose key is the variable name and value is the variable value
 	Environment map[string]string `json:"environment"`
+
+	// Secrets that must be passed as environmet variables
+	Secrets []EnvSecret `json:"secrets"`
 }
 
 // ImageSet represents a set of docker images whose key is an identifier and value is a the docker image information such as image name and listening ports
@@ -197,7 +204,7 @@ func GetDockerRegistrySecret(repos map[string]model.DockerRegistry, name string)
 	}, nil
 }
 
-func GetContainersDescription(images ImageSet, secrets []SecretData, volumes []VolumeData) []corev1.Container {
+func GetContainersDescription(images ImageSet, volumes []VolumeData) []corev1.Container {
 
 	containers := make([]corev1.Container, 0, len(images))
 
@@ -208,7 +215,7 @@ func GetContainersDescription(images ImageSet, secrets []SecretData, volumes []V
 			Image: containerInfo.Image,
 		}
 
-		env := make([]corev1.EnvVar, 0, len(containerInfo.Environment)+len(secrets))
+		env := make([]corev1.EnvVar, 0, len(containerInfo.Environment)+len(containerInfo.Secrets))
 		for k, v := range containerInfo.Environment {
 			env = append(env, corev1.EnvVar{
 				Name:  k,
@@ -216,20 +223,18 @@ func GetContainersDescription(images ImageSet, secrets []SecretData, volumes []V
 			})
 		}
 
-		for _, secret := range secrets {
-			for envVar, key := range secret.EnvVars {
-				env = append(env, corev1.EnvVar{
-					Name: envVar,
-					ValueFrom: &corev1.EnvVarSource{
-						SecretKeyRef: &corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
-								Name: secret.SecretID,
-							},
-							Key: key,
+		for _, secret := range containerInfo.Secrets {
+			env = append(env, corev1.EnvVar{
+				Name: secret.EnvName,
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: secret.SecretID,
 						},
+						Key: secret.Key,
 					},
-				})
-			}
+				},
+			})
 		}
 
 		if len(env) > 0 {
@@ -263,14 +268,14 @@ func GetContainersDescription(images ImageSet, secrets []SecretData, volumes []V
 	return containers
 }
 
-func GetPodSpecDescrition(labels map[string]string, terminationPeriod int64, images ImageSet, secrets []SecretData, volumes []VolumeData, repositorySecrets []string) corev1.PodTemplateSpec {
+func GetPodSpecDescrition(labels map[string]string, terminationPeriod int64, images ImageSet, volumes []VolumeData, repositorySecrets []string) corev1.PodTemplateSpec {
 	result := corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: labels,
 		},
 		Spec: corev1.PodSpec{
 			TerminationGracePeriodSeconds: &terminationPeriod,
-			Containers:                    GetContainersDescription(images, secrets, volumes),
+			Containers:                    GetContainersDescription(images, volumes),
 		},
 	}
 
@@ -321,7 +326,7 @@ func GetDeploymentDescription(name string, replicas int32, terminationPeriod int
 		volumeData = append(volumeData, volumeConfig)
 	}
 
-	podTemplate := GetPodSpecDescrition(labels, terminationPeriod, images, nil, volumeData, repositorySecrets)
+	podTemplate := GetPodSpecDescrition(labels, terminationPeriod, images, volumeData, repositorySecrets)
 
 	if hasConfig {
 		if podTemplate.Spec.Volumes == nil {
@@ -383,7 +388,7 @@ func GetPersistentVolumeClaim(volume VolumeData) (corev1.PersistentVolumeClaim, 
 	}, nil
 }
 
-func GetStatefulSetDescription(name string, replicas int32, terminationPeriod int64, labels map[string]string, images ImageSet, secrets []SecretData, volumes []VolumeData, repositorySecrets []string) (appsv1.StatefulSet, error) {
+func GetStatefulSetDescription(name string, replicas int32, terminationPeriod int64, labels map[string]string, images ImageSet, volumes []VolumeData, repositorySecrets []string) (appsv1.StatefulSet, error) {
 
 	volumesClaims := make([]corev1.PersistentVolumeClaim, 0)
 	for _, volume := range volumes {
@@ -404,7 +409,7 @@ func GetStatefulSetDescription(name string, replicas int32, terminationPeriod in
 			Selector: &metav1.LabelSelector{
 				MatchLabels: labels,
 			},
-			Template:             GetPodSpecDescrition(labels, terminationPeriod, images, secrets, volumes, repositorySecrets),
+			Template:             GetPodSpecDescrition(labels, terminationPeriod, images, volumes, repositorySecrets),
 			VolumeClaimTemplates: volumesClaims,
 		},
 	}, nil

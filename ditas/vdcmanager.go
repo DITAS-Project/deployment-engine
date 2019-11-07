@@ -108,6 +108,7 @@ func NewVDCManager(deployer *infrastructure.Deployer, provisionerController *pro
 	kubeProvisioner := kubernetes.NewKubernetesController()
 	kubeProvisioner.AddProvisioner("vdm", NewVDMProvisioner(scriptsFolder, configVarsPath, ditasPodsConfigFolder, imagesVersion))
 	kubeProvisioner.AddProvisioner("vdc", NewVDCProvisioner(ditasPodsConfigFolder, imagesVersion))
+	kubeProvisioner.AddProvisioner("dal", NewDALProvisioner())
 
 	provisionerController.Provisioners["kubernetes"] = kubeProvisioner
 
@@ -753,21 +754,64 @@ func (m *VDCManager) saveDatasourceInformation(dsID, dsType, vdcID string, infra
 		infraInfo.Datasources = make(map[string]DataSourceInformation)
 	}
 
-	createdID, ok := params.GetString("id")
+	createdID, ok := params.GetString(kubernetes.DatasourceIDProperty)
 	if !ok {
 		return errors.New("Can't find the identifier of the created datasource in output")
 	}
 
-	dsConfig, ok := params["config"]
+	createdPort, ok := params.GetInt(kubernetes.DatasourcePortProperty)
 	if !ok {
-		return fmt.Errorf("Can't find the configuration of the newly created datasource %s", createdID)
+		errors.New("Can't find the created datasource port")
 	}
 
-	infraInfo.Datasources[dsID] = DataSourceInformation{
-		Type:          dsType,
-		ID:            createdID,
-		Configuration: dsConfig,
+	secretID, ok := params.GetString(kubernetes.DatasourceSecretIDProperty)
+	if !ok {
+		errors.New("Can't find the created datasource secret identifier")
 	}
+
+	dsInformation := DataSourceInformation{
+		Type: dsType,
+		Vars: map[string]string{
+			fmt.Sprintf("%s.name", dsID): createdID,
+			fmt.Sprintf("%s.port", dsID): fmt.Sprintf("%d", createdPort),
+		},
+		Secrets: make(map[string]kubernetes.EnvSecret),
+	}
+
+	switch dsType {
+	case kubernetes.MySQLType:
+		username, ok := params.GetString(kubernetes.MySQLUsernameProperty)
+		var secretKey string
+		if !ok {
+			username = "root"
+			secretKey = kubernetes.MySQLRootPasswordSecretKey
+		} else {
+			secretKey = kubernetes.MySQLUserPasswordSecretKey
+		}
+		userNameVar := fmt.Sprintf("%s.username", dsID)
+		dsInformation.Vars[userNameVar] = username
+
+		passwordSecretName := fmt.Sprintf("%s.password", dsID)
+		dsInformation.Secrets[passwordSecretName] = kubernetes.EnvSecret{
+			SecretID: secretID,
+			Key:      secretKey,
+		}
+	case kubernetes.MinioType:
+
+		accessKeySecretName := fmt.Sprintf("%s.access_key", dsID)
+		dsInformation.Secrets[accessKeySecretName] = kubernetes.EnvSecret{
+			SecretID: secretID,
+			Key:      kubernetes.MinioAccessKeySecretKey,
+		}
+
+		secretKeySecretName := fmt.Sprintf("%s.secret_key", dsID)
+		dsInformation.Secrets[secretKeySecretName] = kubernetes.EnvSecret{
+			SecretID: secretID,
+			Key:      kubernetes.MinioSecretKeySecretKey,
+		}
+	}
+
+	infraInfo.Datasources[dsID] = dsInformation
 
 	vdcInfo.Infrastructures[infra.ID] = infraInfo
 	vdcInformation.VDCs[vdcID] = vdcInfo
@@ -840,4 +884,59 @@ func (m *VDCManager) GetVDCInformation(blueprintID, vdcID string) (VDCConfigurat
 	}
 
 	return result, nil
+}
+
+func (m *VDCManager) DeployDAL(blueprintID, vdcID, infraID, dalID string) (model.Parameters, error) {
+	var blueprintInfo VDCInformation
+	var result model.Parameters
+
+	err := m.Collection.FindOne(context.Background(), bson.M{"_id": blueprintID}).Decode(&blueprintInfo)
+	if err != nil {
+		return result, fmt.Errorf("Can't find information for blueprint %s: %s", blueprintID, err.Error())
+	}
+
+	vdcInfo, ok := blueprintInfo.VDCs[vdcID]
+	if !ok {
+		return result, fmt.Errorf("Can't find information about vdc %s of blueprint %s", vdcID, blueprintID)
+	}
+
+	infraInfo, ok := vdcInfo.Infrastructures[infraID]
+	if !ok {
+		return result, fmt.Errorf("Can't find infrastructure %s information associated to VDC %s. Make sure that the datasources are initialized in this infrastructure before trying to create a DAL in it", infraID, vdcID)
+	}
+
+	if len(infraInfo.Datasources) == 0 {
+		return result, fmt.Errorf("Can't find any datasource in infrastructure %s associated to VDC %s", infraID, vdcID)
+	}
+
+	var bp blueprint.Blueprint
+	err = json.Unmarshal([]byte(vdcInfo.Blueprint), &bp)
+	if err != nil {
+		return result, fmt.Errorf("Error deserializing blueprint associated to VDC %s: %w", vdcID, err)
+	}
+
+	vars := m.getVarsFromConfig()
+	secrets := make(map[string]kubernetes.EnvSecret)
+	for _, dsInfo := range infraInfo.Datasources {
+		for varName, varValue := range dsInfo.Vars {
+			vars[varName] = varValue
+		}
+
+		for secretName, secretValue := range dsInfo.Secrets {
+			secrets[secretName] = secretValue
+		}
+	}
+
+	args := make(model.Parameters)
+	args[BlueprintProperty] = bp
+	args[VariablesProperty] = vars
+	args[SecretsProperty] = secrets
+	args[DALIdentifierProperty] = dalID
+
+	_, result, err = m.ProvisionerController.Provision(infraID, "dal", args, "kubernetes")
+	if err != nil {
+		return result, fmt.Errorf("Error deploying DAL %s: %w", dalID, err)
+	}
+
+	return result, err
 }
