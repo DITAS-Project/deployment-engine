@@ -107,6 +107,7 @@ func (a *DitasFrontend) initializeRoutes() {
 	a.Router.POST("/blueprint", a.createDep)
 	a.Router.POST("/blueprint/:blueprintId/vdc/:vdcId/:infraId/datasource", a.createDatasource)
 	a.Router.POST("/blueprint/:blueprintId/vdc/:vdcId/:infraId/dal", a.createDal)
+	a.Router.PUT("/blueprint/:blueprintId/vdc/:vdcId/:infraId/dal/:dalId", a.setDal)
 	a.Router.PUT("/blueprint/:blueprintId/vdc/:vdcId", a.moveVDC)
 	a.Router.GET("/blueprint/:blueprintId/vdc/:vdcId", a.getVDCInfo)
 	//a.Router.HandleFunc("/deployment/{depId}/{infraId}", a.DefaultFrontend.deleteInfra).Methods("DELETE")
@@ -393,4 +394,45 @@ func (a *DitasFrontend) createDal(w http.ResponseWriter, r *http.Request, p http
 
 	restfrontend.RespondWithJSON(w, http.StatusCreated, result)
 	return
+}
+
+func (a *DitasFrontend) setDal(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	blueprintID := p.ByName("blueprintId")
+	if blueprintID == "" {
+		restfrontend.RespondWithError(w, http.StatusBadRequest, "Blueprint identifier is mandatory")
+		return
+	}
+
+	vdcID := p.ByName("vdcId")
+	if vdcID == "" {
+		restfrontend.RespondWithError(w, http.StatusBadRequest, "VDC identifier is mandatory")
+	}
+
+	infraID := p.ByName("infraId")
+	if infraID == "" {
+		restfrontend.RespondWithError(w, http.StatusBadRequest, "Infrastructure identifier is mandatory")
+		return
+	}
+
+	dalID := p.ByName("dalId")
+	if infraID == "" {
+		restfrontend.RespondWithError(w, http.StatusBadRequest, "DAL identifier is mandatory")
+		return
+	}
+
+	ip := r.URL.Query().Get("ip")
+	if ip == "" {
+		restfrontend.RespondWithError(w, http.StatusBadRequest, "DAL IP is mandatory")
+		return
+	}
+
+	result, err := a.VDCManagerInstance.SetDALInUse(blueprintID, vdcID, infraID, dalID, ip)
+	if err != nil {
+		restfrontend.RespondWithError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	restfrontend.RespondWithJSON(w, http.StatusOK, result)
+	return
+
 }

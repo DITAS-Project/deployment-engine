@@ -37,12 +37,16 @@ type InfrastructureInformation struct {
 	TombstonePort int
 	CAFPort       int
 	Datasources   map[string]DataSourceInformation
+	// DALInformation is the ports used by the DALs in this infrastructure, indexed by DAL identifier and then by image identifier
+	DALInformation map[string]map[string]int
 }
 
 type VDCConfiguration struct {
 	Blueprint              string
 	AppDeveloperDeployment []string `json:"app_developer_deployment" bson:"app_developer_deployment"`
-	Infrastructures        map[string]InfrastructureInformation
+	// DALsInUse sets the IP to use for every DAL referenced in the VDC if it's been moved
+	DALsInUse       map[string]string
+	Infrastructures map[string]InfrastructureInformation
 }
 
 type VDCInformation struct {

@@ -326,7 +326,7 @@ func (m *VDCManager) DeployBlueprint(bp blueprint.Blueprint) (VDCInformation, er
 		vdmIP = vdcInfo.VDMIP
 	}
 
-	tombstonePort, cafPort, _, err := m.DeployVDC(bp, infra, vdcID, vdmIP)
+	tombstonePort, cafPort, _, err := m.DeployVDC(bp, infra, vdcID, vdmIP, make(map[string]string))
 	if err != nil {
 		return vdcInfo, err
 	}
@@ -343,11 +343,14 @@ func (m *VDCManager) DeployBlueprint(bp blueprint.Blueprint) (VDCInformation, er
 
 	config := VDCConfiguration{
 		Blueprint: string(strBp),
+		DALsInUse: make(map[string]string),
 		Infrastructures: map[string]InfrastructureInformation{
 			infra.ID: InfrastructureInformation{
-				IP:            masterIP,
-				TombstonePort: tombstonePort,
-				CAFPort:       cafPort,
+				IP:             masterIP,
+				TombstonePort:  tombstonePort,
+				CAFPort:        cafPort,
+				Datasources:    make(map[string]DataSourceInformation),
+				DALInformation: make(map[string]map[string]int),
 			},
 		},
 		AppDeveloperDeployment: m.toIDs(appDeveloperDeploymentInfo),
@@ -567,7 +570,7 @@ func (m *VDCManager) provisionKubernetes(deployment model.DeploymentInfo) (model
 	return result, err
 }
 
-func (m *VDCManager) DeployVDC(blueprint blueprint.Blueprint, infra model.InfrastructureDeploymentInfo, vdcID, vdmIP string) (int, int, model.InfrastructureDeploymentInfo, error) {
+func (m *VDCManager) DeployVDC(blueprint blueprint.Blueprint, infra model.InfrastructureDeploymentInfo, vdcID, vdmIP string, dals map[string]string) (int, int, model.InfrastructureDeploymentInfo, error) {
 
 	var deployment model.InfrastructureDeploymentInfo
 	kubeConfigRaw, ok := infra.Products["kubernetes"]
@@ -581,16 +584,18 @@ func (m *VDCManager) DeployVDC(blueprint blueprint.Blueprint, infra model.Infras
 		return -1, -1, deployment, fmt.Errorf("Error reading kubernetes configuration from infrastructure %s: %w", infra.ID, err)
 	}
 
-	return m.doDeployVDC(infra, blueprint, vdcID, vdmIP)
+	return m.doDeployVDC(infra, blueprint, vdcID, vdmIP, dals)
 }
 
-func (m *VDCManager) doDeployVDC(infra model.InfrastructureDeploymentInfo, bp blueprint.Blueprint, vdcID, vdmIP string) (int, int, model.InfrastructureDeploymentInfo, error) {
+func (m *VDCManager) doDeployVDC(infra model.InfrastructureDeploymentInfo, bp blueprint.Blueprint, vdcID, vdmIP string, dals map[string]string) (int, int, model.InfrastructureDeploymentInfo, error) {
 
 	args := make(model.Parameters)
 	args[BlueprintProperty] = bp
 	args[VDCIDProperty] = vdcID
 	args[VDMIPProperty] = vdmIP
 	args[VariablesProperty] = m.getVarsFromConfig()
+	args[DalsProperty] = dals
+	args[VDCProvisionModeProperty] = VDCProvisionModeCreate
 
 	for i, infra := range bp.CookbookAppendix.Resources.Infrastructures {
 		infra.Provider.Credentials = nil
@@ -680,7 +685,7 @@ func (m *VDCManager) CopyVDC(blueprintID, vdcID, targetInfraID string) (VDCConfi
 		return vdcConfig, fmt.Errorf("Error finding target infrastructure %s: %w", targetInfraID, err)
 	}
 
-	tombstonePort, cafPort, targetInfra, err := m.DeployVDC(bp, targetInfra, vdcID, vdmIP)
+	tombstonePort, cafPort, targetInfra, err := m.DeployVDC(bp, targetInfra, vdcID, vdmIP, vdcConfig.DALsInUse)
 	if err != nil {
 		return vdcConfig, fmt.Errorf("Error creating copy of VDC %s in infrastructure %s: %w", vdcID, targetInfra.ID, err)
 	}
@@ -890,6 +895,13 @@ func (m *VDCManager) DeployDAL(blueprintID, vdcID, infraID, dalID string) (model
 	var blueprintInfo VDCInformation
 	var result model.Parameters
 
+	logger := log.WithFields(log.Fields{
+		"blueprint": blueprintID,
+		"vdc":       vdcID,
+		"infra":     infraID,
+		"dal":       dalID,
+	})
+
 	err := m.Collection.FindOne(context.Background(), bson.M{"_id": blueprintID}).Decode(&blueprintInfo)
 	if err != nil {
 		return result, fmt.Errorf("Can't find information for blueprint %s: %s", blueprintID, err.Error())
@@ -938,5 +950,64 @@ func (m *VDCManager) DeployDAL(blueprintID, vdcID, infraID, dalID string) (model
 		return result, fmt.Errorf("Error deploying DAL %s: %w", dalID, err)
 	}
 
+	portsRaw, ok := result[DALPort]
+	if !ok {
+		log.Error("Can't find created DAL's ports in the output")
+	} else {
+		ports, ok := portsRaw.(map[string]int)
+		if !ok {
+			log.Error("Port information for created DAL is of wrong type. Expected a map[string]int")
+		}
+		infraInfo.DALInformation[dalID] = ports
+		vdcInfo.Infrastructures[infraID] = infraInfo
+		blueprintInfo.VDCs[vdcID] = vdcInfo
+		_, err := m.Collection.ReplaceOne(context.Background(), bson.M{"_id": blueprintInfo.ID}, blueprintInfo, options.Replace())
+		if err != nil {
+			return result, utils.WrapLogAndReturnError(logger, "Error saving DAL information to database", err)
+		}
+	}
+
 	return result, err
+}
+
+func (m *VDCManager) SetDALInUse(blueprintID, vdcID, vdcInfraID, dalID, dalIP string) (model.Parameters, error) {
+	var blueprintInfo VDCInformation
+	var result model.Parameters
+
+	err := m.Collection.FindOne(context.Background(), bson.M{"_id": blueprintID}).Decode(&blueprintInfo)
+	if err != nil {
+		return result, fmt.Errorf("Can't find information for blueprint %s: %s", blueprintID, err.Error())
+	}
+
+	vdcInfo, ok := blueprintInfo.VDCs[vdcID]
+	if !ok {
+		return result, fmt.Errorf("Can't find information about vdc %s of blueprint %s", vdcID, blueprintID)
+	}
+
+	_, ok = vdcInfo.Infrastructures[vdcInfraID]
+	if !ok {
+		return result, fmt.Errorf("Can't find infrastructure %s information associated to VDC %s", vdcInfraID, vdcID)
+	}
+
+	vdcInfo.DALsInUse[dalID] = dalIP
+
+	args := make(model.Parameters)
+	args[VDCProvisionModeProperty] = VDCProvisionModeModify
+	args[VDCIDProperty] = vdcID
+	args[HostsProperty] = vdcInfo.DALsInUse
+	_, result, err = m.ProvisionerController.Provision(vdcInfraID, "vdc", args, "kubernetes")
+
+	if err != nil {
+		return result, fmt.Errorf("Error updating DAL information of VDC %s: %w", vdcID, err)
+	}
+
+	blueprintInfo.VDCs[vdcID] = vdcInfo
+
+	_, err = m.Collection.ReplaceOne(context.Background(), bson.M{"_id": blueprintInfo.ID}, blueprintInfo, options.Replace())
+	if err != nil {
+		return result, fmt.Errorf("Error updating information about abstract blueprint %s: %w", blueprintID, err)
+	}
+
+	return result, nil
+
 }

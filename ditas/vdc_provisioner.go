@@ -34,12 +34,18 @@ import (
 )
 
 const (
-	VDCIDProperty         = "vdcId"
-	BlueprintProperty     = "blueprint"
-	VDMIPProperty         = "vdmIP"
-	CAFPortProperty       = "cafPort"
-	TombstonePortProperty = "tombstonePort"
-	VariablesProperty     = "variables"
+	VDCIDProperty            = "vdcId"
+	BlueprintProperty        = "blueprint"
+	VDMIPProperty            = "vdmIP"
+	CAFPortProperty          = "cafPort"
+	TombstonePortProperty    = "tombstonePort"
+	VariablesProperty        = "variables"
+	DalsProperty             = "dals"
+	VDCProvisionModeProperty = "mode"
+	HostsProperty            = "hosts"
+
+	VDCProvisionModeCreate = "create"
+	VDCProvisionModeModify = "modify"
 
 	//DUEVDCTestPort = 30005
 )
@@ -64,13 +70,9 @@ func (p VDCProvisioner) GetImageVersion(imageName string) string {
 	return version
 }
 
-func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, infra *model.InfrastructureDeploymentInfo, args model.Parameters) (model.Parameters, error) {
-
+func (p VDCProvisioner) CreateVDC(logger *logrus.Entry, config *kubernetes.KubernetesConfiguration, infra *model.InfrastructureDeploymentInfo, args model.Parameters, vdcID string) (model.Parameters, error) {
 	result := make(model.Parameters)
 	var err error
-	logger := logrus.WithFields(logrus.Fields{
-		"infrastructure": infra.ID,
-	})
 
 	blueprintRaw, ok := args[BlueprintProperty]
 	if !ok {
@@ -80,11 +82,6 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 	bp, ok := blueprintRaw.(blueprint.Blueprint)
 	if !ok {
 		return result, errors.New("Invalid type for blueprint parameter. Expected blueprint.Blueprint")
-	}
-
-	vdcID, ok := args.GetString(VDCIDProperty)
-	if !ok {
-		return result, errors.New("Can't find VDC identifier in parameters")
 	}
 
 	vdmIP, ok := args.GetString(VDMIPProperty)
@@ -102,10 +99,19 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 		return result, errors.New("Invalid type for substitution variables parameter. Expected map[string]interface{}")
 	}
 
+	dalsRaw, ok := args[DalsProperty]
+	if !ok {
+		return result, errors.New("Can't find DALs information in the parameters")
+	}
+
+	dals, ok := dalsRaw.(map[string]string)
+	if !ok {
+		return result, errors.New("Unexpected type found for DALs information. Expected map[string]string")
+	}
+
 	kubeClient, err := kubernetes.NewClient(config.ConfigurationFile)
 	if err != nil {
-		logger.WithError(err).Error("Error getting kubernetes client")
-		return result, err
+		return result, utils.WrapLogAndReturnError(logger, "Error getting kubernetes client", err)
 	}
 
 	if !config.Managed {
@@ -213,16 +219,24 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 
 	hostAlias := make([]corev1.HostAlias, 0, len(bp.InternalStructure.DALImages)+1)
 	for dalName, dalInfo := range bp.InternalStructure.DALImages {
-		dalOriginalIP := dalInfo.OriginalIP
-		if customIP, ok := dalInfo.ClusterOriginalIPs[infra.Name]; ok {
-			dalOriginalIP = customIP
+
+		var dalIP string
+		if ip, ok := dals[dalName]; ok {
+			dalIP = ip
+		} else {
+			dalIP = dalInfo.OriginalIP
+			if customIP, ok := dalInfo.ClusterOriginalIPs[infra.Name]; ok {
+				dalIP = customIP
+			}
 		}
-		if dalOriginalIP != "" {
+
+		if dalIP != "" {
 			hostAlias = append(hostAlias, corev1.HostAlias{
-				IP:        dalOriginalIP,
+				IP:        dalIP,
 				Hostnames: []string{dalName},
 			})
 		}
+
 		for imageName, imageInfo := range dalInfo.Images {
 			if imageInfo.ExternalPort != nil {
 				varName := fmt.Sprintf("dal.%s.%s.port", dalName, imageName)
@@ -309,4 +323,72 @@ func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 	logger.Info("VDC successfully deployed")
 
 	return result, err
+}
+
+func (p VDCProvisioner) ModifyVDC(logger *logrus.Entry, config *kubernetes.KubernetesConfiguration, infra *model.InfrastructureDeploymentInfo, args model.Parameters, vdcID string) (model.Parameters, error) {
+	result := make(model.Parameters)
+
+	hostsRaw, ok := args[HostsProperty]
+	if !ok {
+		return result, errors.New("Can't find list of hosts to modify")
+	}
+
+	hosts, ok := hostsRaw.(map[string]string)
+	if !ok {
+		return result, errors.New("Unexpected type found for list of hosts to modidy. Expected map[string]string")
+	}
+
+	kubeClient, err := kubernetes.NewClient(config.ConfigurationFile)
+	if err != nil {
+		return result, utils.WrapLogAndReturnError(logger, "Error getting kubernetes client", err)
+	}
+
+	vdcDeployment, err := kubeClient.Client.AppsV1().Deployments(DitasNamespace).Get(vdcID, metav1.GetOptions{})
+	if err != nil {
+		return result, fmt.Errorf("Error getting deployment for VDC %s: %w", vdcID, err)
+	}
+
+	for i, alias := range vdcDeployment.Spec.Template.Spec.HostAliases {
+		for _, hostname := range alias.Hostnames {
+			if newIP, ok := hosts[hostname]; ok {
+				alias.IP = newIP
+				vdcDeployment.Spec.Template.Spec.HostAliases[i] = alias
+			}
+		}
+	}
+
+	_, err = kubeClient.Client.AppsV1().Deployments(DitasNamespace).Update(vdcDeployment)
+	if err != nil {
+		return result, fmt.Errorf("Error updating deployment %s", vdcID)
+	}
+
+	return result, nil
+}
+
+func (p VDCProvisioner) Provision(config *kubernetes.KubernetesConfiguration, infra *model.InfrastructureDeploymentInfo, args model.Parameters) (model.Parameters, error) {
+	result := make(model.Parameters)
+	mode, ok := args.GetString(VDCProvisionModeProperty)
+	if !ok {
+		return result, errors.New("Operation mode for VDC provisioner is needed")
+	}
+
+	vdcID, ok := args.GetString(VDCIDProperty)
+	if !ok {
+		return result, errors.New("Can't find VDC identifier in parameters")
+	}
+
+	logger := logrus.WithFields(logrus.Fields{
+		"vdc":            vdcID,
+		"infrastructure": infra.ID,
+	})
+
+	switch mode {
+	case VDCProvisionModeCreate:
+		return p.CreateVDC(logger, config, infra, args, vdcID)
+	case VDCProvisionModeModify:
+		return p.ModifyVDC(logger, config, infra, args, vdcID)
+	default:
+		return result, fmt.Errorf("Unrecognized operation mode: %s", mode)
+	}
+
 }

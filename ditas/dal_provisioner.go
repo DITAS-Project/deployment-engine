@@ -34,6 +34,8 @@ import (
 const (
 	DALIdentifierProperty = "DALID"
 	SecretsProperty       = "secrets"
+	DALPort               = "dalPort"
+	DALIP                 = "dalIP"
 )
 
 type DALProvisioner struct {
@@ -139,8 +141,9 @@ func (p DALProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 		return result, utils.WrapLogAndReturnError(logger, fmt.Sprintf("Error deploying DAL %s", dalID), err)
 	}
 
+	dalPorts := make(map[string]int)
 	ports := make([]corev1.ServicePort, 0, len(dalImages))
-	for _, image := range dalImages {
+	for imageName, image := range dalImages {
 		if image.ExternalPort != 0 {
 			err := config.ClaimPort(image.ExternalPort)
 			if err != nil {
@@ -155,6 +158,7 @@ func (p DALProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 				NodePort:   int32(image.ExternalPort),
 				TargetPort: intstr.FromInt(image.InternalPort),
 			})
+			dalPorts[imageName] = image.ExternalPort
 		}
 	}
 
@@ -180,6 +184,12 @@ func (p DALProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 	}
 
 	logger.Info("DAL successfully deployed")
+
+	result[DALIP], err = infra.GetMasterIP()
+	if err != nil {
+		logger.WithError(err).Errorf("Error getting infrastructure %s master IP", infra.ID)
+	}
+	result[DALPort] = dalPorts
 
 	return result, nil
 }
