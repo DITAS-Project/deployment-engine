@@ -136,10 +136,10 @@ func (p VDMProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 		Image:        fmt.Sprintf("ditas/computation-movement-enactor:%s", p.GetImageVersion("cme")),
 		InternalPort: cmePort,
 	}
-	imageSet["data-analytics"] = kubernetes.ImageInfo{
+	/*imageSet["data-analytics"] = kubernetes.ImageInfo{
 		Image:        fmt.Sprintf("ditas/data_analytics:%s", p.GetImageVersion("data-analytics")),
 		InternalPort: cmePort,
-	}
+	}*/
 
 	var repSecrets []string
 	if config.RegistriesSecret != "" {
