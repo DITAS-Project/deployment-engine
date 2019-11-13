@@ -18,6 +18,7 @@ package kubernetes
 
 import (
 	"deployment-engine/model"
+	"deployment-engine/persistence"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -36,11 +37,13 @@ const availablePortRangeProperty = "available_ports_range"
 
 type KubernetesDeployer struct {
 	deploymentsFolder string
+	vault             persistence.Vault
 }
 
-func NewKubernetesDeployer(deploymentsFolder string) *KubernetesDeployer {
+func NewKubernetesDeployer(deploymentsFolder string, vault persistence.Vault) *KubernetesDeployer {
 	return &KubernetesDeployer{
 		deploymentsFolder: deploymentsFolder,
+		vault:             vault,
 	}
 }
 
@@ -95,11 +98,29 @@ func (d KubernetesDeployer) DeployInfrastructure(infra model.InfrastructureType)
 	if err != nil {
 		return deployment, utils.WrapLogAndReturnError(logger, fmt.Sprintf("Error creating infrastructure folder %s", infraFolder), err)
 	}
-	configFile, ok := infra.Provider.Credentials["config"]
-	if !ok {
-		return deployment, errors.New("Configuration file in credentials.config is mandatory for pre-existing kubernetes clusters")
+
+	if infra.Provider.Credentials == nil {
+		infra.Provider.Credentials = make(map[string]interface{})
 	}
-	strConfig, err := yaml.Marshal(configFile)
+
+	config, ok := infra.Provider.Credentials["config"]
+	if !ok {
+		if infra.Provider.SecretID == "" {
+			return deployment, errors.New("Credentials or secret identifier are needed for a kubernetes provider")
+		}
+
+		secret, err := d.vault.GetSecret(infra.Provider.SecretID)
+		if err != nil {
+			return deployment, fmt.Errorf("Error retrieving secret with identifier %s: %w", infra.Provider.SecretID, err)
+		}
+		kubeSecret, ok := secret.Content.(model.KubernetesConfigSecret)
+		if !ok {
+			return deployment, fmt.Errorf("Unexpected secret type for kubernetes secret identifier %s", infra.Provider.SecretID)
+		}
+		config = kubeSecret.Config
+	}
+
+	strConfig, err := yaml.Marshal(config)
 	if err != nil {
 		return deployment, utils.WrapLogAndReturnError(logger, "Error marshaling kubernetes configuration file", err)
 	}
@@ -114,13 +135,15 @@ func (d KubernetesDeployer) DeployInfrastructure(infra model.InfrastructureType)
 		"configurationfile": configPath,
 	}
 
-	registriesSecretRaw, ok := infra.Provider.Credentials["registries_secret"]
-	if ok {
-		registriesSecret, ok := registriesSecretRaw.(string)
-		if !ok {
-			return deployment, utils.WrapLogAndReturnError(logger, "Error getting kubernetes registries secret value. It must be a string", err)
+	if infra.Provider.Credentials != nil {
+		registriesSecretRaw, ok := infra.Provider.Credentials["registries_secret"]
+		if ok {
+			registriesSecret, ok := registriesSecretRaw.(string)
+			if !ok {
+				return deployment, utils.WrapLogAndReturnError(logger, "Error getting kubernetes registries secret value. It must be a string", err)
+			}
+			kubeConfig["registriessecret"] = registriesSecret
 		}
-		kubeConfig["registriessecret"] = registriesSecret
 	}
 
 	kubeConfig["managed"] = false

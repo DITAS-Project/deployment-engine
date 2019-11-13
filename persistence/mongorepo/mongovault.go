@@ -89,6 +89,10 @@ func (v *MongoRepository) Decrypt(secret *SecretEntry) error {
 		var deSecret model.PKISecret
 		err = json.Unmarshal(plaintext, &deSecret)
 		secret.Secret.Content = deSecret
+	case model.KubernetesType:
+		var deSecret model.KubernetesConfigSecret
+		err = json.Unmarshal(plaintext, &deSecret)
+		secret.Secret.Content = deSecret
 	default:
 		var deSecret map[string]interface{}
 		err = json.Unmarshal(plaintext, &deSecret)
