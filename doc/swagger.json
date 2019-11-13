@@ -9,6 +9,340 @@
     "version": "1.0"
   },
   "paths": {
+    "/blueprint": {
+      "post": {
+        "description": "Creates a Kubernetes installation on each infrastructure and then deploys a VDC on the default one\nbased on the blueprint passed as parameter.",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json",
+          "text/plain"
+        ],
+        "tags": [
+          "blueprint"
+        ],
+        "summary": "Creates a DITAS deployment with the infrastructures passed as parameter.",
+        "operationId": "createVDCDeployment",
+        "parameters": [
+          {
+            "description": "The request object is composed of an abstract blueprint and a list of resources to use to deploy VDCs",
+            "name": "request",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/Blueprint"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/VDCConfiguration"
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "500": {
+            "description": "Internal error"
+          }
+        }
+      }
+    },
+    "/blueprint/{blueprintId}/vdc/{vdcId}": {
+      "get": {
+        "description": "Gets information about a running VDC",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json",
+          "text/plain"
+        ],
+        "tags": [
+          "vdc"
+        ],
+        "operationId": "getInfo",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "The abstract blueprint identifier for the VDC",
+            "name": "blueprintId",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "The identifier of the VDC",
+            "name": "vdcId",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/VDCConfiguration"
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "500": {
+            "description": "Internal error"
+          }
+        }
+      },
+      "put": {
+        "description": "Creates a copy of a running VDC in another infrastructure available",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json",
+          "text/plain"
+        ],
+        "tags": [
+          "vdc"
+        ],
+        "operationId": "createCopy",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "The abstract blueprint identifier for the VDC",
+            "name": "blueprintId",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "The identifier of the VDC to copy",
+            "name": "vdcId",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "The identifier of target infrastructure to deploy the copy",
+            "name": "targetInfra",
+            "in": "query",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/VDCConfiguration"
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "500": {
+            "description": "Internal error"
+          }
+        }
+      }
+    },
+    "/blueprint/{blueprintId}/vdc/{vdcId}/{infraId}/dal": {
+      "post": {
+        "description": "Creates a copy of a DAL in the specified infrastructure for the specified blueprint",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json",
+          "text/plain"
+        ],
+        "tags": [
+          "vdc"
+        ],
+        "operationId": "createDAL",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "The abstract blueprint identifier for the VDC",
+            "name": "blueprintId",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "The identifier of the VDC",
+            "name": "vdcId",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "The identifier of target infrastructure to deploy the DAL",
+            "name": "infraId",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "The identifier of DAL to deploy. It must be the identifier of a DAL present in the abstract blueptint at INTERNAL_STRUCTURE/DAL_Images",
+            "name": "id",
+            "in": "query",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/VDCConfiguration"
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "500": {
+            "description": "Internal error"
+          }
+        }
+      }
+    },
+    "/blueprint/{blueprintId}/vdc/{vdcId}/{infraId}/dal/{dalId}": {
+      "put": {
+        "description": "Sets the specified VDC running in the specified infrastructure to change one DAL IP",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json",
+          "text/plain"
+        ],
+        "tags": [
+          "vdc"
+        ],
+        "operationId": "useDAL",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "The abstract blueprint identifier for the VDC",
+            "name": "blueprintId",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "The identifier of the VDC",
+            "name": "vdcId",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "The identifier of infrastructure in which the VDC is running",
+            "name": "infraId",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "The identifier of DAL to change its IP",
+            "name": "dalId",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "The IP to use for the specified DAL. When this operation success the VDC will be using the DAL which must be deployed using this IP here.",
+            "name": "ip",
+            "in": "query",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "500": {
+            "description": "Internal error"
+          }
+        }
+      }
+    },
+    "/blueprint/{blueprintId}/vdc/{vdcId}/{infraId}/datasource": {
+      "post": {
+        "description": "Creates a datasource in the target infrastructure for the given blueprint and VDC",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json",
+          "text/plain"
+        ],
+        "tags": [
+          "vdc"
+        ],
+        "operationId": "createDatasource",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "The abstract blueprint identifier for the VDC",
+            "name": "blueprintId",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "The identifier of the VDC",
+            "name": "vdcId",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "The identifier of target infrastructure to deploy the datasource",
+            "name": "infraId",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "The type of the datasource to deploy. For example, it can by mysql or minio",
+            "name": "type",
+            "in": "query",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "The size of the presistent volume to provide for the datasource where it can save its data. It must come in the format XGi where X is the number of gigabytes desired.",
+            "name": "size",
+            "in": "query",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "The identifier of datasource. It MUST be the identifier of a datasource defined in the blueprint. The DAL image definition in the blueprint can make reference to this identifier to get environment variables automatically replaced when it's deployed by the deployment engine.",
+            "name": "id",
+            "in": "query",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "500": {
+            "description": "Internal error"
+          }
+        }
+      }
+    },
     "/infra": {
       "post": {
         "consumes": [
@@ -121,9 +455,121 @@
           }
         }
       }
+    },
+    "/infra/{infrastructureId}/{framework}/{product}": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json",
+          "text/plain"
+        ],
+        "tags": [
+          "deployment"
+        ],
+        "summary": "Creates a Deployment with the by instantiating the infrastructures passed as parameter.",
+        "operationId": "createProduct",
+        "parameters": [
+          {
+            "description": "The deployment in which deploy the product",
+            "name": "deploymentId",
+            "in": "path"
+          },
+          {
+            "description": "The infrastructure inside the deployment in which to deploy the product",
+            "name": "infraId",
+            "in": "path"
+          },
+          {
+            "description": "The framework to deploy the product to. It can be either \"baremetal\" or \"kubernetes\"",
+            "name": "framework",
+            "in": "path"
+          },
+          {
+            "description": "The software product to deploy",
+            "name": "product",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The product has been successfully deployed and the updated deployment is returned.",
+            "schema": {
+              "$ref": "#/definitions/DeploymentInfo"
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "500": {
+            "description": "Internal error"
+          }
+        }
+      }
+    },
+    "/secrets": {
+      "post": {
+        "description": "Stores a new secret in the configured vault",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json",
+          "text/plain"
+        ],
+        "tags": [
+          "secret"
+        ],
+        "operationId": "createSecret",
+        "parameters": [
+          {
+            "description": "The secret description",
+            "name": "secret",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/Secret"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "The secret has been saved. Returns the secret Identifier",
+            "schema": {
+              "type": "string"
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "500": {
+            "description": "Internal error"
+          }
+        }
+      }
     }
   },
   "definitions": {
+    "AbstractPropertiesMethodType": {
+      "description": "AbstractPropertiesMethodType defines a goal tree for a method",
+      "type": "object",
+      "required": [
+        "method_id",
+        "goalTrees"
+      ],
+      "properties": {
+        "goalTrees": {
+          "$ref": "#/definitions/GoalTreeType"
+        },
+        "method_id": {
+          "description": "The method identifier this goals apply to",
+          "type": "string",
+          "x-go-name": "MethodId"
+        }
+      },
+      "x-go-package": "github.com/DITAS-Project/blueprint-go"
+    },
     "BasicAuthSecret": {
       "description": "BasicAuthSecret is a standard representation of HTTP Basic Authorization credetials",
       "type": "object",
@@ -138,6 +584,29 @@
         }
       },
       "x-go-package": "deployment-engine/model"
+    },
+    "COOKBOOKAPPENDIXIdentityAccessManagement": {
+      "type": "object",
+      "properties": {
+        "mapping": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Mapping"
+          },
+          "x-go-name": "Mapping"
+        },
+        "validation_keys": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object"
+            }
+          },
+          "x-go-name": "ValidationKeys"
+        }
+      },
+      "x-go-package": "github.com/DITAS-Project/blueprint-go"
     },
     "CloudProviderInfo": {
       "description": "CloudProviderInfo contains information about a cloud provider",
@@ -160,7 +629,7 @@
           "description": "Credentials to access the cloud provider. Either this or secret_id is mandatory. Each cloud provider should define the format of this element.",
           "type": "object",
           "additionalProperties": {
-            "type": "string"
+            "type": "object"
           },
           "x-go-name": "Credentials"
         },
@@ -172,21 +641,123 @@
       },
       "x-go-package": "deployment-engine/model"
     },
+    "CookbookAppendix": {
+      "description": "CookbookAppendix is the definition of the Cookbook Appendix section in the blueprint",
+      "type": "object",
+      "required": [
+        "Resources",
+        "Deployment"
+      ],
+      "properties": {
+        "Deployment": {
+          "$ref": "#/definitions/DeploymentInfo"
+        },
+        "Identity_Access_Management": {
+          "$ref": "#/definitions/COOKBOOKAPPENDIXIdentityAccessManagement"
+        },
+        "Resources": {
+          "$ref": "#/definitions/Deployment"
+        }
+      },
+      "x-go-package": "github.com/DITAS-Project/blueprint-go"
+    },
+    "DataSourceInformation": {
+      "description": "DataSourceInformation has information about a datasource running in a cluster",
+      "type": "object",
+      "properties": {
+        "Secrets": {
+          "description": "Secrets is a set of environment variables used by the datasource whose content is in a Kubernetes secres",
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/EnvSecret"
+          }
+        },
+        "Type": {
+          "description": "Type is the type of datasource. e.g. mysql, minio, etc",
+          "type": "string"
+        },
+        "Vars": {
+          "description": "Vars are the environment variable used when running the datasource",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "x-go-package": "deployment-engine/ditas"
+    },
     "Deployment": {
-      "type": "array",
-      "title": "Deployment is a list of infrastructures to initialize.",
+      "description": "Deployment is a set of infrastructures that need to be instantiated or configurated to form clusters",
+      "type": "object",
+      "required": [
+        "name",
+        "infrastructures"
+      ],
       "items": {
         "$ref": "#/definitions/InfrastructureType"
       },
-      "x-go-package": "deployment-engine/model"
+      "properties": {
+        "description": {
+          "description": "Optional description",
+          "type": "string",
+          "x-go-name": "Description"
+        },
+        "infrastructures": {
+          "description": "List of infrastructures to deploy for this hybrid deployment",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/InfrastructureType"
+          },
+          "x-go-name": "Infrastructures"
+        },
+        "name": {
+          "description": "Name for this deployment",
+          "type": "string",
+          "uniqueItems": true,
+          "x-go-name": "Name"
+        }
+      },
+      "x-go-package": "github.com/DITAS-Project/blueprint-go"
     },
     "DeploymentInfo": {
-      "type": "array",
-      "title": "DeploymentInfo is a list of infrastructures that have been initialized.",
+      "description": "DeploymentInfo contains information of a deployment than may compromise several clusters",
+      "type": "object",
+      "required": [
+        "id"
+      ],
       "items": {
         "$ref": "#/definitions/InfrastructureDeploymentInfo"
       },
-      "x-go-package": "deployment-engine/model"
+      "properties": {
+        "extra_properties": {
+          "$ref": "#/definitions/ExtraPropertiesType"
+        },
+        "id": {
+          "description": "Unique ID for the deployment",
+          "type": "string",
+          "uniqueItems": true,
+          "x-go-name": "ID"
+        },
+        "infrastructures": {
+          "description": "Lisf of infrastructures, each one representing a different cluster.",
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/InfrastructureDeploymentInfo"
+          },
+          "x-go-name": "Infrastructures"
+        },
+        "name": {
+          "description": "Name of the deployment",
+          "type": "string",
+          "x-go-name": "Name"
+        },
+        "status": {
+          "description": "Global status of the deployment",
+          "type": "string",
+          "x-go-name": "Status"
+        }
+      },
+      "x-go-package": "github.com/DITAS-Project/blueprint-go"
     },
     "Drive": {
       "description": "Drive holds information about a data drive attached to a node",
@@ -215,7 +786,7 @@
           "example": "SSD"
         }
       },
-      "x-go-package": "deployment-engine/model"
+      "x-go-package": "github.com/DITAS-Project/blueprint-go"
     },
     "DriveInfo": {
       "description": "DriveInfo is the information of a drive that has been instantiated",
@@ -237,15 +808,28 @@
           "type": "integer",
           "format": "int64",
           "x-go-name": "Size"
-        },
-        "uuid": {
-          "description": "UUID of this data drive in the infrastructure provider",
-          "type": "string",
-          "uniqueItems": true,
-          "x-go-name": "UUID"
         }
       },
-      "x-go-package": "deployment-engine/model"
+      "x-go-package": "github.com/DITAS-Project/blueprint-go"
+    },
+    "EnvSecret": {
+      "description": "EnvSecret is the information of a secret in a Kubernetes cluster",
+      "type": "object",
+      "properties": {
+        "EnvName": {
+          "description": "EnvName is the name of the environment variable to bind the secret to",
+          "type": "string"
+        },
+        "Key": {
+          "description": "Key is the key of content inside the secret",
+          "type": "string"
+        },
+        "SecretID": {
+          "description": "SecretID is the name of the kubernetes secret",
+          "type": "string"
+        }
+      },
+      "x-go-package": "deployment-engine/provision/kubernetes"
     },
     "ExtraPropertiesType": {
       "type": "object",
@@ -255,6 +839,22 @@
       },
       "x-go-package": "deployment-engine/model"
     },
+    "GoalTreeType": {
+      "description": "GoalTreeType defines a goal tree",
+      "type": "object",
+      "properties": {
+        "dataUtility": {
+          "$ref": "#/definitions/TreeStructureType"
+        },
+        "privacy": {
+          "$ref": "#/definitions/TreeStructureType"
+        },
+        "security": {
+          "$ref": "#/definitions/TreeStructureType"
+        }
+      },
+      "x-go-package": "github.com/DITAS-Project/blueprint-go"
+    },
     "ImageInfo": {
       "description": "ImageInfo is the information about an image that will be deployed by the deployment engine",
       "type": "object",
@@ -262,6 +862,14 @@
         "image"
       ],
       "properties": {
+        "args": {
+          "description": "Args is a list of arguments to pass to the container when it starts",
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "x-go-name": "Args"
+        },
         "environment": {
           "description": "Environment is a map of environment variables whose key is the variable name and value is the variable value",
           "type": "object",
@@ -286,6 +894,14 @@
           "type": "integer",
           "format": "int64",
           "x-go-name": "InternalPort"
+        },
+        "secrets": {
+          "description": "Secrets that must be passed as environmet variables",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/EnvSecret"
+          },
+          "x-go-name": "Secrets"
         }
       },
       "x-go-package": "deployment-engine/provision/kubernetes"
@@ -317,6 +933,12 @@
               "$ref": "#/definitions/NodeInfo"
             }
           }
+        },
+        "creation_time": {
+          "description": "CreationTime is the time this infrastructure has been created",
+          "type": "string",
+          "format": "date-time",
+          "x-go-name": "CreationTime"
         },
         "extra_properties": {
           "$ref": "#/definitions/ExtraPropertiesType"
@@ -353,9 +975,54 @@
           "type": "string",
           "pattern": "cloud|edge",
           "x-go-name": "Type"
+        },
+        "update_time": {
+          "description": "UpdateTime is the last time this infrastructure has been updated",
+          "type": "string",
+          "format": "date-time",
+          "x-go-name": "UpdateTime"
         }
       },
       "x-go-package": "deployment-engine/model"
+    },
+    "InfrastructureInformation": {
+      "description": "InfrastructureInformation contains information about the software running in an infrastructure to help the VDC",
+      "type": "object",
+      "properties": {
+        "CAFPort": {
+          "description": "CAFPort is the port in which the VDC is listening for requests in this cluster",
+          "type": "integer",
+          "format": "int64"
+        },
+        "DALInformation": {
+          "description": "DALInformation is the ports used by the DALs in this infrastructure, indexed by DAL identifier and then by image identifier",
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        },
+        "Datasources": {
+          "description": "Datasources has information about the datasources running in this cluster due to this VDC",
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/DataSourceInformation"
+          }
+        },
+        "IP": {
+          "description": "IP is the IP of the infrastructure that can be targeted for requests",
+          "type": "string"
+        },
+        "TombstonePort": {
+          "description": "TombstonePort is the port exposed in this cluster for tombstone",
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "x-go-package": "deployment-engine/ditas"
     },
     "InfrastructureType": {
       "description": "InfrastructureType is a set of resources that need to be created or configured to form a cluster",
@@ -398,6 +1065,65 @@
       },
       "x-go-package": "deployment-engine/model"
     },
+    "LeafType": {
+      "description": "LeafType is a leaf in a tree data structure",
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "attributes": {
+          "description": "The list of attributes defined in the data management section to match. All of them must comply.\nrequiered: true",
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "x-go-name": "Attributes"
+        },
+        "description": {
+          "description": "An optional description for the leaf",
+          "type": "string",
+          "x-go-name": "Description"
+        },
+        "id": {
+          "description": "Unique identifier for the leaf",
+          "type": "string",
+          "uniqueItems": true,
+          "x-go-name": "Id"
+        },
+        "weight": {
+          "description": "The weight in the resolution of the constraint\nrequiered: true",
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "Weight"
+        }
+      },
+      "x-go-package": "github.com/DITAS-Project/blueprint-go"
+    },
+    "Mapping": {
+      "type": "object",
+      "properties": {
+        "mapping_url": {
+          "type": "string",
+          "x-go-name": "MappingURL"
+        },
+        "provider": {
+          "type": "string",
+          "x-go-name": "Provider"
+        },
+        "role_map": {
+          "$ref": "#/definitions/RoleMapUnion"
+        },
+        "roles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "x-go-name": "Roles"
+        }
+      },
+      "x-go-package": "github.com/DITAS-Project/blueprint-go"
+    },
     "NodeInfo": {
       "description": "NodeInfo is the information of a virtual machine that has been instantiated or a physical one that was pre-existing",
       "type": "object",
@@ -435,12 +1161,6 @@
           "uniqueItems": true,
           "x-go-name": "DriveSize"
         },
-        "drive_uuid": {
-          "description": "Boot disk UUID for this node in the infrastructure provider",
-          "type": "string",
-          "uniqueItems": true,
-          "x-go-name": "DriveUUID"
-        },
         "extra_properties": {
           "$ref": "#/definitions/ExtraPropertiesType"
         },
@@ -467,20 +1187,9 @@
           "type": "string",
           "x-go-name": "Role",
           "example": "master"
-        },
-        "username": {
-          "description": "Username to use to manage it. If not present, root will be used.",
-          "type": "string",
-          "x-go-name": "Username"
-        },
-        "uuid": {
-          "description": "UUID of this node in the infrastructure provider",
-          "type": "string",
-          "uniqueItems": true,
-          "x-go-name": "UUID"
         }
       },
-      "x-go-package": "deployment-engine/model"
+      "x-go-package": "github.com/DITAS-Project/blueprint-go"
     },
     "OAuth2Secret": {
       "description": "OAuth2Secret is a standard representation of OAuth2 credetials",
@@ -591,7 +1300,44 @@
           "example": "n1-small"
         }
       },
-      "x-go-package": "deployment-engine/model"
+      "x-go-package": "github.com/DITAS-Project/blueprint-go"
+    },
+    "RoleMapElement": {
+      "type": "object",
+      "properties": {
+        "matcher": {
+          "type": "string",
+          "x-go-name": "Matcher"
+        },
+        "priority": {
+          "type": "number",
+          "format": "double",
+          "x-go-name": "Priority"
+        },
+        "roles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "x-go-name": "Roles"
+        }
+      },
+      "x-go-package": "github.com/DITAS-Project/blueprint-go"
+    },
+    "RoleMapUnion": {
+      "type": "object",
+      "properties": {
+        "RoleMapElementArray": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/RoleMapElement"
+          }
+        },
+        "String": {
+          "type": "string"
+        }
+      },
+      "x-go-package": "github.com/DITAS-Project/blueprint-go"
     },
     "Secret": {
       "type": "object",
@@ -622,6 +1368,86 @@
         }
       },
       "x-go-package": "deployment-engine/model"
+    },
+    "TreeStructureType": {
+      "description": "TreeStructureType is a tree structure with a root and subtrees or leaves",
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "children": {
+          "description": "The subtrees pending from this node",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/TreeStructureType"
+          },
+          "x-go-name": "Children"
+        },
+        "leaves": {
+          "description": "The leaves pending from this node",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/LeafType"
+          },
+          "x-go-name": "Leaves"
+        },
+        "type": {
+          "description": "The operation to apply to the subtree or leaves",
+          "type": "string",
+          "pattern": "AND|OR",
+          "x-go-name": "Type",
+          "example": "AND"
+        }
+      },
+      "x-go-package": "github.com/DITAS-Project/blueprint-go"
+    },
+    "VDCConfiguration": {
+      "description": "VDCConfiguration has information about a VDC which might be running in several infrastructures",
+      "type": "object",
+      "properties": {
+        "Blueprint": {
+          "description": "Blueprint is the concrete blueprint of this VDC",
+          "type": "string"
+        },
+        "DALsInUse": {
+          "description": "DALsInUse sets the IP to use for every DAL referenced in the VDC if it's been moved",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "Infrastructures": {
+          "description": "Infrastructures has information about the software running in the different infrastructures in which this VDC is running",
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/InfrastructureInformation"
+          }
+        },
+        "app_developer_deployment": {
+          "description": "AppDeveloperDeployment is the list of infrastructure identifiers which are provided by the Application Developer for this VDC",
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "x-go-name": "AppDeveloperDeployment"
+        }
+      },
+      "x-go-package": "deployment-engine/ditas"
+    },
+    "VDCInfo": {
+      "description": "VDCInfo contains information about related to a VDC running in a kubernetes cluster",
+      "type": "object",
+      "properties": {
+        "Ports": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "x-go-package": "github.com/DITAS-Project/blueprint-go"
     }
   }
 }

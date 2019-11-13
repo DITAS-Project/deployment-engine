@@ -79,36 +79,37 @@ func (a *App) ReadBody(r *http.Request, result interface{}) error {
 }
 
 // CreateDep creates a new deployment
+// swagger:operation POST /infra deployment createDeployment
+//
+// Creates a multi-cluster deployment with the by instantiating the infrastructures passed as parameter.
+//
+// ---
+// consumes:
+// - application/json
+//
+// produces:
+// - application/json
+// - text/plain
+//
+// parameters:
+// - name: request
+//   in: body
+//   description: The deployment description
+//   required: true
+//   schema:
+//     $ref: "#/definitions/Deployment"
+//
+// responses:
+//   201:
+//     description: Deployment successfully created
+//     schema:
+//       $ref: "#/definitions/DeploymentInfo"
+//   400:
+//     description: Bad request
+//   500:
+//     description: Internal error
 func (a *App) CreateDep(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-	// swagger:operation POST /infra deployment createDeployment
-	//
-	// Creates a multi-cluster deployment with the by instantiating the infrastructures passed as parameter.
-	//
-	// ---
-	// consumes:
-	// - application/json
-	//
-	// produces:
-	// - application/json
-	// - text/plain
-	//
-	// parameters:
-	// - name: request
-	//   in: body
-	//   description: The deployment description
-	//   required: true
-	//   schema:
-	//     $ref: "#/definitions/Deployment"
-	//
-	// responses:
-	//   201:
-	//     description: Deployment successfully created
-	//     schema:
-	//       $ref: "#/definitions/DeploymentInfo"
-	//   400:
-	//     description: Bad request
-	//   500:
-	//     description: Internal error
+
 	defer r.Body.Close()
 
 	var deployment []model.InfrastructureType
@@ -129,32 +130,33 @@ func (a *App) CreateDep(w http.ResponseWriter, r *http.Request, ps httprouter.Pa
 }
 
 // DeleteDeployment deletes an existing deployment
+// swagger:operation DELETE /infra deployment deleteDeployment
+//
+// Deletes a list of infrastructures
+//
+// ---
+// consumes:
+// - application/json
+//
+// produces:
+// - application/json
+// - text/plain
+//
+// parameters:
+// - name: depId
+//   in: query
+//   type: string
+//   description: A comma-separated list of infrastructure identifiers to delete
+//
+// responses:
+//   204:
+//     description: Deployment successfully deleted
+//   400:
+//     description: Bad request
+//   500:
+//     description: Internal error
 func (a *App) DeleteDeployment(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-	// swagger:operation DELETE /infra deployment deleteDeployment
-	//
-	// Deletes a list of infrastructures
-	//
-	// ---
-	// consumes:
-	// - application/json
-	//
-	// produces:
-	// - application/json
-	// - text/plain
-	//
-	// parameters:
-	// - name: depId
-	//   in: query
-	//   type: string
-	//   description: A comma-separated list of infrastructure identifiers to delete
-	//
-	// responses:
-	//   204:
-	//     description: Deployment successfully deleted
-	//   400:
-	//     description: Bad request
-	//   500:
-	//     description: Internal error
+
 	depIds := r.URL.Query().Get("depId")
 	if depIds == "" {
 		RespondWithError(w, http.StatusBadRequest, "Can't find deployment ID parameter")
@@ -172,35 +174,36 @@ func (a *App) DeleteDeployment(w http.ResponseWriter, r *http.Request, ps httpro
 }
 
 // DeleteInfra deletes an existing infrastructure
+// swagger:operation DELETE /infra/{infraId} deployment deleteInfrastructure
+//
+// Deletes an infrastructure in a deployment
+//
+// ---
+// consumes:
+// - application/json
+//
+// produces:
+// - application/json
+// - text/plain
+//
+// parameters:
+// - name: infraId
+//   in: path
+//   required: true
+//   type: string
+//   description: The infrastructure identifier to delete
+//
+// responses:
+//   200:
+//     description: Infrastructure successfully deleted. Returns the updated deployment
+//     schema:
+//       $ref: "#/definitions/InfrastructureDeploymentInfo"
+//   400:
+//     description: Bad request
+//   500:
+//     description: Internal error
 func (a *App) DeleteInfra(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-	// swagger:operation DELETE /infra/{infraId} deployment deleteInfrastructure
-	//
-	// Deletes an infrastructure in a deployment
-	//
-	// ---
-	// consumes:
-	// - application/json
-	//
-	// produces:
-	// - application/json
-	// - text/plain
-	//
-	// parameters:
-	// - name: infraId
-	//   in: path
-	//   required: true
-	//   type: string
-	//   description: The infrastructure identifier to delete
-	//
-	// responses:
-	//   200:
-	//     description: Infrastructure successfully deleted. Returns the updated deployment
-	//     schema:
-	//       $ref: "#/definitions/InfrastructureDeploymentInfo"
-	//   400:
-	//     description: Bad request
-	//   500:
-	//     description: Internal error
+
 	infraId := ps.ByName("infraId")
 	if infraId == "" {
 		RespondWithError(w, http.StatusBadRequest, "Can't find infrastructure ID parameter")
@@ -218,42 +221,43 @@ func (a *App) DeleteInfra(w http.ResponseWriter, r *http.Request, ps httprouter.
 }
 
 // DeployProduct deploys a new product in an infrastructure
+// swagger:operation POST /infra/{infrastructureId}/{framework}/{product} deployment createProduct
+//
+// Creates a Deployment with the by instantiating the infrastructures passed as parameter.
+//
+// ---
+// consumes:
+// - application/json
+//
+// produces:
+// - application/json
+// - text/plain
+//
+// parameters:
+// - name: deploymentId
+//   in: path
+//   description: The deployment in which deploy the product
+// - name: infraId
+//   in: path
+//   description: The infrastructure inside the deployment in which to deploy the product
+// - name: framework
+//   in: path
+//   description: The framework to deploy the product to. It can be either "baremetal" or "kubernetes"
+// - name: product
+//   in: path
+//   description: The software product to deploy
+//
+// responses:
+//   200:
+//     description: The product has been successfully deployed and the updated deployment is returned.
+//     schema:
+//       $ref: "#/definitions/DeploymentInfo"
+//   400:
+//     description: Bad request
+//   500:
+//     description: Internal error
 func (a *App) DeployProduct(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-	// swagger:operation POST "/infra/{infrastructureId}/{framework}/{product}" deployment createProduct
-	//
-	// Creates a Deployment with the by instantiating the infrastructures passed as parameter.
-	//
-	// ---
-	// consumes:
-	// - application/json
-	//
-	// produces:
-	// - application/json
-	// - text/plain
-	//
-	// parameters:
-	// - name: deploymentId
-	//   in: path
-	//   description: The deployment in which deploy the product
-	// - name: infraId
-	//   in: path
-	//   description: The infrastructure inside the deployment in which to deploy the product
-	// - name: framework
-	//   in: path
-	//   description: The framework to deploy the product to. It can be either "baremetal" or "kubernetes"
-	// - name: product
-	//   in: path
-	//   description: The software product to deploy
-	//
-	// responses:
-	//   200:
-	//     description: The product has been successfully deployed and the updated deployment is returned.
-	//     schema:
-	//       $ref: "#/definitions/DeploymentInfo"
-	//   400:
-	//     description: Bad request
-	//   500:
-	//     description: Internal error
+
 	infraId := ps.ByName("infraId")
 	if infraId == "" {
 		RespondWithError(w, http.StatusBadRequest, "Can't find infrastructure ID parameter")
@@ -285,36 +289,37 @@ func (a *App) DeployProduct(w http.ResponseWriter, r *http.Request, ps httproute
 }
 
 // CreateSecret creates a secret in the configured vault
+// swagger:operation POST /secrets secret createSecret
+//
+// Stores a new secret in the configured vault
+//
+// ---
+// consumes:
+// - application/json
+//
+// produces:
+// - application/json
+// - text/plain
+//
+// parameters:
+// - name: secret
+//   in: body
+//   description: The secret description
+//   required: true
+//   schema:
+//     $ref: "#/definitions/Secret"
+//
+// responses:
+//   201:
+//     description: The secret has been saved. Returns the secret Identifier
+//     schema:
+//       type: string
+//   400:
+//     description: Bad request
+//   500:
+//     description: Internal error
 func (a *App) CreateSecret(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-	// swagger:operation POST "/secrets" deployment createProduct
-	//
-	// Stores a new secret in the configured vault
-	//
-	// ---
-	// consumes:
-	// - application/json
-	//
-	// produces:
-	// - application/json
-	// - text/plain
-	//
-	// parameters:
-	// - name: secret
-	//   in: body
-	//   description: The secret description
-	//   required: true
-	//   schema:
-	//     $ref: "#/definitions/Secret"
-	//
-	// responses:
-	//   201:
-	//     description: The secret has been saved. Returns the secret Identifier
-	//     schema:
-	//       type: string
-	//   400:
-	//     description: Bad request
-	//   500:
-	//     description: Internal error
+
 	defer r.Body.Close()
 
 	var secret model.Secret

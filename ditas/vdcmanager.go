@@ -891,7 +891,7 @@ func (m *VDCManager) GetVDCInformation(blueprintID, vdcID string) (VDCConfigurat
 	return result, nil
 }
 
-func (m *VDCManager) DeployDAL(blueprintID, vdcID, infraID, dalID string) (model.Parameters, error) {
+func (m *VDCManager) DeployDAL(blueprintID, vdcID, infraID, dalID string) (VDCConfiguration, error) {
 	var blueprintInfo VDCInformation
 	var result model.Parameters
 
@@ -904,27 +904,27 @@ func (m *VDCManager) DeployDAL(blueprintID, vdcID, infraID, dalID string) (model
 
 	err := m.Collection.FindOne(context.Background(), bson.M{"_id": blueprintID}).Decode(&blueprintInfo)
 	if err != nil {
-		return result, fmt.Errorf("Can't find information for blueprint %s: %s", blueprintID, err.Error())
+		return VDCConfiguration{}, fmt.Errorf("Can't find information for blueprint %s: %s", blueprintID, err.Error())
 	}
 
 	vdcInfo, ok := blueprintInfo.VDCs[vdcID]
 	if !ok {
-		return result, fmt.Errorf("Can't find information about vdc %s of blueprint %s", vdcID, blueprintID)
+		return VDCConfiguration{}, fmt.Errorf("Can't find information about vdc %s of blueprint %s", vdcID, blueprintID)
 	}
 
 	infraInfo, ok := vdcInfo.Infrastructures[infraID]
 	if !ok {
-		return result, fmt.Errorf("Can't find infrastructure %s information associated to VDC %s. Make sure that the datasources are initialized in this infrastructure before trying to create a DAL in it", infraID, vdcID)
+		return vdcInfo, fmt.Errorf("Can't find infrastructure %s information associated to VDC %s. Make sure that the datasources are initialized in this infrastructure before trying to create a DAL in it", infraID, vdcID)
 	}
 
 	if len(infraInfo.Datasources) == 0 {
-		return result, fmt.Errorf("Can't find any datasource in infrastructure %s associated to VDC %s", infraID, vdcID)
+		return vdcInfo, fmt.Errorf("Can't find any datasource in infrastructure %s associated to VDC %s", infraID, vdcID)
 	}
 
 	var bp blueprint.Blueprint
 	err = json.Unmarshal([]byte(vdcInfo.Blueprint), &bp)
 	if err != nil {
-		return result, fmt.Errorf("Error deserializing blueprint associated to VDC %s: %w", vdcID, err)
+		return vdcInfo, fmt.Errorf("Error deserializing blueprint associated to VDC %s: %w", vdcID, err)
 	}
 
 	vars := m.getVarsFromConfig()
@@ -947,7 +947,7 @@ func (m *VDCManager) DeployDAL(blueprintID, vdcID, infraID, dalID string) (model
 
 	_, result, err = m.ProvisionerController.Provision(infraID, "dal", args, "kubernetes")
 	if err != nil {
-		return result, fmt.Errorf("Error deploying DAL %s: %w", dalID, err)
+		return vdcInfo, fmt.Errorf("Error deploying DAL %s: %w", dalID, err)
 	}
 
 	portsRaw, ok := result[DALPort]
@@ -963,11 +963,11 @@ func (m *VDCManager) DeployDAL(blueprintID, vdcID, infraID, dalID string) (model
 		blueprintInfo.VDCs[vdcID] = vdcInfo
 		_, err := m.Collection.ReplaceOne(context.Background(), bson.M{"_id": blueprintInfo.ID}, blueprintInfo, options.Replace())
 		if err != nil {
-			return result, utils.WrapLogAndReturnError(logger, "Error saving DAL information to database", err)
+			return vdcInfo, utils.WrapLogAndReturnError(logger, "Error saving DAL information to database", err)
 		}
 	}
 
-	return result, err
+	return vdcInfo, err
 }
 
 func (m *VDCManager) SetDALInUse(blueprintID, vdcID, vdcInfraID, dalID, dalIP string) (model.Parameters, error) {

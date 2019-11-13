@@ -48,10 +48,14 @@ type SecretData struct {
 	Data     map[string]string
 }
 
+// EnvSecret is the information of a secret in a Kubernetes cluster
 type EnvSecret struct {
-	EnvName  string
+	// EnvName is the name of the environment variable to bind the secret to
+	EnvName string
+	// SecretID is the name of the kubernetes secret
 	SecretID string
-	Key      string
+	// Key is the key of content inside the secret
+	Key string
 }
 
 type VolumeData struct {

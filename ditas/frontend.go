@@ -219,7 +219,7 @@ func (a *DitasFrontend) ValidateRequest(request blueprint.Blueprint) error {
 	return nil
 }
 
-// swagger:operation POST /blueprint deployment createDeployment
+// swagger:operation POST /blueprint blueprint createVDCDeployment
 //
 // Creates a DITAS deployment with the infrastructures passed as parameter.
 //
@@ -240,11 +240,13 @@ func (a *DitasFrontend) ValidateRequest(request blueprint.Blueprint) error {
 //   description: The request object is composed of an abstract blueprint and a list of resources to use to deploy VDCs
 //   required: true
 //   schema:
-//     $ref: "#/definitions/CreateDeploymentRequest"
+//     $ref: "#/definitions/Blueprint"
 //
 // responses:
-//   200:
+//   201:
 //     description: OK
+//     schema:
+//       $ref: "#/definitions/VDCConfiguration"
 //   400:
 //     description: Bad request
 //   500:
@@ -277,6 +279,44 @@ func (a *DitasFrontend) createDep(w http.ResponseWriter, r *http.Request, p http
 
 }
 
+// swagger:operation PUT /blueprint/{blueprintId}/vdc/{vdcId} vdc createCopy
+//
+// Creates a copy of a running VDC in another infrastructure available
+//
+// ---
+// consumes:
+// - application/json
+//
+// produces:
+// - application/json
+// - text/plain
+//
+// parameters:
+// - name: blueprintId
+//   in: path
+//   description: The abstract blueprint identifier for the VDC
+//   required: true
+//   type: string
+// - name: vdcId
+//   in: path
+//   description: The identifier of the VDC to copy
+//   required: true
+//   type: string
+// - name: targetInfra
+//   in: query
+//   description: The identifier of target infrastructure to deploy the copy
+//   required: true
+//   type: string
+//
+// responses:
+//   200:
+//     description: OK
+//     schema:
+//       $ref: "#/definitions/VDCConfiguration"
+//   400:
+//     description: Bad request
+//   500:
+//     description: Internal error
 func (a *DitasFrontend) moveVDC(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	blueprintID := p.ByName("blueprintId")
 	if blueprintID == "" {
@@ -306,6 +346,57 @@ func (a *DitasFrontend) moveVDC(w http.ResponseWriter, r *http.Request, p httpro
 	return
 }
 
+// swagger:operation POST /blueprint/{blueprintId}/vdc/{vdcId}/{infraId}/datasource vdc createDatasource
+//
+// Creates a datasource in the target infrastructure for the given blueprint and VDC
+//
+// ---
+// consumes:
+// - application/json
+//
+// produces:
+// - application/json
+// - text/plain
+//
+// parameters:
+// - name: blueprintId
+//   in: path
+//   description: The abstract blueprint identifier for the VDC
+//   required: true
+//   type: string
+// - name: vdcId
+//   in: path
+//   description: The identifier of the VDC
+//   required: true
+//   type: string
+// - name: infraId
+//   in: path
+//   description: The identifier of target infrastructure to deploy the datasource
+//   required: true
+//   type: string
+// - name: type
+//   in: query
+//   description: The type of the datasource to deploy. For example, it can by mysql or minio
+//   required: true
+//   type: string
+// - name: size
+//   in: query
+//   description: The size of the presistent volume to provide for the datasource where it can save its data. It must come in the format XGi where X is the number of gigabytes desired.
+//   required: true
+//   type: string
+// - name: id
+//   in: query
+//   description: The identifier of datasource. It MUST be the identifier of a datasource defined in the blueprint. The DAL image definition in the blueprint can make reference to this identifier to get environment variables automatically replaced when it's deployed by the deployment engine.
+//   required: true
+//   type: string
+//
+// responses:
+//   200:
+//     description: OK
+//   400:
+//     description: Bad request
+//   500:
+//     description: Internal error
 func (a *DitasFrontend) createDatasource(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	blueprintID := p.ByName("blueprintId")
 	if blueprintID == "" {
@@ -340,6 +431,39 @@ func (a *DitasFrontend) createDatasource(w http.ResponseWriter, r *http.Request,
 	return
 }
 
+// swagger:operation GET /blueprint/{blueprintId}/vdc/{vdcId} vdc getInfo
+//
+// Gets information about a running VDC
+//
+// ---
+// consumes:
+// - application/json
+//
+// produces:
+// - application/json
+// - text/plain
+//
+// parameters:
+// - name: blueprintId
+//   in: path
+//   description: The abstract blueprint identifier for the VDC
+//   required: true
+//   type: string
+// - name: vdcId
+//   in: path
+//   description: The identifier of the VDC
+//   required: true
+//   type: string
+//
+// responses:
+//   200:
+//     description: OK
+//     schema:
+//       $ref: "#/definitions/VDCConfiguration"
+//   400:
+//     description: Bad request
+//   500:
+//     description: Internal error
 func (a *DitasFrontend) getVDCInfo(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	blueprintID := p.ByName("blueprintId")
 	if blueprintID == "" {
@@ -362,6 +486,49 @@ func (a *DitasFrontend) getVDCInfo(w http.ResponseWriter, r *http.Request, p htt
 	return
 }
 
+// swagger:operation POST /blueprint/{blueprintId}/vdc/{vdcId}/{infraId}/dal vdc createDAL
+//
+// Creates a copy of a DAL in the specified infrastructure for the specified blueprint
+//
+// ---
+// consumes:
+// - application/json
+//
+// produces:
+// - application/json
+// - text/plain
+//
+// parameters:
+// - name: blueprintId
+//   in: path
+//   description: The abstract blueprint identifier for the VDC
+//   required: true
+//   type: string
+// - name: vdcId
+//   in: path
+//   description: The identifier of the VDC
+//   required: true
+//   type: string
+// - name: infraId
+//   in: path
+//   description: The identifier of target infrastructure to deploy the DAL
+//   required: true
+//   type: string
+// - name: id
+//   in: query
+//   description: The identifier of DAL to deploy. It must be the identifier of a DAL present in the abstract blueptint at INTERNAL_STRUCTURE/DAL_Images
+//   required: true
+//   type: string
+//
+// responses:
+//   200:
+//     description: OK
+//     schema:
+//       $ref: "#/definitions/VDCConfiguration"
+//   400:
+//     description: Bad request
+//   500:
+//     description: Internal error
 func (a *DitasFrontend) createDal(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	blueprintID := p.ByName("blueprintId")
 	if blueprintID == "" {
@@ -396,6 +563,52 @@ func (a *DitasFrontend) createDal(w http.ResponseWriter, r *http.Request, p http
 	return
 }
 
+// swagger:operation PUT /blueprint/{blueprintId}/vdc/{vdcId}/{infraId}/dal/{dalId} vdc useDAL
+//
+// Sets the specified VDC running in the specified infrastructure to change one DAL IP
+//
+// ---
+// consumes:
+// - application/json
+//
+// produces:
+// - application/json
+// - text/plain
+//
+// parameters:
+// - name: blueprintId
+//   in: path
+//   description: The abstract blueprint identifier for the VDC
+//   required: true
+//   type: string
+// - name: vdcId
+//   in: path
+//   description: The identifier of the VDC
+//   required: true
+//   type: string
+// - name: infraId
+//   in: path
+//   description: The identifier of infrastructure in which the VDC is running
+//   required: true
+//   type: string
+// - name: dalId
+//   in: path
+//   description: The identifier of DAL to change its IP
+//   required: true
+//   type: string
+// - name: ip
+//   in: query
+//   description: The IP to use for the specified DAL. When this operation success the VDC will be using the DAL which must be deployed using this IP here.
+//   required: true
+//   type: string
+//
+// responses:
+//   200:
+//     description: OK
+//   400:
+//     description: Bad request
+//   500:
+//     description: Internal error
 func (a *DitasFrontend) setDal(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	blueprintID := p.ByName("blueprintId")
 	if blueprintID == "" {
