@@ -47,6 +47,12 @@ const (
 	VDCProvisionModeCreate = "create"
 	VDCProvisionModeModify = "modify"
 
+	LoggingAgentPortVariable         = "logging_agent_port"
+	LoggingAgentExternalPortVariable = "logging_agent_external_port"
+
+	SLAManagerPortVariable         = "sla_manager_port"
+	SLAManagerExternalPortVariable = "sla_manager_external_port"
+
 	//DUEVDCTestPort = 30005
 )
 
@@ -94,9 +100,19 @@ func (p VDCProvisioner) CreateVDC(logger *logrus.Entry, config *kubernetes.Kuber
 		return result, errors.New("Can't find the substitution variables parameter")
 	}
 
-	vars, ok := varsRaw.(map[string]interface{})
+	vars, ok := varsRaw.(model.Parameters)
 	if !ok {
 		return result, errors.New("Invalid type for substitution variables parameter. Expected map[string]interface{}")
+	}
+
+	loggingAgentPort, _, err := GetPortPair(vars, LoggingAgentPortVariable, LoggingAgentExternalPortVariable)
+	if err != nil {
+		return result, err
+	}
+
+	slaManagerPort, _, err := GetPortPair(vars, SLAManagerPortVariable, SLAManagerExternalPortVariable)
+	if err != nil {
+		return result, err
 	}
 
 	dalsRaw, ok := args[DalsProperty]
@@ -159,7 +175,8 @@ func (p VDCProvisioner) CreateVDC(logger *logrus.Entry, config *kubernetes.Kuber
 	var imageSet kubernetes.ImageSet
 	utils.TransformObject(bp.InternalStructure.VDCImages, &imageSet)
 	imageSet["sla-manager"] = kubernetes.ImageInfo{
-		Image: fmt.Sprintf("ditas/slalite:%s", p.GetImageVersion("slalite")),
+		Image:        fmt.Sprintf("ditas/slalite:%s", p.GetImageVersion("slalite")),
+		InternalPort: slaManagerPort,
 	}
 	imageSet["request-monitor"] = kubernetes.ImageInfo{
 		Image:        fmt.Sprintf("ditas/vdc-request-monitor:%s", p.GetImageVersion("vdc-request-monitor")),
@@ -167,7 +184,7 @@ func (p VDCProvisioner) CreateVDC(logger *logrus.Entry, config *kubernetes.Kuber
 	}
 	imageSet["logging-agent"] = kubernetes.ImageInfo{
 		Image:        fmt.Sprintf("ditas/vdc-logging-agent:%s", p.GetImageVersion("vdc-logging-agent")),
-		InternalPort: 8484,
+		InternalPort: loggingAgentPort,
 	}
 	imageSet["due-vdc"] = kubernetes.ImageInfo{
 		Image:        fmt.Sprintf("ditas/due-vdc:%s", p.GetImageVersion("due-vdc")),
@@ -189,7 +206,6 @@ func (p VDCProvisioner) CreateVDC(logger *logrus.Entry, config *kubernetes.Kuber
 	vars["vdcId"] = vdcID
 	vars["caf_port"] = cafPort
 	vars["infrastructure_id"] = infra.ID
-	vars["ds4m_port"] = DS4MExternalPort
 
 	configMapName := fmt.Sprintf("%s-configmap", vdcID)
 

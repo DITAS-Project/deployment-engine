@@ -32,13 +32,20 @@ import (
 )
 
 const (
-	DitasNamespace        = "default"
-	DitasVDMConfigMapName = "vdm"
-	BlueprintIDProperty   = "blueprintId"
+	DitasNamespace                    = "default"
+	DitasVDMConfigMapName             = "vdm"
+	BlueprintIDProperty               = "blueprintId"
+	CMEPortVariable                   = "cme_port"
+	CMEExternalPortVariable           = "cme_external_port"
+	DataAnalyticsPortVariable         = "data_analytics_port"
+	DataAnalyticsExternalPortVariable = "data_analytics_external_port"
+	DS4MPortVariable                  = "ds4m_port"
+	DS4MExternalPortVariable          = "ds4m_external_port"
+	DUEVDMPortVariable                = "due_vdm_port"
+	DUEVDMExternalPortVariable        = "due_vdm_external_port"
 
-	CMEExternalPort  = 30090
-	DS4MExternalPort = 30003
-	DS4MInternalPort = 30003
+	DS4MDefaultExternalPort          = 30003
+	DataAnalyticsDefaultExternalPort = 30006
 )
 
 type VDMProvisioner struct {
@@ -77,7 +84,7 @@ func (p VDMProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 		return result, errors.New("Can't find the substitution variables parameter")
 	}
 
-	vars, ok := varsRaw.(map[string]interface{})
+	vars, ok := varsRaw.(model.Parameters)
 	if !ok {
 		return result, errors.New("Invalid type for substitution variables parameter. Expected map[string]interface{}")
 	}
@@ -88,13 +95,30 @@ func (p VDMProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 	}
 	vars["blueprint_id"] = blueprintID
 
-	cmePortRaw, ok := vars["cme_port"]
-	if !ok {
-		return result, errors.New("cme_port variable is mandatory in configuration")
+	cmePort, cmeExternalPort, err := GetPortPair(vars, CMEPortVariable, CMEExternalPortVariable)
+	if err != nil {
+		return result, err
 	}
-	cmePort, ok := cmePortRaw.(int)
-	if !ok {
-		return result, errors.New("Invalid type for variable cme_port. Expected int")
+
+	duePort, dueExternalPort, err := GetPortPair(vars, DUEVDMPortVariable, DUEVDMExternalPortVariable)
+	if err != nil {
+		return result, err
+	}
+
+	ds4mPort, ds4mExternalPort, err := GetPortPair(vars, DS4MPortVariable, DS4MExternalPortVariable)
+	if err != nil {
+		return result, err
+	}
+	if ds4mExternalPort == 0 {
+		ds4mExternalPort = DS4MDefaultExternalPort
+	}
+
+	daPort, daExternalPort, err := GetPortPair(vars, DataAnalyticsPortVariable, DataAnalyticsExternalPortVariable)
+	if err != nil {
+		return result, err
+	}
+	if daExternalPort == 0 {
+		daExternalPort = DataAnalyticsDefaultExternalPort
 	}
 
 	configMap, err := kubernetes.GetConfigMapFromFolder(p.configFolder+"/vdm", DitasVDMConfigMapName, vars)
@@ -130,16 +154,20 @@ func (p VDMProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 	imageSet := make(kubernetes.ImageSet)
 	imageSet["ds4m"] = kubernetes.ImageInfo{
 		Image:        fmt.Sprintf("ditas/decision-system-for-data-and-computation-movement:%s", p.GetImageVersion("ds4m")),
-		InternalPort: DS4MInternalPort,
+		InternalPort: ds4mPort,
 	}
 	imageSet["cme"] = kubernetes.ImageInfo{
 		Image:        fmt.Sprintf("ditas/computation-movement-enactor:%s", p.GetImageVersion("cme")),
 		InternalPort: cmePort,
 	}
-	/*imageSet["data-analytics"] = kubernetes.ImageInfo{
+	imageSet["data-analytics"] = kubernetes.ImageInfo{
 		Image:        fmt.Sprintf("ditas/data_analytics:%s", p.GetImageVersion("data-analytics")),
-		InternalPort: cmePort,
-	}*/
+		InternalPort: daPort,
+	}
+	imageSet["due"] = kubernetes.ImageInfo{
+		Image:        fmt.Sprintf("ditas/due-vdm:%s", p.GetImageVersion("due-vdm")),
+		InternalPort: duePort,
+	}
 
 	var repSecrets []string
 	if config.RegistriesSecret != "" {
@@ -174,6 +202,24 @@ func (p VDMProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 		return result, err
 	}
 
+	servicePorts := []corev1.ServicePort{
+		corev1.ServicePort{
+			Name:       "ds4m",
+			NodePort:   int32(ds4mExternalPort),
+			Port:       int32(ds4mExternalPort),
+			TargetPort: intstr.FromInt(ds4mPort),
+		},
+		corev1.ServicePort{
+			Name:       "data-analytics",
+			NodePort:   int32(daExternalPort),
+			Port:       int32(daExternalPort),
+			TargetPort: intstr.FromInt(daExternalPort),
+		},
+	}
+
+	servicePorts = AppendDebugPort(servicePorts, "cme", cmePort, cmeExternalPort)
+	servicePorts = AppendDebugPort(servicePorts, "due", duePort, dueExternalPort)
+
 	vdmService := corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "vdm",
@@ -181,34 +227,40 @@ func (p VDMProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 		Spec: corev1.ServiceSpec{
 			Type:     corev1.ServiceTypeNodePort,
 			Selector: vdmLabels,
-			Ports: []corev1.ServicePort{
-				corev1.ServicePort{
-					Name:       "cme",
-					NodePort:   CMEExternalPort,
-					Port:       CMEExternalPort,
-					TargetPort: intstr.FromInt(cmePort),
-				},
-				corev1.ServicePort{
-					Name:       "ds4m",
-					NodePort:   DS4MExternalPort,
-					Port:       DS4MExternalPort,
-					TargetPort: intstr.FromInt(DS4MInternalPort),
-				},
-			},
+			Ports:    servicePorts,
 		},
 	}
 
-	err = config.ClaimPort(CMEExternalPort)
+	err = config.ClaimPort(ds4mExternalPort)
 	if err != nil {
-		config.LiberatePort(CMEExternalPort)
-		return result, utils.WrapLogAndReturnError(logger, "Error reserving CME port", err)
+		return result, utils.WrapLogAndReturnError(logger, "Error reserving DS4M port", err)
 	}
 
-	err = config.ClaimPort(DS4MExternalPort)
+	err = config.ClaimPort(daExternalPort)
 	if err != nil {
-		config.LiberatePort(DS4MExternalPort)
-		config.LiberatePort(CMEExternalPort)
-		return result, utils.WrapLogAndReturnError(logger, "Error reserving DS4M port", err)
+		config.LiberatePort(ds4mExternalPort)
+		return result, utils.WrapLogAndReturnError(logger, "Error reserving Data Analytics port", err)
+	}
+
+	if cmeExternalPort != 0 {
+		err = config.ClaimPort(cmeExternalPort)
+		if err != nil {
+			config.LiberatePort(ds4mExternalPort)
+			config.LiberatePort(daExternalPort)
+			return result, utils.WrapLogAndReturnError(logger, "Error reserving Data Analytics port", err)
+		}
+	}
+
+	if dueExternalPort != 0 {
+		err = config.ClaimPort(dueExternalPort)
+		if err != nil {
+			config.LiberatePort(ds4mExternalPort)
+			config.LiberatePort(daExternalPort)
+			if cmeExternalPort != 0 {
+				config.LiberatePort(cmeExternalPort)
+			}
+			return result, utils.WrapLogAndReturnError(logger, "Error reserving Data Analytics port", err)
+		}
 	}
 
 	logger.Info("Creating or updating VDM service")

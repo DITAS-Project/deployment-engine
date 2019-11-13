@@ -394,8 +394,13 @@ func (m *VDCManager) findDefaultInfra(deployments ...model.DeploymentInfo) model
 	return deployment, nil
 }*/
 
-func (m *VDCManager) getVarsFromConfig() map[string]interface{} {
-	return viper.GetStringMap(DitasVariablesProperty)
+func (m *VDCManager) getVarsFromConfig() model.Parameters {
+	result := make(model.Parameters)
+	vars := viper.GetStringMap(DitasVariablesProperty)
+	for varName, varValue := range vars {
+		result[varName] = varValue
+	}
+	return result
 }
 
 func (m *VDCManager) doProvisionKubernetes(infra model.InfrastructureDeploymentInfo) (model.InfrastructureDeploymentInfo, error) {
