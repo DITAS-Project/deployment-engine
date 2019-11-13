@@ -328,14 +328,19 @@ func (a *App) CreateSecret(w http.ResponseWriter, r *http.Request, ps httprouter
 		return
 	}
 
-	secretID, err := a.Vault.AddSecret(secret)
-	if err != nil {
-		RespondWithError(w, http.StatusInternalServerError, err.Error())
+	if a.Vault != nil {
+		secretID, err := a.Vault.AddSecret(secret)
+		if err != nil {
+			RespondWithError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		Respond(w, http.StatusCreated, []byte(secretID), "plain/text")
+		return
+	} else {
+		Respond(w, http.StatusNotFound, []byte("No vault configured in this instance so this operation is not available"), "plain/text")
 		return
 	}
-
-	Respond(w, http.StatusCreated, []byte(secretID), "plain/text")
-	return
 
 }
 

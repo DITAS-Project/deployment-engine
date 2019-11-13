@@ -86,6 +86,7 @@ func NewDitasFrontend() (*DitasFrontend, error) {
 			Router:                router,
 			DeploymentController:  deployer,
 			ProvisionerController: controller,
+			Vault:                 repository,
 		},
 		VDCManagerInstance: vdcManager,
 	}
