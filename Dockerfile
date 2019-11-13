@@ -1,4 +1,4 @@
-FROM golang:1.12-alpine as builder
+FROM golang:1.13-alpine as builder
 
 RUN apk update
 RUN apk add git
@@ -11,13 +11,14 @@ ENV GO111MODULE=on
 
 RUN CGO_ENABLED=0 GOOS=linux go build -a -o /usr/bin/deployment-engine
 
-FROM alpine:3.8
+FROM alpine:latest
 
 ENV BUILD_PACKAGES \
   openssh-client \
   sshpass \
   git \
-  ansible
+  ansible \
+  curl 
 
 # Upgrading apk and system
 RUN apk update && apk upgrade 
@@ -45,12 +46,14 @@ COPY --from=builder /usr/bin/deployment-engine /usr/bin/deployment-engine
 RUN mkdir /root/deployment-engine
 
 WORKDIR /root/deployment-engine
-COPY provision/ansible/kubernetes kubernetes
-COPY provision/ansible/common common
+COPY provision/ansible/scripts ansible
+COPY provision/kubernetes/scripts kubernetes
 COPY ditas/scripts ditas
-COPY docker/config.properties .
 
 RUN git clone https://github.com/DITAS-Project/VDC-Shared-Config.git
+
+RUN curl -LO https://storage.googleapis.com/kubernetes-release/release/v1.15.3/bin/linux/amd64/kubectl
+RUN chmod u+x kubectl && mv kubectl /bin/kubectl
 
 VOLUME /root
 EXPOSE 8080

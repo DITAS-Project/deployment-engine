@@ -17,12 +17,73 @@
 package ansible
 
 import (
+	"deployment-engine/model"
 	"deployment-engine/utils"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
 )
+
+const (
+	ansibleHostProperty    = "ansible_host"
+	ansibleUserProperty    = "ansible_user"
+	kuberneterRoleProperty = "kubernetes_role"
+)
+
+func DefaultInventoryHost(node model.NodeInfo) InventoryHost {
+	return InventoryHost{
+		Name: node.Hostname,
+		Vars: map[string]string{
+			ansibleHostProperty: node.IP,
+			ansibleUserProperty: node.Username,
+		},
+	}
+}
+
+func DefaultKubernetesInventoryHost(node model.NodeInfo) InventoryHost {
+	var role string
+	if strings.ToLower(node.Role) == "master" {
+		role = "master"
+	} else {
+		role = "node"
+	}
+
+	result := DefaultInventoryHost(node)
+	result.Vars[kuberneterRoleProperty] = role
+	return result
+}
+
+func BuildInventory(infra model.InfrastructureDeploymentInfo, nodeTransformer func(node model.NodeInfo) InventoryHost) Inventory {
+	result := Inventory{
+		Hosts: make([]InventoryHost, 0, infra.NumNodes()),
+	}
+	infra.ForEachNode(func(node model.NodeInfo) {
+		result.Hosts = append(result.Hosts, nodeTransformer(node))
+	})
+	return result
+}
+
+func DefaultAllInventory(infra model.InfrastructureDeploymentInfo) Inventory {
+	return BuildInventory(infra, DefaultInventoryHost)
+}
+
+func DefaultKubernetesInventory(infra model.InfrastructureDeploymentInfo) Inventory {
+	result := BuildInventory(infra, DefaultKubernetesInventoryHost)
+	result.Groups = make([]InventoryGroup, 0, len(infra.Nodes))
+	for role, hosts := range infra.Nodes {
+		group := InventoryGroup{
+			Name:  strings.ToLower(role),
+			Hosts: make([]string, len(hosts)),
+		}
+		for i, host := range hosts {
+			group.Hosts[i] = host.Hostname
+		}
+		result.Groups = append(result.Groups, group)
+	}
+	return result
+}
 
 func ExecutePlaybook(logger *log.Entry, script string, inventory string, extravars map[string]string) error {
 	args := make([]string, 1)
@@ -36,7 +97,7 @@ func ExecutePlaybook(logger *log.Entry, script string, inventory string, extrava
 		args = append(args, "--extra-vars")
 		vars, err := json.Marshal(extravars)
 		if err != nil {
-			return fmt.Errorf("Error marshaling ansible variables: %s", err.Error())
+			return fmt.Errorf("Error marshaling ansible variables: %w", err)
 		}
 		args = append(args, string(vars))
 	}

@@ -19,14 +19,12 @@ package infrastructure
 
 import (
 	"deployment-engine/infrastructure/cloudsigma"
+	"deployment-engine/infrastructure/kubernetes"
 	"deployment-engine/model"
 	"deployment-engine/persistence"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
-
-	"github.com/google/uuid"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -38,8 +36,10 @@ type InfrastructureCreationResult struct {
 
 //Deployer is the main hybrid infrastructure deployer object
 type Deployer struct {
-	Repository persistence.DeploymentRepository
-	Vault      persistence.Vault
+	Repository        persistence.DeploymentRepository
+	Vault             persistence.Vault
+	PublicKeyPath     string
+	DeploymentsFolder string
 }
 
 func (c *Deployer) transformCredentials(raw, result interface{}) error {
@@ -71,12 +71,16 @@ func (c *Deployer) getProviderCredentials(provider model.CloudProviderInfo, cred
 
 func (c *Deployer) findProvider(provider model.CloudProviderInfo) (model.Deployer, error) {
 
+	if c.PublicKeyPath == "" {
+		return nil, errors.New("A public key location is needed to initialize a provider")
+	}
+
 	if provider.SecretID == "" && (provider.Credentials == nil || len(provider.Credentials) == 0) {
 		return nil, fmt.Errorf("Either secret ID or provider credentials are mandatory for Provider %v", provider)
 	}
 
-	if strings.ToLower(provider.APIType) == "cloudsigma" {
-
+	switch provider.APIType {
+	case "cloudsigma":
 		var credentials model.BasicAuthSecret
 		err := c.getProviderCredentials(provider, &credentials)
 
@@ -88,8 +92,13 @@ func (c *Deployer) findProvider(provider model.CloudProviderInfo) (model.Deploye
 			return nil, fmt.Errorf("Invalid credentials specified for cloudsigma provider %s. Username and password are needed", provider.APIEndpoint)
 		}
 
-		dep, err := cloudsigma.NewDeployer(provider.APIEndpoint, credentials)
+		dep, err := cloudsigma.NewDeployer(provider.APIEndpoint, credentials, c.PublicKeyPath)
+		if err != nil {
+			return nil, fmt.Errorf("Error initializing deployer for %s: %w", provider.APIType, err)
+		}
 		return *dep, err
+	case "kubernetes":
+		return kubernetes.NewKubernetesDeployer(c.DeploymentsFolder), nil
 	}
 
 	return nil, fmt.Errorf("Can't find a suitable deployer for API type %s", provider.APIType)
@@ -108,7 +117,7 @@ func (c *Deployer) mergeCustomProperties(source map[string]string, target map[st
 	return result
 }
 
-func (c *Deployer) DeployInfrastructure(deploymentID string, infra model.InfrastructureType, channel chan InfrastructureCreationResult) {
+func (c *Deployer) DeployInfrastructure(infra model.InfrastructureType, channel chan InfrastructureCreationResult) {
 	deployer, err := c.findProvider(infra.Provider)
 
 	if err != nil {
@@ -117,7 +126,7 @@ func (c *Deployer) DeployInfrastructure(deploymentID string, infra model.Infrast
 		}
 		return
 	}
-	depInfo, err := deployer.DeployInfrastructure(deploymentID, infra)
+	depInfo, err := deployer.DeployInfrastructure(infra)
 	depInfo.Provider = infra.Provider
 	channel <- InfrastructureCreationResult{
 		Info:  depInfo,
@@ -127,49 +136,31 @@ func (c *Deployer) DeployInfrastructure(deploymentID string, infra model.Infrast
 }
 
 //CreateDeployment will create an hybrid deployment with the configuration passed as argument
-func (c *Deployer) CreateDeployment(deployment model.Deployment) (model.DeploymentInfo, error) {
+func (c *Deployer) CreateDeployment(infras []model.InfrastructureType) ([]model.InfrastructureDeploymentInfo, error) {
 
-	result := model.DeploymentInfo{
-		ID:              uuid.New().String(),
-		Name:            deployment.Name,
-		Status:          "starting",
-		Infrastructures: make(map[string]model.InfrastructureDeploymentInfo),
-	}
+	result := make([]model.InfrastructureDeploymentInfo, 0, len(infras))
 
-	result, err := c.Repository.SaveDeployment(result)
+	log.Tracef("Starting new deployment")
 
-	if err != nil {
-		log.WithError(err).Error("Error inserting deployment in the database")
-		return result, err
-	}
+	channel := make(chan InfrastructureCreationResult, len(infras))
 
-	logger := log.WithField("deployment", result.ID)
-
-	logger.Tracef("Starting new deployment")
-
-	channel := make(chan InfrastructureCreationResult, len(deployment.Infrastructures))
-
-	for _, infra := range deployment.Infrastructures {
-		go c.DeployInfrastructure(result.ID, infra, channel)
+	for _, infra := range infras {
+		go c.DeployInfrastructure(infra, channel)
 	}
 
 	var depError error
-	for remaining := len(deployment.Infrastructures); remaining > 0; remaining-- {
+	for remaining := len(infras); remaining > 0; remaining-- {
 		infraInfo := <-channel
 		if infraInfo.Error != nil {
-			logger.WithError(err).Error("Error creating infrastructure")
+			log.WithError(infraInfo.Error).Errorf("Error creating infrastructure %s", infraInfo.Info.Name)
 			depError = infraInfo.Error
 		} else {
-			infraDeployment := infraInfo.Info
-			if infraDeployment.ID != "" {
-				result, err = c.Repository.AddInfrastructure(result.ID, infraInfo.Info)
-				if err != nil {
-					logger.WithError(err).Error("Error adding infrastructure")
-				}
-			} else {
-				depError = errors.New("Infrastructure created without an identifier")
-				logger.WithError(err).Error("Error creating infrastructure")
+			infraInfo.Info.Provider.Credentials = nil
+			infra, err := c.Repository.AddInfrastructure(infraInfo.Info)
+			if err != nil {
+				log.WithError(err).Errorf("Error adding infrastructure %s", infraInfo.Info.Name)
 			}
+			result = append(result, infra)
 		}
 	}
 
@@ -180,36 +171,29 @@ func (c *Deployer) CreateDeployment(deployment model.Deployment) (model.Deployme
 	return result, depError
 }
 
-func (c *Deployer) DeleteDeployment(deploymentID string) error {
-	deployment, err := c.Repository.GetDeployment(deploymentID)
-	if err != nil {
-		return err
-	}
+func (c *Deployer) DeleteDeployment(infras []string) error {
 
-	channel := make(chan InfrastructureCreationResult, len(deployment.Infrastructures))
+	channel := make(chan InfrastructureCreationResult, len(infras))
 
-	for _, infra := range deployment.Infrastructures {
-		go c.DeleteInfrastructureParallel(deployment.ID, infra.ID, channel)
+	for _, infra := range infras {
+		go c.DeleteInfrastructureParallel(infra, channel)
 	}
 
 	var depError error
-	for remaining := len(deployment.Infrastructures); remaining > 0; remaining-- {
+	for remaining := len(infras); remaining > 0; remaining-- {
 		result := <-channel
 		if result.Error != nil {
-			log.WithError(err).Errorf("Error deleting infrastructure %s", result.Info.ID)
+			log.WithError(result.Error).Errorf("Error deleting infrastructure %s", result.Info.ID)
+			depError = result.Error
 		}
-	}
-
-	if depError == nil {
-		return c.Repository.DeleteDeployment(deploymentID)
 	}
 
 	return depError
 
 }
 
-func (c *Deployer) DeleteInfrastructureParallel(deploymentID, infraID string, channel chan InfrastructureCreationResult) error {
-	_, err := c.DeleteInfrastructure(deploymentID, infraID)
+func (c *Deployer) DeleteInfrastructureParallel(infraID string, channel chan InfrastructureCreationResult) error {
+	_, err := c.DeleteInfrastructure(infraID)
 	channel <- InfrastructureCreationResult{
 		Info: model.InfrastructureDeploymentInfo{
 			ID: infraID,
@@ -220,32 +204,27 @@ func (c *Deployer) DeleteInfrastructureParallel(deploymentID, infraID string, ch
 }
 
 //DeleteInfrastructure will delete an infrastructure from a deployment. It will delete the deployment itself when there aren't infrastructures left.
-func (c *Deployer) DeleteInfrastructure(deploymentID, infraID string) (model.DeploymentInfo, error) {
-	deployment, err := c.Repository.GetDeployment(deploymentID)
-	if err != nil {
-		log.WithError(err).Errorf("Deployment ID %s not found", deploymentID)
-		return model.DeploymentInfo{}, err
-	}
+func (c *Deployer) DeleteInfrastructure(infraID string) (model.InfrastructureDeploymentInfo, error) {
 
-	infra, err := c.Repository.FindInfrastructure(deploymentID, infraID)
+	infra, err := c.Repository.FindInfrastructure(infraID)
 	if err != nil {
 		log.WithError(err).Errorf("Infrastructure not found")
-		return deployment, err
+		return infra, err
 	}
 
 	deployer, err := c.findProvider(infra.Provider)
 	if err != nil {
 		log.WithError(err).Errorf("Can't find providers for infrastructure ID %s", infraID)
-		return deployment, err
+		return infra, err
 	}
 
-	delErrors := deployer.DeleteInfrastructure(deploymentID, infra)
+	delErrors := deployer.DeleteInfrastructure(infra)
 	if delErrors != nil && len(delErrors) > 0 {
 		for k, v := range delErrors {
 			log.WithError(v).Errorf("Error deleting host %s", k)
 		}
-		return deployment, fmt.Errorf("Errors found deleting infrastructure: %v", delErrors)
+		return infra, fmt.Errorf("Errors found deleting infrastructure: %v", delErrors)
 	}
 
-	return c.Repository.DeleteInfrastructure(deploymentID, infraID)
+	return c.Repository.DeleteInfrastructure(infraID)
 }

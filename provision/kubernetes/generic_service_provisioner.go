@@ -40,21 +40,22 @@ func (p GenericServiceProvisioner) ValidateExternalPort(port int, config *Kubern
 
 }
 
-func (p GenericServiceProvisioner) Provision(config *KubernetesConfiguration, deploymentID string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error {
+func (p GenericServiceProvisioner) Provision(config *KubernetesConfiguration, infra *model.InfrastructureDeploymentInfo, args model.Parameters) (model.Parameters, error) {
 
+	result := make(model.Parameters)
 	name, ok := args.GetString("name")
 	if !ok {
-		return errors.New("name parameter is mandatory")
+		return result, errors.New("name parameter is mandatory")
 	}
 
 	image, ok := args.GetString("image")
 	if !ok {
-		return errors.New("image parameter is mandatory")
+		return result, errors.New("image parameter is mandatory")
 	}
 
 	internalPort, ok := args.GetInt("internal_port")
 	if !ok {
-		return errors.New("internal_port parameter is mandatory")
+		return result, errors.New("internal_port parameter is mandatory")
 	}
 
 	replicas, ok := args.GetInt("replicas")
@@ -72,16 +73,15 @@ func (p GenericServiceProvisioner) Provision(config *KubernetesConfiguration, de
 
 	_, ok = servicesConfig.Ports[name]
 	if ok {
-		return fmt.Errorf("Service %s already exists", name)
+		return result, fmt.Errorf("Service %s already exists", name)
 	}
 
 	client, err := NewClient(config.ConfigurationFile)
 	if err != nil {
-		return err
+		return result, err
 	}
 
 	logger := logrus.WithFields(logrus.Fields{
-		"deployment":     deploymentID,
 		"infrastructure": infra.ID,
 		"product":        image,
 	})
@@ -112,11 +112,11 @@ func (p GenericServiceProvisioner) Provision(config *KubernetesConfiguration, de
 		repoSecrets = []string{config.RegistriesSecret}
 	}
 
-	pod := GetDeploymentDescription(fmt.Sprintf("%s-deployment", name), int32(replicas), terminationPeriod, labels, images, "", "", repoSecrets)
+	pod := GetDeploymentDescription(fmt.Sprintf("%s-deployment", name), int32(replicas), terminationPeriod, labels, images, "", "", repoSecrets, nil)
 
 	_, err = client.CreateOrUpdateDeployment(logger, apiv1.NamespaceDefault, &pod)
 	if err != nil {
-		return fmt.Errorf("Error creating pod for service %s: %s", name, err.Error())
+		return result, fmt.Errorf("Error creating pod for service %s: %w", name, err)
 	}
 
 	service := corev1.Service{
@@ -141,10 +141,10 @@ func (p GenericServiceProvisioner) Provision(config *KubernetesConfiguration, de
 
 	_, err = client.CreateOrUpdateService(logger, apiv1.NamespaceDefault, &service)
 	if err != nil {
-		return fmt.Errorf("Error creating service %s: %s", name, err.Error())
+		return result, fmt.Errorf("Error creating service %s: %w", name, err)
 	}
 
 	config.DeploymentsConfiguration["services"] = servicesConfig
 
-	return nil
+	return result, nil
 }

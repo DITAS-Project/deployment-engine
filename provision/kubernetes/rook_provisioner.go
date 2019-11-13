@@ -22,7 +22,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"text/template"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -38,7 +37,9 @@ type RookCluster struct {
 }
 
 type RookProvisioner struct {
-	scriptsFolder string
+	scriptsFolder    string
+	httpExternalPort string
+	sslExternalPort  string
 }
 
 func (p RookProvisioner) GetHostCapacity(node model.NodeInfo) (int64, error) {
@@ -52,8 +53,9 @@ func (p RookProvisioner) GetHostCapacity(node model.NodeInfo) (int64, error) {
 	return capacity, nil
 }
 
-func (p RookProvisioner) Provision(config *KubernetesConfiguration, deploymentID string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error {
+func (p RookProvisioner) Provision(config *KubernetesConfiguration, infra *model.InfrastructureDeploymentInfo, args model.Parameters) (model.Parameters, error) {
 
+	result := make(model.Parameters)
 	logger := logrus.WithFields(logrus.Fields{
 		"config": config.ConfigurationFile,
 	})
@@ -72,11 +74,11 @@ func (p RookProvisioner) Provision(config *KubernetesConfiguration, deploymentID
 	})
 
 	if err != nil {
-		return err
+		return result, err
 	}
 
 	if capacity == 0 {
-		return errors.New("Can't find any valid data drives attached to the nodes of the infrastructure. To deploy Rook at least one attached non-formatted data drive of at least 5GB is needed in a node")
+		return result, errors.New("Can't find any valid data drives attached to the nodes of the infrastructure. To deploy Rook at least one attached non-formatted data drive of at least 5GB is needed in a node")
 	}
 
 	logger.Infof("Total capacity of the cluster: %f Gb", float32(capacity)/float32(1024*1024*1024))
@@ -84,21 +86,21 @@ func (p RookProvisioner) Provision(config *KubernetesConfiguration, deploymentID
 	kubeClient, err := NewClient(config.ConfigurationFile)
 	if err != nil {
 		logger.WithError(err).Error("Error getting kubernetes client")
-		return err
+		return result, err
 	}
 
 	logger.Info("Creating Rook operator")
 	err = kubeClient.ExecuteDeployScript(logger, p.scriptsFolder+"/rook/rook_operator.yaml")
 	if err != nil {
 		logger.WithError(err).Errorf("Error creating Rook operator plane")
-		return err
+		return result, err
 	}
 
 	logger.Info("Waiting for Rook operator to be ready")
 	err = kubeClient.ExecuteKubectlCommand(logger, "wait", "deployment/rook-ceph-operator", "--for", "condition=available", "--timeout=120s", "--namespace", "rook-ceph-system")
 	if err != nil {
 		logger.WithError(err).Errorf("Error waiting for Rook operator plane to be ready")
-		return err
+		return result, err
 	}
 
 	haAvailable := numNodes > 2
@@ -109,40 +111,18 @@ func (p RookProvisioner) Provision(config *KubernetesConfiguration, deploymentID
 
 	logger.Info("Creating Ceph cluster in Rook")
 	fileName := "cluster.yaml.tmpl"
-	clusterDefinition, err := template.New(fileName).ParseFiles(p.scriptsFolder + "/rook/" + fileName)
+	err = kubeClient.ExecuteDeployTemplate(logger, fileName, p.scriptsFolder+"/rook/"+fileName, map[string]interface{}{
+		"num_mons": numMons,
+	})
 	if err != nil {
-		logger.WithError(err).Error("Error reading cluster template file")
-		return err
-	}
-
-	cmd := kubeClient.CreateKubectlCommand(logger, "create", "-f", "-")
-	writer, err := cmd.StdinPipe()
-	if err != nil {
-		logger.WithError(err).Error("Error getting input pipe for command")
-		return err
-	}
-
-	go func() {
-		defer writer.Close()
-		err = clusterDefinition.Execute(writer, map[string]interface{}{
-			"num_mons": numMons,
-		})
-		if err != nil {
-			logger.WithError(err).Error("Error executing deployment template")
-		}
-	}()
-
-	err = cmd.Run()
-	if err != nil {
-		logger.WithError(err).Error("Error creating cluster")
-		return err
+		return result, utils.WrapLogAndReturnError(logger, "Error creating cluster", err)
 	}
 
 	logger.Info("Creating Non-High Available storage class")
 	err = kubeClient.ExecuteDeployScript(logger, p.scriptsFolder+"/rook/storageclass_rook_single.yml")
 	if err != nil {
 		logger.WithError(err).Errorf("Error creating Non-High Available storage class")
-		return err
+		return result, err
 	}
 
 	if haAvailable {
@@ -150,13 +130,13 @@ func (p RookProvisioner) Provision(config *KubernetesConfiguration, deploymentID
 		err = kubeClient.ExecuteDeployScript(logger, p.scriptsFolder+"/rook/storageclass_rook_ha.yml")
 		if err != nil {
 			logger.WithError(err).Errorf("Error creating High Available storage class")
-			return err
+			return result, err
 		}
 	}
 
 	client, err := dynamic.NewForConfig(kubeClient.Config)
 	if err != nil {
-		return err
+		return result, err
 	}
 
 	resClient := client.Resource(schema.GroupVersionResource{
@@ -180,16 +160,16 @@ func (p RookProvisioner) Provision(config *KubernetesConfiguration, deploymentID
 	})
 
 	if timeout {
-		return errors.New("Timeout waiting for CEPH cluster to be ready")
+		return result, errors.New("Timeout waiting for CEPH cluster to be ready")
 	}
 
 	if finalStatus != "Created" {
-		return fmt.Errorf("Invalid cluster status: %s", finalStatus)
+		return result, fmt.Errorf("Invalid cluster status: %s", finalStatus)
 	}
 
 	logger.Info("Rook cluster successfully created")
 
-	return err
+	return result, err
 }
 
 func (p RookProvisioner) getClusterStatus(logger *logrus.Entry, client dynamic.ResourceInterface) (RookCluster, error) {

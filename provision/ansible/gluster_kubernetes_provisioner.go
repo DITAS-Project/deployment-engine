@@ -64,8 +64,8 @@ func NewGlusterfsProvisioner(parent *Provisioner) GlusterfsProvisioner {
 	}
 }
 
-func (p GlusterfsProvisioner) BuildInventory(deploymentID string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) (Inventory, error) {
-	return p.parent.Provisioners["kubeadm"].BuildInventory(deploymentID, infra, args)
+func (p GlusterfsProvisioner) BuildInventory(infra *model.InfrastructureDeploymentInfo, args model.Parameters) (Inventory, error) {
+	return DefaultKubernetesInventory(*infra), nil
 }
 
 func (p GlusterfsProvisioner) toGlusterFSDevices(devices []model.DriveInfo) []string {
@@ -110,10 +110,9 @@ func (p GlusterfsProvisioner) generateGlusterFSTopology(infra model.Infrastructu
 	return string(result), nil
 }
 
-func (p GlusterfsProvisioner) DeployProduct(inventoryPath, deploymentID string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error {
+func (p GlusterfsProvisioner) DeployProduct(inventoryPath string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) (model.Parameters, error) {
 
 	logger := logrus.WithFields(logrus.Fields{
-		"deployment":     deploymentID,
 		"infrastructure": infra.ID,
 	})
 
@@ -121,7 +120,7 @@ func (p GlusterfsProvisioner) DeployProduct(inventoryPath, deploymentID string, 
 
 	topology, err := p.generateGlusterFSTopology(*infra)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	singleNode := ""
@@ -129,7 +128,7 @@ func (p GlusterfsProvisioner) DeployProduct(inventoryPath, deploymentID string, 
 		singleNode = "--single-node"
 	}
 
-	return ExecutePlaybook(logger, p.scriptsFolder+"/kubernetes/glusterfs/deploy_glusterfs.yml", inventoryPath, map[string]string{
+	return nil, ExecutePlaybook(logger, p.scriptsFolder+"/kubernetes/glusterfs/deploy_glusterfs.yml", inventoryPath, map[string]string{
 		"topology":       topology,
 		"single_node":    singleNode,
 		"install_client": string(strconv.AppendBool([]byte{}, installClient)),

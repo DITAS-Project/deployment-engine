@@ -144,3 +144,4 @@ deployment-engine
 
 #Now that we use modules, ignore possible vendor folders
 vendor/
+__debug_bin

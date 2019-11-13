@@ -33,36 +33,17 @@ func NewDockerProvisioner(parent *Provisioner) DockerProvisioner {
 	}
 }
 
-func (p DockerProvisioner) buildHost(host model.NodeInfo) InventoryHost {
-	return InventoryHost{
-		Name: host.Hostname,
-		Vars: map[string]string{
-			"ansible_host": host.IP,
-			"ansible_user": host.Username,
-		},
-	}
+func (p DockerProvisioner) BuildInventory(infra *model.InfrastructureDeploymentInfo, args model.Parameters) (Inventory, error) {
+	return DefaultAllInventory(*infra), nil
 }
 
-func (p DockerProvisioner) BuildInventory(deploymentID string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) (Inventory, error) {
-
-	result := Inventory{
-		Hosts: make([]InventoryHost, 0),
-	}
-
-	infra.ForEachNode(func(node model.NodeInfo) {
-		result.Hosts = append(result.Hosts, p.buildHost(node))
-	})
-
-	return result, nil
-}
-
-func (p DockerProvisioner) DeployProduct(inventoryPath, deploymentID string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error {
+func (p DockerProvisioner) DeployProduct(inventoryPath string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) (model.Parameters, error) {
 
 	logger := logrus.WithField("product", "docker")
 	err := utils.ExecuteCommand(logger, "ansible-galaxy", "install", "geerlingguy.docker")
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return ExecutePlaybook(logger, p.parent.ScriptsFolder+"/docker/main.yml", inventoryPath, nil)
+	return nil, ExecutePlaybook(logger, p.parent.ScriptsFolder+"/docker/main.yml", inventoryPath, nil)
 }

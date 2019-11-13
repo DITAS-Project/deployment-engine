@@ -4,11 +4,16 @@ import (
 	"deployment-engine/model"
 	"deployment-engine/persistence/memoryrepo"
 	"deployment-engine/persistence/mongorepo"
+	"encoding/json"
 	"flag"
+	"io/ioutil"
 	"os"
 	"reflect"
+	"strings"
 	"testing"
+	"time"
 
+	"github.com/go-test/deep"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
@@ -47,151 +52,123 @@ func TestRepository(t *testing.T) {
 	t.Run("Vault", testVault)
 }
 
-func testStatus(repo DeploymentRepository, ID, status, infraID, infrastatus string, t *testing.T) {
-	resGet, errGet := repo.GetDeployment(ID)
-
-	if errGet != nil {
-		t.Fatalf("Error getting deployment: %s", errGet.Error())
+func readInfra(path string) (model.InfrastructureDeploymentInfo, error) {
+	var result model.InfrastructureDeploymentInfo
+	content, err := ioutil.ReadFile(path)
+	if err != nil {
+		return result, err
 	}
 
-	if resGet.ID != ID {
-		t.Fatalf("Original and recovered Ids do not match: %s vs %s", ID, resGet.ID)
+	err = json.Unmarshal(content, &result)
+	return result, err
+}
+
+func testInfra(t *testing.T, function func() (model.InfrastructureDeploymentInfo, error), infra model.InfrastructureDeploymentInfo, errorMsg string) model.InfrastructureDeploymentInfo {
+	after, err := function()
+	infra.UpdateTime = after.UpdateTime
+	if err != nil {
+		t.Fatalf("%s: %s", errorMsg, err.Error())
 	}
-
-	if resGet.Status != status {
-		t.Fatalf("Unexpected status: %s vs expected %s", resGet.Status, status)
+	if diff := deep.Equal(after, infra); diff != nil {
+		// Equality in dates are problematic due to different timezones and so so we ignore it here
+		onlyTime := true
+		for i := 0; i < len(diff) && onlyTime; i++ {
+			onlyTime = strings.Contains(diff[i], "CreationTime") || strings.Contains(diff[i], "UpdateTime")
+		}
+		if !onlyTime {
+			t.Error(errorMsg)
+			t.Fatal(diff)
+		}
 	}
+	return after
+}
 
-	if infraID != "" {
-
-		if resGet.Infrastructures == nil || len(resGet.Infrastructures) == 0 {
-			t.Fatalf("Infrastructures is empty")
-		}
-
-		infra, ok := resGet.Infrastructures[infraID]
-		if !ok {
-			t.Fatalf("Can't find infrastructure %s in deployment %s", infraID, ID)
-		}
-
-		if infra.Status != infrastatus {
-			t.Fatalf("Unexpected infrastructure status: %s vs expected %s", infra.Status, infrastatus)
-		}
+func testTime(t *testing.T, action string, before, after time.Time) {
+	if after.Before(before.Truncate(time.Millisecond)) {
+		t.Fatalf("Update time %s found before reference time %s after %s", after.Format(time.RFC3339Nano), before.Truncate(time.Millisecond).Format(time.RFC3339Nano), action)
 	}
 }
 
 func testDeployment(t *testing.T) {
 	t.Logf("Testing %d deployment repositories", len(depRepos))
 	for _, repo := range depRepos {
-		infraId := "infra1"
-		dep := model.DeploymentInfo{
-			Infrastructures: map[string]model.InfrastructureDeploymentInfo{
-				infraId: model.InfrastructureDeploymentInfo{
-					ID:     infraId,
-					Status: "creating",
-				}},
-		}
-		res, err := repo.SaveDeployment(dep)
-
+		infra, err := readInfra("../resources/test_infra1.json")
 		if err != nil {
-			t.Fatalf("Error saving deployment: %s", err.Error())
+			t.Fatalf("Error reading input infrastructure: %s", err.Error())
 		}
+		infra.Products = make(map[string]interface{})
 
-		if res.ID == "" {
-			t.Fatal("Null id for inserted deployment")
-		}
-
-		resGet, err := repo.GetDeployment(res.ID)
-
+		timeBefore := time.Now()
+		after, err := repo.AddInfrastructure(infra)
 		if err != nil {
-			t.Fatalf("Error retrieving deployment: %s", err.Error())
+			t.Fatalf("Error inserting infrastructure %v: %s", infra, err.Error())
+		}
+		infra.CreationTime = after.CreationTime
+		infra.UpdateTime = after.UpdateTime
+
+		if infra.ID == "" {
+			infra.ID = after.ID
 		}
 
-		if resGet.ID != res.ID {
-			t.Fatalf("Retrieved bad deployment ID. Expected %s but got %s", res.ID, resGet.ID)
+		if !timeBefore.Before(after.CreationTime) {
+			t.Fatal("Creation time is set before the reference time")
 		}
 
-		res.Status = "running"
-
-		res, err = repo.UpdateDeployment(res)
-
-		if err != nil {
-			t.Fatalf("Error updating deployment: %s", err.Error())
+		if !timeBefore.Before(after.UpdateTime) {
+			t.Fatal("Update time is set before the reference time")
 		}
 
-		testStatus(repo, res.ID, "running", infraId, "creating", t)
-
-		res, err = repo.UpdateDeploymentStatus(res.ID, "failed")
-		if err != nil {
-			t.Fatalf("Error updating deployment status: %s", err.Error())
+		if after.UpdateTime.Before(after.CreationTime) {
+			t.Fatal("Update time is set before creation time")
 		}
 
-		res, err = repo.UpdateInfrastructureStatus(res.ID, infraId, "created")
-		if err != nil {
-			t.Fatalf("Error updating infrastructure status: %s", err.Error())
+		if diff := deep.Equal(infra, after); diff != nil {
+			t.Fatal(diff)
 		}
 
-		testStatus(repo, res.ID, "failed", infraId, "created", t)
+		after = testInfra(t, func() (model.InfrastructureDeploymentInfo, error) {
+			return repo.FindInfrastructure(infra.ID)
+		}, infra, "Error finding infrastructure")
 
-		total, err := repo.ListDeployment()
-		if err != nil {
-			t.Fatalf("Error listing deployments: %s", err.Error())
+		after.Status = "completed"
+		after.Name = "New Name"
+		infra.Status = "completed"
+		infra.Name = "New Name"
+		beforeUpdate := time.Now()
+		after = testInfra(t, func() (model.InfrastructureDeploymentInfo, error) {
+			return repo.UpdateInfrastructure(after)
+		}, infra, "Error updating infrastructure")
+
+		testTime(t, "infrastructure update", beforeUpdate, after.UpdateTime)
+
+		infra.Status = "done"
+		beforeUpdate = time.Now()
+		after = testInfra(t, func() (model.InfrastructureDeploymentInfo, error) {
+			return repo.UpdateInfrastructureStatus(infra.ID, "done")
+		}, infra, "Error updating infrastructure status")
+
+		testTime(t, "status update", beforeUpdate, after.UpdateTime)
+
+		testConfig := map[string]interface{}{
+			"testProperty": "testValue",
 		}
-
-		if len(total) == 0 {
-			t.Fatalf("Got empty list of deployments")
+		infra.Products = map[string]interface{}{
+			"kubernetes": testConfig,
 		}
+		beforeUpdate = time.Now()
+		after = testInfra(t, func() (model.InfrastructureDeploymentInfo, error) {
+			return repo.AddProductToInfrastructure(infra.ID, "kubernetes", testConfig)
+		}, infra, "Error adding product to infrastructure")
 
-		extraInfraId := "infra2"
+		testTime(t, "adding product", beforeUpdate, after.UpdateTime)
 
-		res, err = repo.AddInfrastructure(res.ID, model.InfrastructureDeploymentInfo{
-			ID:     extraInfraId,
-			Status: "creating",
-		})
+		after = testInfra(t, func() (model.InfrastructureDeploymentInfo, error) {
+			return repo.DeleteInfrastructure(infra.ID)
+		}, infra, "Error adding product to infrastructure")
 
-		if err != nil {
-			t.Fatalf("Error adding new infrastructure: %s", err.Error())
-		}
-
-		if len(res.Infrastructures) != 2 {
-			t.Fatalf("After adding new infrastructure found %d infrastructures but expected 2", len(resGet.Infrastructures))
-		}
-
-		infra, err := repo.FindInfrastructure(res.ID, extraInfraId)
-
-		if err != nil {
-			t.Fatalf("Error finding infrastructure: %s", err.Error())
-		}
-
-		if infra.ID != extraInfraId {
-			t.Fatalf("Found wrong infrastructure. Expected %s but found %s", extraInfraId, infra.ID)
-		}
-
-		res, err = repo.AddProductToInfrastructure(res.ID, extraInfraId, "kubernetes", make(map[string]string))
-		if err != nil {
-			t.Fatalf("Error adding product to infrastructure: %s", err.Error())
-		}
-
-		if _, ok := res.Infrastructures[extraInfraId].Products["kubernetes"]; !ok {
-			t.Fatal("Product not found in response")
-		}
-
-		res, err = repo.DeleteInfrastructure(res.ID, extraInfraId)
-		if err != nil {
-			t.Fatalf("Error deleting infrastructure: %s", err.Error())
-		}
-
-		if _, ok := res.Infrastructures[extraInfraId]; ok {
-			t.Fatalf("Deleted infrastructure but then found in deployment")
-		}
-
-		err = repo.DeleteDeployment(res.ID)
-		if err != nil {
-			t.Fatalf("Error deleting deployment %s: %s", res.ID, err.Error())
-		}
-
-		_, errGet := repo.GetDeployment(res.ID)
-		if errGet == nil {
-			t.Fatalf("Got previously deleted deplyment %s", res.ID)
+		after, err = repo.FindInfrastructure(infra.ID)
+		if err == nil {
+			t.Fatalf("Retrieved infrastructure %s when it was deleted", infra.ID)
 		}
 	}
 }
@@ -208,16 +185,16 @@ func testVault(t *testing.T) {
 			},
 		}
 
-		secretId, err := repo.AddSecret(testSecret)
+		secretID, err := repo.AddSecret(testSecret)
 		if err != nil {
 			t.Fatalf("Error saving secret %s", err.Error())
 		}
 
-		if secretId == "" {
+		if secretID == "" {
 			t.Fatalf("Created secret id is empty")
 		}
 
-		secret, err := repo.GetSecret(secretId)
+		secret, err := repo.GetSecret(secretID)
 		if err != nil {
 			t.Fatalf("Error getting secret %s", err.Error())
 		}
@@ -235,12 +212,12 @@ func testVault(t *testing.T) {
 			},
 		}
 
-		err = repo.UpdateSecret(secretId, newSecret)
+		err = repo.UpdateSecret(secretID, newSecret)
 		if err != nil {
 			t.Fatalf("Error updating secret: %s", err.Error())
 		}
 
-		secret, err = repo.GetSecret(secretId)
+		secret, err = repo.GetSecret(secretID)
 		if err != nil {
 			t.Fatalf("Error getting secret %s", err.Error())
 		}
@@ -249,14 +226,14 @@ func testVault(t *testing.T) {
 			t.Fatalf("Retrieved secret %v is different than the updated one %s", secret, newSecret)
 		}
 
-		err = repo.DeleteSecret(secretId)
+		err = repo.DeleteSecret(secretID)
 		if err != nil {
 			t.Fatalf("Error deleting secret: %s", err.Error())
 		}
 
-		secret, err = repo.GetSecret(secretId)
+		secret, err = repo.GetSecret(secretID)
 		if err == nil {
-			t.Fatalf("Secret %s was deleted but could be retrieved", secretId)
+			t.Fatalf("Secret %s was deleted but could be retrieved", secretID)
 		}
 	}
 }

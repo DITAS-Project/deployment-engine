@@ -40,26 +40,25 @@ func NewRegistryProvisioner(parent *Provisioner) RegistryProvisioner {
 	}
 }
 
-func (p RegistryProvisioner) BuildInventory(deploymentID string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) (Inventory, error) {
-	return p.parent.Provisioners["kubeadm"].BuildInventory(deploymentID, infra, args)
+func (p RegistryProvisioner) BuildInventory(infra *model.InfrastructureDeploymentInfo, args model.Parameters) (Inventory, error) {
+	return DefaultKubernetesInventory(*infra), nil
 }
 
-func (p RegistryProvisioner) DeployProduct(inventoryPath, deploymentID string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error {
+func (p RegistryProvisioner) DeployProduct(inventoryPath string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) (model.Parameters, error) {
 
 	logger := logrus.WithFields(map[string]interface{}{
-		"deployment":     deploymentID,
 		"infrastructure": infra.ID,
 	})
 
 	kubeConfigIn, ok := infra.Products["kubernetes"]
 	if !ok {
-		return fmt.Errorf("Kubernetes is not installed in infrastructure %s of deployment %s", infra.ID, deploymentID)
+		return nil, fmt.Errorf("Kubernetes is not installed in infrastructure %s", infra.ID)
 	}
 
 	var kubeConfig KubernetesConfiguration
 	err := utils.TransformObject(kubeConfigIn, &kubeConfig)
 	if err != nil {
-		return fmt.Errorf("Error getting kubernetes configuration: %s", err.Error())
+		return nil, fmt.Errorf("Error getting kubernetes configuration: %w", err)
 	}
 
 	repos := utils.GetDockerRepositories()
@@ -77,7 +76,7 @@ func (p RegistryProvisioner) DeployProduct(inventoryPath, deploymentID string, i
 
 		err = ExecutePlaybook(logger, p.scriptsFolder+"/kubernetes/docker_repository.yml", inventoryPath, args)
 		if err != nil {
-			return fmt.Errorf("Error configuring repository %s: %s", repo.Name, err.Error())
+			return nil, fmt.Errorf("Error configuring repository %s: %w", repo.Name, err)
 		}
 	}
 
@@ -86,12 +85,12 @@ func (p RegistryProvisioner) DeployProduct(inventoryPath, deploymentID string, i
 			"secret_name": KubernetesRegistriesSecretName,
 		})
 		if err != nil {
-			return fmt.Errorf("Error creating kubernetes secret for docker repositories: %s", err.Error())
+			return nil, fmt.Errorf("Error creating kubernetes secret for docker repositories: %w", err)
 		}
 	}
 
 	kubeConfig.RegistriesSecret = KubernetesRegistriesSecretName
 	infra.Products["kubernetes"] = kubeConfig
 
-	return nil
+	return nil, nil
 }

@@ -26,7 +26,7 @@ pipeline {
                 echo 'Creating the image...'
 		    
                 // This will search for a Dockerfile in the working directory and build the image to the local repository
-                sh "docker build -t \"ditas/deployment-engine\" -f Dockerfile ."
+                sh "docker build -t \"ditas/deployment-engine:staging\" -f Dockerfile ."
                 echo "Done"
 		    
                 // Get the password from a file. This reads the file from the host, not the container. Slaves already have the password in there.
@@ -41,7 +41,7 @@ pipeline {
                 echo "Done"
 
                 echo "Pushing the image ditas/deployment-engine:latest..."
-                sh "docker push ditas/deployment-engine:latest"
+                sh "docker push ditas/deployment-engine:staging"
                 echo "Done "
             }
         }

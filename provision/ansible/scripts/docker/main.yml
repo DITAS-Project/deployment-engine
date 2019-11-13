@@ -1,0 +1,14 @@
+- hosts: all
+  become: yes
+
+  vars:
+    docker_install_compose: false
+    docker_users:
+      - "{{ hostvars[inventory_hostname].ansible_user }}"
+
+  roles:
+    - geerlingguy.docker
+
+  tasks:
+  - name: reset ssh connection to allow user changes to affect 'current login user'
+    meta: reset_connection

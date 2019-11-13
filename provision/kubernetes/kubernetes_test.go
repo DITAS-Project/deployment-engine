@@ -28,14 +28,14 @@ func TestPorts(t *testing.T) {
 		UsedPorts: make(sort.IntSlice, 0),
 	}
 
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 10; i++ {
 		port := config.GetNewFreePort()
-		if !(port >= lastPort && port < 30100) {
+		if !(port >= lastPort && port < 30010) {
 			t.Fatalf("Port %d out of expected initial range", port)
 		}
 	}
 
-	if len(config.UsedPorts) != 100 {
+	if len(config.UsedPorts) != 10 {
 		t.Fatalf("Unexpected length for used ports: Expected 100 but got %d", len(config.UsedPorts))
 	}
 
@@ -43,12 +43,12 @@ func TestPorts(t *testing.T) {
 		t.Fatalf("Ports not sorted after initial load")
 	}
 
-	err := config.ClaimPort(30078)
+	err := config.ClaimPort(30008)
 	if err == nil {
 		t.Fatal("Succeeded in claiming port 30078 but it should have failed")
 	}
 
-	for i := 30200; i < 30300; i++ {
+	for i := 30020; i < 30030; i++ {
 		err := config.ClaimPort(i)
 		if err != nil {
 			t.Fatalf("Error claiming port %d: %s", i, err.Error())
@@ -59,13 +59,13 @@ func TestPorts(t *testing.T) {
 		t.Fatalf("Ports not sorted after batch claim")
 	}
 
-	if len(config.UsedPorts) != 200 {
+	if len(config.UsedPorts) != 20 {
 		t.Fatalf("Unexpected length for used ports: Expected 200 but got %d", len(config.UsedPorts))
 	}
 
-	for i := 0; i < 500; i++ {
+	for i := 0; i < 50; i++ {
 		port := config.GetNewFreePort()
-		if port >= 30200 && port < 30300 {
+		if port >= 30020 && port < 30030 {
 			t.Fatalf("Got free port %d but it should be used", port)
 		}
 	}
@@ -74,15 +74,15 @@ func TestPorts(t *testing.T) {
 		t.Fatalf("Ports not sorted after batch port finding")
 	}
 
-	if len(config.UsedPorts) != 700 {
+	if len(config.UsedPorts) != 70 {
 		t.Fatalf("Expected 700 ports in use but got %d", len(config.UsedPorts))
 	}
 
-	for i := 30150; i < 30350; i++ {
+	for i := 30015; i < 30035; i++ {
 		config.LiberatePort(i)
 	}
 
-	if len(config.UsedPorts) != 500 {
+	if len(config.UsedPorts) != 50 {
 		t.Fatalf("Expected 500 ports in use but got %d", len(config.UsedPorts))
 	}
 
@@ -92,7 +92,7 @@ func TestPorts(t *testing.T) {
 
 	newPorts := 0
 	max := NodePortEnd - NodePortStart
-	for i := 0; i < 500; i++ {
+	for i := 0; i < 50; i++ {
 		randPort := NodePortStart + rand.Intn(max)
 		err = config.ClaimPort(randPort)
 		if err == nil {
@@ -100,7 +100,7 @@ func TestPorts(t *testing.T) {
 		}
 	}
 
-	if len(config.UsedPorts) != 500+newPorts {
+	if len(config.UsedPorts) != 50+newPorts {
 		t.Fatalf("Expected %d ports in use but got %d", 500+newPorts, len(config.UsedPorts))
 	}
 

@@ -45,22 +45,18 @@ func NewProvisionerController(defaultProvisioner model.Provisioner, repo persist
 	return &result
 }
 
-func (p *ProvisionerController) Provision(deploymentID, infraID, product string, args model.Parameters, framework string) (model.DeploymentInfo, error) {
-	deployment, err := p.Repository.GetDeployment(deploymentID)
-	if err != nil {
-		log.WithError(err).Errorf("Error getting deployment %s", deploymentID)
-		return deployment, err
-	}
+func (p *ProvisionerController) Provision(infraID, product string, args model.Parameters, framework string) (model.InfrastructureDeploymentInfo, model.Parameters, error) {
 
-	infra, err := p.Repository.FindInfrastructure(deploymentID, infraID)
+	result := make(model.Parameters)
+	infra, err := p.Repository.FindInfrastructure(infraID)
 	if err != nil {
 		log.WithError(err).Errorf("Error finding infrastructure %s", infraID)
-		return deployment, err
+		return infra, result, err
 	}
 
 	for _, prod := range infra.Products {
 		if prod == product {
-			return deployment, fmt.Errorf("Product %s already present in the infrastructure", product)
+			return infra, result, fmt.Errorf("Product %s already present in the infrastructure", product)
 		}
 	}
 
@@ -71,18 +67,20 @@ func (p *ProvisionerController) Provision(deploymentID, infraID, product string,
 
 	provisioner, ok := p.Provisioners[provType]
 	if !ok {
-		return deployment, fmt.Errorf("Can't find provisioner for framework %s", provType)
+		return infra, result, fmt.Errorf("Can't find provisioner for framework %s", provType)
 	}
 
 	if args == nil {
 		args = make(model.Parameters)
 	}
 
-	err = provisioner.Provision(deploymentID, &infra, product, args)
+	out, err := provisioner.Provision(&infra, product, args)
 	if err != nil {
 		log.WithError(err).Errorf("Error provisioning product %s", product)
-		return deployment, err
+		return infra, out, err
 	}
+	result.AddAll(out)
 
-	return p.Repository.UpdateInfrastructure(deploymentID, infra)
+	infra, err = p.Repository.UpdateInfrastructure(infra)
+	return infra, result, err
 }

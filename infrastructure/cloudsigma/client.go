@@ -20,7 +20,7 @@ import (
 	"errors"
 	"fmt"
 
-	resty "gopkg.in/resty.v1"
+	resty "github.com/go-resty/resty/v2"
 )
 
 const (
@@ -36,7 +36,7 @@ type CloudSigmaError struct {
 }
 
 func (e CloudSigmaError) Error() string {
-	return e.Description
+	return fmt.Sprintf("Error %d: %s", e.Code, e.Description)
 }
 
 type Client struct {
@@ -60,7 +60,7 @@ func execute(request *resty.Request, path string, method string, result interfac
 	response, errRequest := request.Execute(method, path)
 
 	if errRequest != nil {
-		return errRequest
+		return fmt.Errorf("Error executing request to %s %s: %w", method, path, errRequest)
 	}
 
 	if response.IsError() {

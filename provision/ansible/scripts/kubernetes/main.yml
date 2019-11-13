@@ -2,7 +2,9 @@
   become: yes
   tasks:
   - include_tasks: prepare-RedHat.yml
-    when: ansible_os_family == 'RedHat'
+    when: ansible_facts['distribution'] == 'RedHat'
+  - include_tasks: prepare-Debian10.yml
+    when: ansible_facts['distribution']  == 'Debian' and ansible_facts['distribution_major_version'] >= '10'
 
 - hosts: all
   become: yes
@@ -21,11 +23,3 @@
 
   roles:
     - geerlingguy.kubernetes
-
-  tasks:
-  - name: Fetch config file locally
-    fetch:
-      src: /etc/kubernetes/admin.conf
-      dest: "{{ inventory_folder }}/config"
-      flat: yes
-    when: kubernetes_role == 'master'

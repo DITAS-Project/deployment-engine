@@ -1,0 +1,7 @@
+elasticsearch:
+  host: <host_IP>
+  port: <port>
+  auth:
+    enabled: true
+    user: <username>
+    password: <password>

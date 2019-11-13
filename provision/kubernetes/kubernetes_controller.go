@@ -28,41 +28,63 @@ import (
 
 const (
 	ScriptsFolderProperty     = "kubernetes.folders.scripts"
-	ScriptsFolderDefaultValue = "provision/kubernetes/scripts"
+	ScriptsFolderDefaultValue = "kubernetes"
 
 	NodePortStart = 30000
 	NodePortEnd   = 32767
 )
 
 type KubernetesConfiguration struct {
-	ConfigurationFile        string
-	RegistriesSecret         string
+	ConfigurationFile string
+	RegistriesSecret  string
+	Managed           bool
+	PortRange         struct {
+		PortStart int
+		PortEnd   int
+	}
 	UsedPorts                sort.IntSlice
-	RegistriesSecrets        map[string]string
 	DeploymentsConfiguration map[string]interface{}
 }
 
-func (c *KubernetesConfiguration) GetNewFreePort() int {
+func (c *KubernetesConfiguration) initPortRange() {
+	if c.PortRange.PortStart == 0 {
+		c.PortRange.PortStart = NodePortStart
+	}
+
+	if c.PortRange.PortEnd == 0 {
+		c.PortRange.PortEnd = NodePortEnd
+	}
+}
+
+// GetNewFreePort gets a port which hasn't been used in this kubernetes installation
+func (c *KubernetesConfiguration) GetNewFreePort() (result int) {
+
+	c.initPortRange()
+
+	// Reserve the new free port
+	defer func() {
+		c.ClaimPort(result)
+	}()
 
 	// Initialize with the first available port
-	if c.UsedPorts == nil || len(c.UsedPorts) == 0 {
-		c.UsedPorts = sort.IntSlice{NodePortStart}
-		return NodePortStart
+	if c.UsedPorts == nil || len(c.UsedPorts) == 0 || c.UsedPorts[0] > c.PortRange.PortStart {
+		return c.PortRange.PortStart
 	}
 
 	// Only one port used
 	if len(c.UsedPorts) == 1 {
 
-		// The port used is bigger than the minimum. Use the minimum and update the port list
-		if NodePortStart < c.UsedPorts[0] {
-			c.UsedPorts = sort.IntSlice{NodePortStart, c.UsedPorts[0]}
-			return NodePortStart
+		// The port used is bigger than the minimum
+		if c.PortRange.PortStart < c.UsedPorts[0] {
+			return c.PortRange.PortStart
 		}
 
-		// We just have the initial port. Use the next one and update the port list
-		if NodePortStart == c.UsedPorts[0] {
-			c.UsedPorts = sort.IntSlice{c.UsedPorts[0], NodePortStart + 1}
-			return NodePortStart + 1
+		// We just have the initial port. Use the next one.
+		if c.PortRange.PortStart == c.UsedPorts[0] {
+			port := c.PortRange.PortStart + 1
+			if c.portInRange(port) {
+				return port
+			}
 		}
 	}
 
@@ -71,23 +93,24 @@ func (c *KubernetesConfiguration) GetNewFreePort() int {
 		diff := c.UsedPorts[i+1] - c.UsedPorts[i]
 		if diff > 1 {
 			port := c.UsedPorts[i] + 1
-			base := append(c.UsedPorts[:i], port)
-			c.UsedPorts = append(base, c.UsedPorts[i:]...)
-			return port
+			if c.portInRange(port) {
+				return port
+			}
 		}
 	}
 
 	// There isn't any gap. Return the next to the last one if it's still in range
 	lastPort := c.UsedPorts[len(c.UsedPorts)-1]
-	if lastPort < NodePortEnd {
-		c.UsedPorts = append(c.UsedPorts, lastPort+1)
+	if lastPort < c.PortRange.PortEnd {
 		return lastPort + 1
 	}
 
 	return -1
 }
 
+// ClaimPort will mark the port passed as argument as in use in the kubernetes installation. It will return an error if the port was already in use.
 func (c *KubernetesConfiguration) ClaimPort(port int) error {
+	c.initPortRange()
 	if !c.portInRange(port) {
 		return fmt.Errorf("Port %d is outside the NodePort allowed range", port)
 	}
@@ -101,21 +124,24 @@ func (c *KubernetesConfiguration) ClaimPort(port int) error {
 	if idx == len(c.UsedPorts) {
 		c.UsedPorts = append(c.UsedPorts, port)
 	} else {
-		if c.UsedPorts[idx] == port {
+		current := c.UsedPorts[idx]
+		if current == port {
 			return fmt.Errorf("Port %d is already in use", port)
 		}
-
-		base := append(c.UsedPorts[:idx], port)
-		c.UsedPorts = append(base, c.UsedPorts[idx:]...)
+		c.UsedPorts = append(c.UsedPorts, 0)
+		copy(c.UsedPorts[idx+1:], c.UsedPorts[idx:])
+		c.UsedPorts[idx] = port
 	}
 
 	return nil
 }
 
 func (c KubernetesConfiguration) portInRange(port int) bool {
-	return port >= NodePortStart && port <= NodePortEnd
+	c.initPortRange()
+	return port >= c.PortRange.PortStart && port <= c.PortRange.PortEnd
 }
 
+// LiberatePort marks a port as free in the kubernetes installation
 func (c *KubernetesConfiguration) LiberatePort(port int) {
 	if c.UsedPorts != nil && len(c.UsedPorts) > 0 {
 		idx := c.UsedPorts.Search(port)
@@ -125,8 +151,13 @@ func (c *KubernetesConfiguration) LiberatePort(port int) {
 	}
 }
 
+func (c *KubernetesConfiguration) SetUsedPorts(ports []int) {
+	c.UsedPorts = ports
+	c.UsedPorts.Sort()
+}
+
 type KubernetesProvisioner interface {
-	Provision(config *KubernetesConfiguration, deploymentID string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error
+	Provision(config *KubernetesConfiguration, infra *model.InfrastructureDeploymentInfo, args model.Parameters) (model.Parameters, error)
 }
 
 type KubernetesController struct {
@@ -143,8 +174,25 @@ func NewKubernetesController() *KubernetesController {
 			"rook": RookProvisioner{
 				scriptsFolder: scriptsFolder,
 			},
-			"mysql":    MySQLProvisioner{},
+			"mysql": DatasourceProvisioner{
+				Configurer:      MySQLConfigurer{},
+				DatabaseType:    MySQLType,
+				InternalPort:    3306,
+				VolumeMountPath: "/var/lib/mysql",
+			},
+			"minio": DatasourceProvisioner{
+				Configurer:      MinioConfigurer{},
+				DatabaseType:    MinioType,
+				InternalPort:    9000,
+				VolumeMountPath: "/data",
+			},
 			"services": GenericServiceProvisioner{},
+			"traefik": TraefikProvisioner{
+				scriptsFolder: scriptsFolder,
+			},
+			"kube-state-metrics": KSMProvisioner{
+				scriptsFolder: scriptsFolder,
+			},
 		},
 	}
 }
@@ -170,16 +218,14 @@ func (p KubernetesController) initializeConfig(config *KubernetesConfiguration) 
 	if config.UsedPorts == nil {
 		config.UsedPorts = make(sort.IntSlice, 0)
 	}
-
-	if config.RegistriesSecrets == nil {
-		config.RegistriesSecrets = make(map[string]string)
-	}
 }
 
-func (p KubernetesController) Provision(deploymentId string, infra *model.InfrastructureDeploymentInfo, product string, args model.Parameters) error {
+func (p KubernetesController) Provision(infra *model.InfrastructureDeploymentInfo, product string, args model.Parameters) (model.Parameters, error) {
+
+	result := make(model.Parameters)
 	rawKubeConfig, ok := infra.Products["kubernetes"]
 	if !ok {
-		return fmt.Errorf("Kubernetes is not installed in infrastructure %s of deployment %s", infra.ID, deploymentId)
+		return result, fmt.Errorf("Kubernetes is not installed in infrastructure %s", infra.ID)
 	}
 
 	if args == nil {
@@ -188,26 +234,27 @@ func (p KubernetesController) Provision(deploymentId string, infra *model.Infras
 
 	provisioner, ok := p.productProvisioners[product]
 	if !ok {
-		return fmt.Errorf("Can't find kubernetes provisioner for product %s", product)
+		return result, fmt.Errorf("Can't find kubernetes provisioner for product %s", product)
 	}
 
 	var kubeConfig KubernetesConfiguration
 	err := utils.TransformObject(rawKubeConfig, &kubeConfig)
 	if err != nil {
-		return fmt.Errorf("Error reading kubernetes configuration: %s", err.Error())
+		return result, fmt.Errorf("Error reading kubernetes configuration: %w", err)
 	}
 
 	if kubeConfig.ConfigurationFile == "" {
-		return errors.New("Can't find the configuration file in the Kubernetes configuration")
+		return result, errors.New("Can't find the configuration file in the Kubernetes configuration")
 	}
 
 	p.initializeConfig(&kubeConfig)
 
-	err = provisioner.Provision(&kubeConfig, deploymentId, infra, args)
+	out, err := provisioner.Provision(&kubeConfig, infra, args)
 	if err != nil {
-		return err
+		return result, err
 	}
+	result.AddAll(out)
 
 	infra.Products["kubernetes"] = kubeConfig
-	return nil
+	return result, nil
 }

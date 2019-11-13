@@ -17,9 +17,9 @@
         src: "{{ cert_file }}"
         dest: "/etc/docker/certs.d/{{ repo_name }}/ca.crt"
       when: cert_file is defined
-
-  - hosts: [all]
-    strategy: free
-    tasks:
+    - name: reset ssh connection to force it to log in again
+      meta: reset_connection
     - name: Log in to docker
+      become: no
       shell: docker login --username {{ repo_username }} --password {{ repo_password }} {{ repo_name }}
+    

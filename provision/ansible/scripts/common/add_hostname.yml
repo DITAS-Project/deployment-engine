@@ -9,7 +9,7 @@
 
   - hosts: localhost
     connection: local
-
+    gather_facts: no
     vars:
       ssh_known_hosts_command: "ssh-keyscan -T 10"
       ssh_known_hosts_file: "{{ lookup('env','HOME') + '/.ssh/known_hosts' }}"
@@ -38,6 +38,9 @@
     gather_facts: no
     become: yes
     tasks:
+      - name: Set hostname
+        hostname:
+          name: "{{ inventory_hostname }}"
       - name: Update /etc/hosts from inventory
         lineinfile: dest=/etc/hosts regexp='.*{{item}}$' line='{{ hostvars[item].ansible_host }} {{ item }}' state=present
         with_items: "{{ hostvars }}"

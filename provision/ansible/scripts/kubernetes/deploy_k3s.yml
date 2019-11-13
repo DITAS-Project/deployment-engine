@@ -51,6 +51,7 @@
 
   - hosts: localhost
     connection: local
+    gather_facts: no
     tasks:
       - name: Set master IP in configuration file
         replace:

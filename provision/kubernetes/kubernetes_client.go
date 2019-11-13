@@ -44,15 +44,24 @@ import (
 )
 
 type SecretData struct {
-	EnvVars    map[string]string
-	MountPaths map[string]string
-	SecretID   string
-	Data       map[string]string
+	SecretID string
+	Data     map[string]string
+}
+
+// EnvSecret is the information of a secret in a Kubernetes cluster
+type EnvSecret struct {
+	// EnvName is the name of the environment variable to bind the secret to
+	EnvName string
+	// SecretID is the name of the kubernetes secret
+	SecretID string
+	// Key is the key of content inside the secret
+	Key string
 }
 
 type VolumeData struct {
 	Name         string
 	MountPoint   string
+	PVCName      string
 	StorageClass string
 	Size         string
 }
@@ -81,8 +90,14 @@ type ImageInfo struct {
 	// required: true
 	Image string `json:"image"`
 
+	// Args is a list of arguments to pass to the container when it starts
+	Args []string `json:"args"`
+
 	// Environment is a map of environment variables whose key is the variable name and value is the variable value
 	Environment map[string]string `json:"environment"`
+
+	// Secrets that must be passed as environmet variables
+	Secrets []EnvSecret `json:"secrets"`
 }
 
 // ImageSet represents a set of docker images whose key is an identifier and value is a the docker image information such as image name and listening ports
@@ -122,16 +137,16 @@ func GetConfigMapDataFromFolder(configFolder string, vars map[string]interface{}
 			fileName := configFolder + "/" + file.Name()
 			fileTemplate, err := template.New(file.Name()).ParseFiles(fileName)
 			if err != nil {
-				logrus.WithError(err).Errorf("Error reading configuration file %s", fileName)
-			} else {
-				var fileContent bytes.Buffer
-				err = fileTemplate.Execute(&fileContent, vars)
-				if err != nil {
-					logrus.WithError(err).Errorf("Error executing template %s", fileName)
-				} else {
-					result[file.Name()] = fileContent.String()
-				}
+				return result, utils.WrapLogAndReturnError(logrus.NewEntry(logrus.New()), fmt.Sprintf("Error reading configuration file %s", fileName), err)
 			}
+
+			var fileContent bytes.Buffer
+			err = fileTemplate.Execute(&fileContent, vars)
+			if err != nil {
+				return result, utils.WrapLogAndReturnError(logrus.NewEntry(logrus.New()), fmt.Sprintf("Error executing template %s", fileName), err)
+			}
+
+			result[file.Name()] = fileContent.String()
 		}
 	}
 	return result, nil
@@ -193,7 +208,7 @@ func GetDockerRegistrySecret(repos map[string]model.DockerRegistry, name string)
 	}, nil
 }
 
-func GetContainersDescription(images ImageSet, secrets []SecretData, volumes []VolumeData) []corev1.Container {
+func GetContainersDescription(images ImageSet, volumes []VolumeData) []corev1.Container {
 
 	containers := make([]corev1.Container, 0, len(images))
 
@@ -204,7 +219,7 @@ func GetContainersDescription(images ImageSet, secrets []SecretData, volumes []V
 			Image: containerInfo.Image,
 		}
 
-		env := make([]corev1.EnvVar, 0, len(containerInfo.Environment)+len(secrets))
+		env := make([]corev1.EnvVar, 0, len(containerInfo.Environment)+len(containerInfo.Secrets))
 		for k, v := range containerInfo.Environment {
 			env = append(env, corev1.EnvVar{
 				Name:  k,
@@ -212,20 +227,18 @@ func GetContainersDescription(images ImageSet, secrets []SecretData, volumes []V
 			})
 		}
 
-		for _, secret := range secrets {
-			for envVar, key := range secret.EnvVars {
-				env = append(env, corev1.EnvVar{
-					Name: envVar,
-					ValueFrom: &corev1.EnvVarSource{
-						SecretKeyRef: &corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
-								Name: secret.SecretID,
-							},
-							Key: key,
+		for _, secret := range containerInfo.Secrets {
+			env = append(env, corev1.EnvVar{
+				Name: secret.EnvName,
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: secret.SecretID,
 						},
+						Key: secret.Key,
 					},
-				})
-			}
+				},
+			})
 		}
 
 		if len(env) > 0 {
@@ -251,6 +264,7 @@ func GetContainersDescription(images ImageSet, secrets []SecretData, volumes []V
 				},
 			}
 		}
+		container.Args = containerInfo.Args
 
 		containers = append(containers, container)
 	}
@@ -258,14 +272,14 @@ func GetContainersDescription(images ImageSet, secrets []SecretData, volumes []V
 	return containers
 }
 
-func GetPodSpecDescrition(labels map[string]string, terminationPeriod int64, images ImageSet, secrets []SecretData, volumes []VolumeData, repositorySecrets []string) corev1.PodTemplateSpec {
+func GetPodSpecDescrition(labels map[string]string, terminationPeriod int64, images ImageSet, volumes []VolumeData, repositorySecrets []string) corev1.PodTemplateSpec {
 	result := corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: labels,
 		},
 		Spec: corev1.PodSpec{
 			TerminationGracePeriodSeconds: &terminationPeriod,
-			Containers:                    GetContainersDescription(images, secrets, volumes),
+			Containers:                    GetContainersDescription(images, volumes),
 		},
 	}
 
@@ -278,21 +292,50 @@ func GetPodSpecDescrition(labels map[string]string, terminationPeriod int64, ima
 		}
 		result.Spec.ImagePullSecrets = secrets
 	}
+
+	if volumes != nil {
+		podVolumes := make([]corev1.Volume, 0)
+		for _, volume := range volumes {
+			if volume.PVCName != "" {
+				podVolumes = append(podVolumes, corev1.Volume{
+					Name: volume.Name,
+					VolumeSource: corev1.VolumeSource{
+						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+							ClaimName: volume.PVCName,
+						},
+					},
+				})
+			}
+		}
+		if len(podVolumes) > 0 {
+			result.Spec.Volumes = podVolumes
+		}
+	}
 	return result
 }
 
-func GetDeploymentDescription(name string, replicas int32, terminationPeriod int64, labels map[string]string, images ImageSet, configMap, configMountPoint string, repositorySecrets []string) appsv1.Deployment {
+func GetDeploymentDescription(name string, replicas int32, terminationPeriod int64, labels map[string]string, images ImageSet, configMap, configMountPoint string, repositorySecrets []string, volumes []VolumeData) appsv1.Deployment {
 
 	var volumeData []VolumeData
+	if volumes != nil {
+		volumeData = volumes
+	} else {
+		volumeData = make([]VolumeData, 0)
+	}
+
 	hasConfig := false
 	if configMap != "" && configMountPoint != "" {
 		hasConfig = true
-		volumeData = []VolumeData{VolumeData{Name: "config", MountPoint: configMountPoint}}
+		volumeConfig := VolumeData{Name: "config", MountPoint: configMountPoint}
+		volumeData = append(volumeData, volumeConfig)
 	}
 
-	podTemplate := GetPodSpecDescrition(labels, terminationPeriod, images, nil, volumeData, repositorySecrets)
+	podTemplate := GetPodSpecDescrition(labels, terminationPeriod, images, volumeData, repositorySecrets)
 
 	if hasConfig {
+		if podTemplate.Spec.Volumes == nil {
+			podTemplate.Spec.Volumes = make([]corev1.Volume, 0, 1)
+		}
 		configVolume := corev1.Volume{
 			Name: "config",
 			VolumeSource: corev1.VolumeSource{
@@ -303,7 +346,7 @@ func GetDeploymentDescription(name string, replicas int32, terminationPeriod int
 				},
 			},
 		}
-		podTemplate.Spec.Volumes = []corev1.Volume{configVolume}
+		podTemplate.Spec.Volumes = append(podTemplate.Spec.Volumes, configVolume)
 	}
 
 	return appsv1.Deployment{
@@ -322,31 +365,42 @@ func GetDeploymentDescription(name string, replicas int32, terminationPeriod int
 
 }
 
-func GetStatefulSetDescription(name string, replicas int32, terminationPeriod int64, labels map[string]string, images ImageSet, secrets []SecretData, volumes []VolumeData, repositorySecrets []string) appsv1.StatefulSet {
+func GetPersistentVolumeClaim(volume VolumeData) (corev1.PersistentVolumeClaim, error) {
+	var result corev1.PersistentVolumeClaim
+	if volume.StorageClass == "" || volume.Size == "" {
+		return result, fmt.Errorf("Storage class and volume size are mandatory for volume %s", volume.Name)
+	}
+
+	quantitySize, err := resource.ParseQuantity(volume.Size)
+	if err != nil {
+		return result, fmt.Errorf("Invalid size %s of volume %s", volume.Size, volume.Name)
+	}
+
+	return corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: volume.Name,
+		},
+		Spec: corev1.PersistentVolumeClaimSpec{
+			AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany},
+			StorageClassName: &volume.StorageClass,
+			Resources: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceStorage: quantitySize,
+				},
+			},
+		},
+	}, nil
+}
+
+func GetStatefulSetDescription(name string, replicas int32, terminationPeriod int64, labels map[string]string, images ImageSet, volumes []VolumeData, repositorySecrets []string) (appsv1.StatefulSet, error) {
 
 	volumesClaims := make([]corev1.PersistentVolumeClaim, 0)
 	for _, volume := range volumes {
-		if volume.StorageClass != "" && volume.Size != "" {
-			quantitySize, err := resource.ParseQuantity(volume.Size)
-			if err == nil {
-				volumesClaims = append(volumesClaims, corev1.PersistentVolumeClaim{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: volume.Name,
-					},
-					Spec: corev1.PersistentVolumeClaimSpec{
-						AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
-						StorageClassName: &volume.StorageClass,
-						Resources: corev1.ResourceRequirements{
-							Requests: corev1.ResourceList{
-								corev1.ResourceStorage: quantitySize,
-							},
-						},
-					},
-				})
-			} else {
-				logrus.WithError(err).Errorf("Invalid size %s of volume %s", volume.Size, volume.Name)
-			}
+		claim, err := GetPersistentVolumeClaim(volume)
+		if err != nil {
+			return appsv1.StatefulSet{}, utils.WrapLogAndReturnError(logrus.WithField("volume", volume.Name), "Error generating claim for volume", err)
 		}
+		volumesClaims = append(volumesClaims, claim)
 	}
 
 	return appsv1.StatefulSet{
@@ -359,10 +413,10 @@ func GetStatefulSetDescription(name string, replicas int32, terminationPeriod in
 			Selector: &metav1.LabelSelector{
 				MatchLabels: labels,
 			},
-			Template:             GetPodSpecDescrition(labels, terminationPeriod, images, secrets, volumes, repositorySecrets),
+			Template:             GetPodSpecDescrition(labels, terminationPeriod, images, volumes, repositorySecrets),
 			VolumeClaimTemplates: volumesClaims,
 		},
-	}
+	}, nil
 }
 
 func CreateOrUpdateResource(logger *logrus.Entry, name string, getter func() (interface{}, error), deleter func(string, *metav1.DeleteOptions) error, creater func() (interface{}, error)) (interface{}, error) {
@@ -482,11 +536,61 @@ func (c KubernetesClient) CreateOrUpdateStatefulSet(logger *logrus.Entry, namesp
 	return result.(*appsv1.StatefulSet), err
 }
 
+func (c KubernetesClient) CreateOrUpdatePVC(logger *logrus.Entry, namespace string, pvc *corev1.PersistentVolumeClaim) (*corev1.PersistentVolumeClaim, error) {
+	depClient := c.Client.CoreV1().PersistentVolumeClaims(namespace)
+	name := pvc.ObjectMeta.Name
+	result, err := CreateOrUpdateResource(logger.WithField("resource", "PVC").WithField("name", name), name,
+		func() (interface{}, error) {
+			return depClient.Get(name, metav1.GetOptions{})
+		},
+		depClient.Delete,
+		func() (interface{}, error) {
+			return depClient.Create(pvc)
+		})
+
+	return result.(*corev1.PersistentVolumeClaim), err
+}
+
 func (c KubernetesClient) CreateKubectlCommand(logger *logrus.Entry, action string, args ...string) *exec.Cmd {
 	finalArgs := append([]string{action}, args...)
 	return utils.CreateCommand(logger, map[string]string{
 		"KUBECONFIG": c.ConfigPath,
 	}, true, "kubectl", finalArgs...)
+}
+
+func (c KubernetesClient) ListServices() (map[string]*corev1.ServiceList, error) {
+	nsList, err := c.Client.CoreV1().Namespaces().List(metav1.ListOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("Error getting k8s namespace list: %w", err)
+	}
+
+	result := make(map[string]*corev1.ServiceList)
+
+	for _, namespace := range nsList.Items {
+		result[namespace.Name], err = c.Client.CoreV1().Services(namespace.Name).List(metav1.ListOptions{})
+		if err != nil {
+			return result, fmt.Errorf("Error getting services of namespace %s: %w", namespace.Name, err)
+		}
+	}
+	return result, nil
+}
+
+func (c KubernetesClient) GetUsedNodePorts() ([]int, error) {
+	svcs, err := c.ListServices()
+	if err != nil {
+		return nil, fmt.Errorf("Error getting list of services: %w", err)
+	}
+	ports := make([]int, 0)
+	for _, svcList := range svcs {
+		for _, svc := range svcList.Items {
+			if svc.Spec.Type == corev1.ServiceTypeNodePort {
+				for _, currentPorts := range svc.Spec.Ports {
+					ports = append(ports, int(currentPorts.NodePort))
+				}
+			}
+		}
+	}
+	return ports, nil
 }
 
 func (c KubernetesClient) ExecuteKubectlCommand(logger *logrus.Entry, action string, args ...string) error {
@@ -495,4 +599,32 @@ func (c KubernetesClient) ExecuteKubectlCommand(logger *logrus.Entry, action str
 
 func (c KubernetesClient) ExecuteDeployScript(logger *logrus.Entry, script string) error {
 	return c.ExecuteKubectlCommand(logger, "create", "-f", script)
+}
+
+func (c KubernetesClient) ExecuteDeployTemplate(logger *logrus.Entry, name, templateFile string, vars map[string]interface{}) error {
+	clusterDefinition, err := template.New(name).ParseFiles(templateFile)
+	if err != nil {
+		return utils.WrapLogAndReturnError(logger, fmt.Sprintf("Error reading template file %s", templateFile), err)
+	}
+
+	cmd := c.CreateKubectlCommand(logger, "create", "-f", "-")
+	writer, err := cmd.StdinPipe()
+	if err != nil {
+		return utils.WrapLogAndReturnError(logger, "Error getting input pipe for command", err)
+	}
+
+	go func() {
+		defer writer.Close()
+		err = clusterDefinition.Execute(writer, vars)
+		if err != nil {
+			logger.WithError(err).Error("Error executing deployment template")
+		}
+	}()
+
+	err = cmd.Run()
+	if err != nil {
+		return utils.WrapLogAndReturnError(logger, fmt.Sprintf("Error executing template file %s", templateFile), err)
+	}
+
+	return nil
 }

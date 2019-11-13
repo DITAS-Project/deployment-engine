@@ -36,8 +36,8 @@ func NewKubesprayProvisioner(parent *Provisioner, kubesprayFolder string) Kubesp
 	}
 }
 
-func (p KubesprayProvisioner) BuildInventory(deploymentID string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) (Inventory, error) {
-	baseInventory, err := p.parent.Provisioners["kubernetes"].BuildInventory(deploymentID, infra, args)
+func (p KubesprayProvisioner) BuildInventory(infra *model.InfrastructureDeploymentInfo, args model.Parameters) (Inventory, error) {
+	baseInventory, err := p.parent.Provisioners["kubernetes"].BuildInventory(infra, args)
 	if err != nil {
 		return baseInventory, err
 	}
@@ -74,11 +74,10 @@ func (p KubesprayProvisioner) BuildInventory(deploymentID string, infra *model.I
 	return baseInventory, err
 }
 
-func (p KubesprayProvisioner) DeployProduct(inventoryPath, deploymentID string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) error {
+func (p KubesprayProvisioner) DeployProduct(inventoryPath string, infra *model.InfrastructureDeploymentInfo, args model.Parameters) (model.Parameters, error) {
 
 	logger := logrus.WithFields(logrus.Fields{
-		"deployment":     deploymentID,
 		"infrastructure": infra.ID,
 	})
-	return ExecutePlaybook(logger, p.kubesprayFolder+"/cluster.yml", inventoryPath, nil)
+	return nil, ExecutePlaybook(logger, p.kubesprayFolder+"/cluster.yml", inventoryPath, nil)
 }
