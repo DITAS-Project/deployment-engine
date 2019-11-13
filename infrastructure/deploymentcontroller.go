@@ -98,7 +98,7 @@ func (c *Deployer) findProvider(provider model.CloudProviderInfo) (model.Deploye
 		}
 		return *dep, err
 	case "kubernetes":
-		return kubernetes.NewKubernetesDeployer(c.DeploymentsFolder), nil
+		return kubernetes.NewKubernetesDeployer(c.DeploymentsFolder, c.Vault), nil
 	}
 
 	return nil, fmt.Errorf("Can't find a suitable deployer for API type %s", provider.APIType)

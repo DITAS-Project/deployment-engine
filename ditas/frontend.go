@@ -66,6 +66,7 @@ func NewDitasFrontend() (*DitasFrontend, error) {
 
 	deployer := &infrastructure.Deployer{
 		Repository:        repository,
+		Vault:             repository,
 		PublicKeyPath:     publicKeyPath,
 		DeploymentsFolder: viper.GetString(ansible.InventoryFolderProperty),
 	}
@@ -86,6 +87,7 @@ func NewDitasFrontend() (*DitasFrontend, error) {
 			Router:                router,
 			DeploymentController:  deployer,
 			ProvisionerController: controller,
+			Vault:                 repository,
 		},
 		VDCManagerInstance: vdcManager,
 	}

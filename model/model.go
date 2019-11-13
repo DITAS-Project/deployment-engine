@@ -25,9 +25,10 @@ import (
 )
 
 const (
-	BasicAuthType = "basic"
-	OAuth2Type    = "oauth"
-	PKIType       = "PKI"
+	BasicAuthType  = "basic"
+	OAuth2Type     = "oauth"
+	PKIType        = "PKI"
+	KubernetesType = "kubernetes"
 )
 
 // ExtraPropertiesType represents extra properties to define for resources, infrastructures or deployments. This properties are provisioner or deployment specific and they should document them when they expect any.
@@ -244,6 +245,12 @@ type OAuth2Secret struct {
 type PKISecret struct {
 	PrivateKey string `json:"private_key"`
 	PublicKey  string `json:"public_key"`
+}
+
+// KubernetesConfigSecret is a representation of a configuration file to grant access to Kubernetes through kubectl
+// swagger:model
+type KubernetesConfigSecret struct {
+	Config interface{} `json:config`
 }
 
 // DockerRegistry is the information to pull images from a private docker registry
