@@ -4,8 +4,7 @@
     gather_facts: no
     tasks:
       - name: Install helm binary
-        script: scripts/helm/helm_install.sh
-
+        script: scripts/helm/helm_install.sh --version v2.16.1
   - hosts: [master]
     become: no
     gather_facts: no
