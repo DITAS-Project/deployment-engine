@@ -213,7 +213,7 @@ func (p VDMProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 			Name:       "data-analytics",
 			NodePort:   int32(daExternalPort),
 			Port:       int32(daExternalPort),
-			TargetPort: intstr.FromInt(daExternalPort),
+			TargetPort: intstr.FromInt(daPort),
 		},
 	}
 
