@@ -29,6 +29,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	blueprint "github.com/DITAS-Project/blueprint-go"
 	"go.mongodb.org/mongo-driver/bson"
@@ -36,6 +37,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"net/url"
+	"hash/crc32"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -307,7 +309,10 @@ func (m *VDCManager) DeployBlueprint(bp blueprint.Blueprint) (VDCInformation, er
 		return vdcInfo, errors.New("Can't find default infrastructure to deploy a new VDC")
 	}
 
-	vdcID := fmt.Sprintf("vdc-%d", vdcInfo.NumVDCs)
+	/* vdcID := fmt.Sprintf("vdc-%d", vdcInfo.NumVDCs) */
+	t := time.Now()
+	crc32q := crc32.MakeTable(0xD5828281)		
+	vdcID := fmt.Sprintf("vdc-%d", crc32.Checksum([]byte(t.String()), crc32q))
 
 	bp.CookbookAppendix.Deployment, err = m.transformDeploymentInfo(bp.ID, totalDeployment)
 	if err != nil {
