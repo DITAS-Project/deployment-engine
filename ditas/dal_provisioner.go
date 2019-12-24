@@ -74,7 +74,7 @@ func (p DALProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 		return result, errors.New("Can't find the substitution variables parameter")
 	}
 
-	vars, ok := varsRaw.(map[string]interface{})
+	vars, ok := varsRaw.(model.Parameters)
 	if !ok {
 		return result, errors.New("Invalid type for substitution variables parameter. Expected map[string]interface{}")
 	}
