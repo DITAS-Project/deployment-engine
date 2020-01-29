@@ -43,9 +43,13 @@ const (
 	DS4MExternalPortVariable          = "ds4m_external_port"
 	DUEVDMPortVariable                = "due_vdm_port"
 	DUEVDMExternalPortVariable        = "due_vdm_external_port"
+	DMEPortVariable                   = "dme_port"
+	DMEExternalPortVariable           = "dme_external_port"
+	DMERedisPortVariable              = "dme_redis_port"
 
 	DS4MDefaultExternalPort          = 30003
 	DataAnalyticsDefaultExternalPort = 30006
+	DMEDefautlExternalPort           = 30030
 )
 
 type VDMProvisioner struct {
@@ -121,6 +125,19 @@ func (p VDMProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 		daExternalPort = DataAnalyticsDefaultExternalPort
 	}
 
+	dmePort, dmeExternalPort, err := GetPortPair(vars, DMEPortVariable, DMEExternalPortVariable)
+	if err != nil {
+		return result, err
+	}
+	if dmeExternalPort == 0 {
+		dmeExternalPort = DMEDefautlExternalPort
+	}
+
+	dmeredisPort, ok := vars.GetInt(DMERedisPortVariable)
+	if !ok {
+		return result, err
+	}
+
 	configMap, err := kubernetes.GetConfigMapFromFolder(p.configFolder+"/vdm", DitasVDMConfigMapName, vars)
 	if err != nil {
 		return result, utils.WrapLogAndReturnError(logger, "Error reading configuration map", err)
@@ -167,6 +184,15 @@ func (p VDMProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 	imageSet["due"] = kubernetes.ImageInfo{
 		Image:        fmt.Sprintf("ditas/due-vdm:%s", p.GetImageVersion("due-vdm")),
 		InternalPort: duePort,
+	}
+	imageSet["dme"] = kubernetes.ImageInfo{
+		Image:        fmt.Sprintf("ditas/dme:%s", p.GetImageVersion("dme")),
+		InternalPort: dmePort,
+	}
+
+	imageSet["dme-redis"] = kubernetes.ImageInfo{
+		Image:        fmt.Sprintf("ditas/dme_redis:%s", p.GetImageVersion("dme-redis")),
+		InternalPort: dmeredisPort,
 	}
 
 	var repSecrets []string
@@ -215,6 +241,12 @@ func (p VDMProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 			Port:       int32(daExternalPort),
 			TargetPort: intstr.FromInt(daPort),
 		},
+		corev1.ServicePort{
+			Name:       "dme",
+			NodePort:   int32(dmeExternalPort),
+			Port:       int32(dmeExternalPort),
+			TargetPort: intstr.FromInt(dmePort),
+		},
 	}
 
 	servicePorts = AppendDebugPort(servicePorts, "cme", cmePort, cmeExternalPort)
@@ -260,6 +292,19 @@ func (p VDMProvisioner) Provision(config *kubernetes.KubernetesConfiguration, in
 				config.LiberatePort(cmeExternalPort)
 			}
 			return result, utils.WrapLogAndReturnError(logger, "Error reserving Data Analytics port", err)
+		}
+	}
+
+	if dmeExternalPort != 0 {
+		err = config.ClaimPort(dmeExternalPort)
+		if err != nil {
+			config.LiberatePort(ds4mExternalPort)
+			config.LiberatePort(dueExternalPort)
+			config.LiberatePort(daExternalPort)
+			if cmeExternalPort != 0 {
+				config.LiberatePort(cmeExternalPort)
+			}
+			return result, utils.WrapLogAndReturnError(logger, "Error reserving Data Movement Enactor port", err)
 		}
 	}
 
